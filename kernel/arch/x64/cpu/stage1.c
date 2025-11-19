@@ -29,6 +29,7 @@ int stage1(u32 magic, struct multiboot_info *mboot_info) {
 
     parse_multiboot_mmap(mmap_addr, mmap_length);
 
+    // Mark the first MB as used due to MMIO
     pmm_mark_used_region(0x0, 0x100000);
 
     u32 bitmap_size = (total_memory / 0x1000) / 8;
