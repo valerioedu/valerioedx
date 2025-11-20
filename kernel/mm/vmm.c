@@ -3,65 +3,57 @@
 #include <vga.h>
 #include <io.h>
 
-uint32_t pml4_physical_addr = 0;
+// 32-bit Page Table Entry Flags
+#define PAGE_PRESENT    (1 << 0)
+#define PAGE_WRITE      (1 << 1)
+#define PAGE_USER       (1 << 2)
+#define PAGE_HUGE       (1 << 7) // 4MB Page (PSE)
+
+// The Page Directory (1024 entries * 4 bytes = 4KB)
+uint32_t* page_directory = 0;
 
 void setup_paging() {
-    uint32_t pml4_addr = (uint32_t)pmm_alloc_frame();
-    uint32_t pdpt_addr = (uint32_t)pmm_alloc_frame();
-    uint32_t pd_addr   = (uint32_t)pmm_alloc_frame();
+    // 1. Allocate one frame for the Page Directory
+    // We cast to uint32_t* because we are in 32-bit mode
+    page_directory = (uint32_t*)pmm_alloc_frame();
 
-    if (!pml4_addr || !pdpt_addr || !pd_addr) {
-        kprintcolor("CRITICAL: Failed to allocate page tables.\n", RED);
-        while(1) asm volatile("hlt");
+    // 2. Clear it (Not present)
+    for (int i = 0; i < 1024; i++) {
+        page_directory[i] = 0 | PAGE_WRITE; 
     }
 
-    // Zeroes out the tables
-    uint64_t* pml4 = (uint64_t*)pml4_addr;
-    uint64_t* pdpt = (uint64_t*)pdpt_addr;
-    uint64_t* pd   = (uint64_t*)pd_addr;
+    // 3. Identity Map the first 4MB (Virtual 0 -> Physical 0)
+    // Index 0 covers 0x00000000 to 0x00400000
+    page_directory[0] = 0x00000000 | PAGE_PRESENT | PAGE_WRITE | PAGE_HUGE;
 
-    for(int i=0; i<512; i++) {
-        pml4[i] = 0;
-        pdpt[i] = 0;
-        pd[i]   = 0;
-    }
+    // 4. Load CR3
+    asm volatile("mov %0, %%cr3" :: "r"(page_directory));
 
-    // -------------------------------------------------------
-    // Identity Map (Low Half)
-    // Virtual 0x00000000 -> Physical 0x00000000
-    // -------------------------------------------------------
+    // 5. Enable PSE (CR4 Bit 4)
+    uint32_t cr4;
+    asm volatile("mov %%cr4, %0" : "=r"(cr4));
+    cr4 |= (1 << 4);
+    asm volatile("mov %0, %%cr4" :: "r"(cr4));
+
+    // 6. Enable Paging (CR0 Bit 31)
+    uint32_t cr0;
+    asm volatile("mov %%cr0, %0" : "=r"(cr0));
+    cr0 |= (1 << 31);
+    asm volatile("mov %0, %%cr0" :: "r"(cr0));
+
+    kprint("32-bit Paging Enabled (PSE).\n");
+}
+
+// Map a physical address to a virtual address (using 4MB pages)
+void vmm_map_physical(uint32_t phys_addr, uint32_t virt_addr) {
+    // Calculate PD index (Top 10 bits)
+    uint32_t pd_index = virt_addr >> 22;
     
-    // Link PML4[0] -> PDPT
-    pml4[0] = (uint64_t)pdpt_addr | PAGE_PRESENT | PAGE_WRITE;
-
-    // Link PDPT[0] -> PD
-    pdpt[0] = (uint64_t)pd_addr | PAGE_PRESENT | PAGE_WRITE;
-
-    // Link PD[0] -> Physical Address 0x0
-    // Uses the HUGE bit (bit 7). This tells the CPU: 
-    // "Stop here. This entry maps a massive 2MB chunk, not a 4KB page."
-    pd[0] = 0x0 | PAGE_PRESENT | PAGE_WRITE | PAGE_HUGE;
-
-    // -------------------------------------------------------
-    // 4. Higher Half Map (High Half)
-    // Virtual 0xFFFFFFFF80000000 -> Physical 0x00000000
-    // -------------------------------------------------------
+    // Create entry
+    uint32_t entry = (phys_addr & 0xFFC00000) | PAGE_PRESENT | PAGE_WRITE | PAGE_HUGE;
     
-    // The virtual address 0xFFFFFFFF80000000 corresponds to:
-    // PML4 Index: 511  (The very last entry)
-    // PDPT Index: 510  (The second to last entry)
-    // PD Index:   0    (The first entry)
-
-    // Link PML4[511] -> The SAME PDPT as before
-    pml4[511] = (uint64_t)pdpt_addr | PAGE_PRESENT | PAGE_WRITE;
-
-    // Link PDPT[510] -> The SAME PD as before
-    pdpt[510] = (uint64_t)pd_addr | PAGE_PRESENT | PAGE_WRITE;
-
-    // PD[0] is already set to map to Physical 0x0.
-    // So accessing high memory will lead to the same physical RAM.
-
-    pml4_physical_addr = pml4_addr;
+    page_directory[pd_index] = entry;
     
-    kprint("Page Tables Built Successfully.\n");
+    // Flush TLB
+    asm volatile("invlpg (%0)" :: "r"(virt_addr) : "memory");
 }

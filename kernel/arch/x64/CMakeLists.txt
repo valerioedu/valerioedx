@@ -9,7 +9,7 @@ set(CMAKE_C_COMPILER ${TARGET_TRIPLE}-gcc)
 set(CMAKE_ASM_NASM_COMPILER nasm)
 
 set(CMAKE_C_FLAGS "-m32 -ffreestanding -fno-pie -fno-stack-protector -nostdlib -mno-red-zone")
-set(CMAKE_ASM_NASM_FLAGS "-f elf64")
+set(CMAKE_ASM_NASM_FLAGS "-f elf32")
 
 set(CMAKE_LINKER ${TARGET_TRIPLE}-ld)
 set(CMAKE_C_LINK_EXECUTABLE "${CMAKE_LINKER} <LINK_FLAGS> <OBJECTS> -o <TARGET>")
@@ -42,7 +42,7 @@ set_target_properties(kernel.elf PROPERTIES
 )
 
 add_custom_target(run
-    COMMAND qemu-system-x86_64 -kernel kernel.elf -d int,cpu_reset -no-reboot
+    COMMAND qemu-system-x86_64 -kernel kernel.elf -vga std
     DEPENDS kernel.elf
     WORKING_DIRECTORY ${CMAKE_BINARY_DIR}
     COMMENT "Running kernel in QEMU"
