@@ -1,6 +1,5 @@
 [BITS 32]
 
-; Multiboot header constants
 MBALIGN  equ  1 << 0
 MEMINFO  equ  1 << 1
 FLAGS    equ  MBALIGN | MEMINFO
@@ -26,13 +25,18 @@ global mboot_ptr_addr
 mboot_ptr_addr: resd 1 ; 32-bit double word
 
 section .text
+
 extern stage1
+
+extern pml4_physical_addr
+
+extern gdt64_pointer
+
 global _start
 _start:
-    ; Set up stack
     mov esp, stack_top
 
-    ; Store Multiboot pointer
+    ; Stores Multiboot pointer
     mov [mboot_ptr_addr], ebx
     push ebx                ; Multiboot info pointer (arg 2)
     push eax                ; Multiboot magic number (arg 1)
@@ -40,7 +44,34 @@ _start:
     ; Call stage 1 function
     call stage1
     
-.hang:
     cli
+
+    mov eax, [pml4_physical_addr]
+    mov cr3, eax
+
+    ; Enables PAE (Physical Address Extension) with bit 5 = 1 because of long mode
+    mov eax, cr4
+    or eax, 1 << 5
+    mov cr4, eax
+
+    ; Enables Long Mode
+    mov ecx, 0xC0000080
+    rdmsr
+    or eax, 1 << 8
+    wrmsr
+
+    ; Enables paging
+    mov eax, cr0
+    or eax, 1 << 31
+    mov cr0, eax
+
+    lgdt [gdt64_pointer]
+    jmp 0x08:long_mode_start
+
+[BITS 64]
+long_mode_start:
+    mov rsp, stack_top
+
     hlt
-    jmp .hang
+.loop:
+    jmp .loop

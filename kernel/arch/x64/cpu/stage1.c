@@ -1,7 +1,9 @@
 #include <vga.h>
 #include <pmm.h>
 #include <multiboot.h>
+#include <vmm.h>
 #include <io.h>
+#include <gdt.h>
 
 extern u32 _kernel_end;
 
@@ -40,9 +42,10 @@ int stage1(u32 magic, struct multiboot_info *mboot_info) {
 
     uintptr_t a;
     if (a = pmm_alloc_frame()) kprintf("Succesfull allocation at address 0x%x\n", a);
-    
-    kprint("Test\n");
 
-    while (true);
+    setup_paging();
+    setup_gdt();
+    kprint("GDT initialized\n");
+
     return 0;
 }
