@@ -14,7 +14,8 @@
 #define PAGE_HUGE       (1 << 7) // 2MB Page
 #define PAGE_GLOBAL     (1 << 8)
 
-void setup_paging(void);
+void setup_paging();
+void vmm_map_physical(uint32_t phys_addr, uint32_t virt_addr);
 
 extern uint32_t pml4_physical_addr;
 

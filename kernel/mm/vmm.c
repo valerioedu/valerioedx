@@ -46,14 +46,10 @@ void setup_paging() {
 
 // Map a physical address to a virtual address (using 4MB pages)
 void vmm_map_physical(uint32_t phys_addr, uint32_t virt_addr) {
-    // Calculate PD index (Top 10 bits)
     uint32_t pd_index = virt_addr >> 22;
-    
-    // Create entry
     uint32_t entry = (phys_addr & 0xFFC00000) | PAGE_PRESENT | PAGE_WRITE | PAGE_HUGE;
-    
     page_directory[pd_index] = entry;
     
-    // Flush TLB
-    asm volatile("invlpg (%0)" :: "r"(virt_addr) : "memory");
+    // RELOAD CR3 to flush everything (Brute force fix)
+    asm volatile("mov %0, %%cr3" :: "r"(page_directory) : "memory");
 }

@@ -26,7 +26,7 @@ void put_pixel(int x, int y, uint32_t color) {
 int stage1(u32 magic, struct multiboot_info *mboot_info) {
     // 1. Basic Init
     vga_init(); // Still useful for debug logs before graphics takeover
-    
+
     if (magic != 0x2BADB002) {
         kprintcolor("ERROR: INVALID MAGIC!\n", RED);
         return 1;
@@ -70,6 +70,7 @@ int stage1(u32 magic, struct multiboot_info *mboot_info) {
                 put_pixel(x, y, 0xFF0000FF); // ARGB: Alpha=FF, Red=00, Green=00, Blue=FF
             }
         }
+
         
         // Draw a Red Square in the middle
         for (int y = 300; y < 400; y++) {
