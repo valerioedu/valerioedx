@@ -103,7 +103,7 @@ case $MACHINE in
         rm -rf build
         ;;
     virt)
-        cd kernel/arch/virt
+        cd kernel/arch/aarch64
         rm -rf build
         mkdir build && cd build
         cmake ..
