@@ -37,10 +37,13 @@ void setup_paging() {
     // Link PDPT[0] -> PD
     pdpt[0] = (uint64_t)pd_addr | PAGE_PRESENT | PAGE_WRITE;
 
-    // Link PD[0] -> Physical Address 0x0
-    // Uses the HUGE bit (bit 7). This tells the CPU: 
-    // "Stop here. This entry maps a massive 2MB chunk, not a 4KB page."
-    pd[0] = 0x0 | PAGE_PRESENT | PAGE_WRITE | PAGE_HUGE;
+    // Link PD entries to identity map a larger low physical range using 2MB pages.
+    // This ensures the 64-bit kernel module loaded by Multiboot (kernel64.elf)
+    // is mapped in long mode even if it is placed above 2MB.
+    for (int i = 0; i < 512; i++) {
+        uint64_t phys = (uint64_t)i * 0x200000ULL; // 2MB per entry
+        pd[i] = phys | PAGE_PRESENT | PAGE_WRITE | PAGE_HUGE;
+    }
 
     // -------------------------------------------------------
     // 4. Higher Half Map (High Half)

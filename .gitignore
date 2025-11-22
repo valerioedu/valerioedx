@@ -55,3 +55,4 @@ dkms.conf
 *.dwo
 
 .vscode
+/kernel/arch/x64/build

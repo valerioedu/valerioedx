@@ -27,9 +27,7 @@ mboot_ptr_addr: resd 1 ; 32-bit double word
 section .text
 
 extern stage1
-
 extern pml4_physical_addr
-
 extern gdt64_pointer
 
 global _start
@@ -44,34 +42,80 @@ _start:
     ; Call stage 1 function
     call stage1
     
+    ; stage1() should NEVER return if it successfully entered long mode.
+    ; If it returns, just halt.
+.hang:
+    cli
+    hlt
+    jmp .hang
+
+; -------------------------------
+; Long mode entry helper
+; -------------------------------
+global enter_long_mode
+enter_long_mode:
+    ; Argument 1 (entry_point) is in [esp + 4] (cdecl 32-bit)
+    mov ecx, [esp + 4]
+    mov [kernel_entry], ecx
+
     cli
 
+    ; Load PML4
     mov eax, [pml4_physical_addr]
     mov cr3, eax
 
-    ; Enables PAE (Physical Address Extension) with bit 5 = 1 because of long mode
+    ; Enable PAE
     mov eax, cr4
-    or eax, 1 << 5
+    or  eax, 1 << 5
     mov cr4, eax
 
-    ; Enables Long Mode
+    ; Enable Long Mode in EFER
     mov ecx, 0xC0000080
     rdmsr
-    or eax, 1 << 8
+    or eax, 1 << 8          ; LME
     wrmsr
 
-    ; Enables paging
+    ; Enable paging
     mov eax, cr0
-    or eax, 1 << 31
+    or  eax, 1 << 31        ; PG
     mov cr0, eax
 
+    ; Load 64-bit GDT and far jump to 64-bit code
     lgdt [gdt64_pointer]
     jmp 0x08:long_mode_start
 
+section .data
+kernel_entry: dd 0
+
 [BITS 64]
+extern load_idt64
+
 long_mode_start:
+    ; Set up a 64-bit stack (reuse same physical stack; identity-mapped)
     mov rsp, stack_top
 
+    ; DEBUG: indicate we've reached long_mode_start via QEMU debugcon
+    mov al, 'L'
+    mov dx, 0xE9
+    out dx, al
+
+    ; Load a minimal 64-bit IDT (avoids triple faults)
+    call load_idt64
+
+    ; Clear data segment registers
+    xor eax, eax
+    mov ds, ax
+    mov es, ax
+    mov fs, ax
+    mov gs, ax
+    mov ss, ax
+
+    ; Retrieve the 32-bit entry point (zero-extends to RAX in long mode)
+    mov eax, [kernel_entry]
+
+    ; Jump to the 64-bit kernel entry
+    call rax
+
+.halt:
     hlt
-.loop:
-    jmp .loop
+    jmp .halt

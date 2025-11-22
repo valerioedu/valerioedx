@@ -7,6 +7,15 @@
 
 extern u32 _kernel_end;
 
+struct multiboot_module {
+    u32 mod_start;
+    u32 mod_end;
+    u32 string;
+    u32 reserved;
+};
+
+extern void enter_long_mode(u32 entry_point);
+
 int stage1(u32 magic, struct multiboot_info *mboot_info) {
     vga_init();
     kprint("Hello, World!\n");
@@ -20,6 +29,17 @@ int stage1(u32 magic, struct multiboot_info *mboot_info) {
         kprintcolor("ERROR: KERNEL END BELOW 1MB!\n", RED);
         while(1) asm volatile("hlt");
     }
+
+    if (mboot_info->mods_count == 0) {
+        kprintcolor("ERROR: No 64-bit kernel module found!\n", RED);
+        while(1) asm volatile("hlt");
+    }
+
+    // 2. Get the address of the first module
+    struct multiboot_module* modules = (struct multiboot_module*)mboot_info->mods_addr;
+    u32 kernel64_entry = modules[0].mod_start;
+
+    kprintf("64-bit Kernel loaded at: 0x%x\n", kernel64_entry);
 
     u32 total_memory = (mboot_info->mem_upper + 1024) * 1024;
 
@@ -46,6 +66,7 @@ int stage1(u32 magic, struct multiboot_info *mboot_info) {
     setup_paging();
     setup_gdt();
     kprint("GDT initialized\n");
+    enter_long_mode(kernel64_entry);
 
     return 0;
 }
