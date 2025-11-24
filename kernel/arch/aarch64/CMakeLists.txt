@@ -59,7 +59,7 @@ set_target_properties(kernel.elf PROPERTIES
 )
 
 add_custom_target(run
-    COMMAND qemu-system-aarch64 -M virt -cpu cortex-a53 -kernel kernel.elf -device ramfb
+    COMMAND qemu-system-aarch64 -M virt -cpu cortex-a53 -kernel kernel.elf -device ramfb -serial mon:stdio
     DEPENDS kernel.elf
     WORKING_DIRECTORY ${CMAKE_BINARY_DIR}
     COMMENT "Running kernel in QEMU"

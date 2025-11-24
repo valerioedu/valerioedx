@@ -2,8 +2,9 @@
 #include <string.h>
 #include <ramfb.h>
 #include <fwcfg.h>
+#include <uart.h>
 
-void kernel_main(void) {
+void main() {
     ramfb_init();
 
     u32 bg_color = (0xFF << 24) | (0x00 << 16) | (0x00 << 8) | 0x20;
@@ -28,15 +29,11 @@ void kernel_main(void) {
 
     draw_string_bitmap(x0, y0, msg, fg_color, bg_color);
     draw_string_bitmap((WIDTH - (8 * strlen("LOADING KERNEL..."))) / 2, y0 + 16, "LOADING KERNEL...", fg_color, bg_color);
-    while (1);
-}
-
-void main() {
-    volatile char* uart = (char*)0x09000000;
-    const char* str = "Hello, World!\n";
-    while (*str) *uart = *str++;
+    draw_string_bitmap16(x0, y0 + 100, "ABCDEFGHIJKLMNOPQRSTUVWXYZ!.", fg_color, bg_color);
     
-    kernel_main();
+    kprintf("\033[2J");
+    kprintf("\033[H");
+    kprintf("Hello, World!\n");
     
     while (1);
 }
