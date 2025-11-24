@@ -6,6 +6,18 @@
 
 void main() {
     ramfb_init();
+    kprintf("\033[2J");
+    kprintf("\033[H");
+    kprintf("Hello, World!\n");
+
+    int level = -1;
+    
+    /* Gets the exception level, should be 1*/
+    asm volatile("mrs %0, CurrentEL\n"
+                 "lsr %0, %0, #2"
+                 : "=r" (level) : :);
+    level &= 0b11;
+    kprintf("Exception Level: %d", level);
 
     u32 bg_color = (0xFF << 24) | (0x00 << 16) | (0x00 << 8) | 0x20;
     for (int i = 0; i < WIDTH * HEIGHT; i++) {
@@ -29,11 +41,5 @@ void main() {
 
     draw_string_bitmap(x0, y0, msg, fg_color, bg_color);
     draw_string_bitmap((WIDTH - (8 * strlen("LOADING KERNEL..."))) / 2, y0 + 16, "LOADING KERNEL...", fg_color, bg_color);
-    draw_string_bitmap16(x0, y0 + 100, "ABCDEFGHIJKLMNOPQRSTUVWXYZ!.", fg_color, bg_color);
-    
-    kprintf("\033[2J");
-    kprintf("\033[H");
-    kprintf("Hello, World!\n");
-    
     while (1);
 }
