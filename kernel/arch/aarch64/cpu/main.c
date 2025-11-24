@@ -11,7 +11,7 @@ void main() {
     kprintf("Hello, World!\n");
 
     int level = -1;
-    
+
     /* Gets the exception level, should be 1*/
     asm volatile("mrs %0, CurrentEL\n"
                  "lsr %0, %0, #2"
@@ -41,5 +41,5 @@ void main() {
 
     draw_string_bitmap(x0, y0, msg, fg_color, bg_color);
     draw_string_bitmap((WIDTH - (8 * strlen("LOADING KERNEL..."))) / 2, y0 + 16, "LOADING KERNEL...", fg_color, bg_color);
-    while (1);
+    while (1) asm volatile("wfi");
 }
