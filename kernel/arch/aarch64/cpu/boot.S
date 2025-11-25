@@ -14,6 +14,12 @@ _start:
     msr VBAR_EL1, x0
     isb
 
+#   Enables FP/SIMD
+    mrs x0, CPACR_EL1
+    orr x0, x0, #(3 << 20)
+    msr CPACR_EL1, x0
+    isb
+
 #   Sets MMU off, will be implemented later
     mrs x0, SCTLR_EL1
     bic x0, x0, #(1 << 0)
