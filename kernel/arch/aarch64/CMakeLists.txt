@@ -27,7 +27,7 @@ else()
     endif()
 endif()
 
-set(CMAKE_C_FLAGS "-march=armv8-a -mno-outline-atomics -ffreestanding -mgeneral-regs-only -fno-builtin -O2")
+set(CMAKE_C_FLAGS "-march=armv8-a -mno-outline-atomics -ffreestanding -fno-builtin")
 set(CMAKE_ASM_FLAGS "-march=armv8-a")
 
 set(CMAKE_C_LINK_EXECUTABLE "<CMAKE_C_COMPILER> <LINK_FLAGS> <OBJECTS> -o <TARGET>")

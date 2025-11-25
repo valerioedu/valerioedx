@@ -1,5 +1,7 @@
 #include <lib.h>
 #include <uart.h>
+#include <gic.h>
+#include <timer.h>
 
 void el1_sync_handler() {
     kprintf("[EXC] EL1 synchronous exception\n");
@@ -7,7 +9,18 @@ void el1_sync_handler() {
 }
 
 void el1_irq_handler() {
+    u32 id = gic_acknowledge_irq();
     
+    // GIC returns 1023 for spurious interrupts
+    if (id >= 1020) return;
+
+    if (id == 30) {
+        timer_handler();
+    } else {
+        kprintf("Unknown IRQ: %d\n", id);
+    }
+
+    gic_end_irq(id);
 }
 
 void el1_fiq_handler() {

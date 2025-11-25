@@ -3,6 +3,9 @@
 #include <ramfb.h>
 #include <fwcfg.h>
 #include <uart.h>
+#include <gic.h>
+#include <timer.h>
+#include <irq.h>
 
 void main() {
     ramfb_init();
@@ -41,5 +44,12 @@ void main() {
 
     draw_string_bitmap(x0, y0, msg, fg_color, bg_color);
     draw_string_bitmap((WIDTH - (8 * strlen("LOADING KERNEL..."))) / 2, y0 + 16, "LOADING KERNEL...", fg_color, bg_color);
+    gic_init();
+    kprintf("GIC initialized\n");
+
+    //kprintf("Initializing Timer (1000ms)...\n");
+    //timer_init(1000);
+    //kprintf("Enabling CPU Interrupts...\n");
+    //irq_enable();
     while (1) asm volatile("wfi");
 }
