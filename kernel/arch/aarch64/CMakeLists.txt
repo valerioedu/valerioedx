@@ -27,10 +27,10 @@ else()
     endif()
 endif()
 
-set(CMAKE_C_FLAGS "-march=armv8-a -ffreestanding -fno-builtin -O2")
+set(CMAKE_C_FLAGS "-march=armv8-a -mno-outline-atomics -ffreestanding -mgeneral-regs-only -fno-builtin -O2")
 set(CMAKE_ASM_FLAGS "-march=armv8-a")
 
-set(CMAKE_C_LINK_EXECUTABLE "${CMAKE_LINKER} <LINK_FLAGS> <OBJECTS> -o <TARGET>")
+set(CMAKE_C_LINK_EXECUTABLE "<CMAKE_C_COMPILER> <LINK_FLAGS> <OBJECTS> -o <TARGET>")
 
 include_directories(
     ${CMAKE_CURRENT_SOURCE_DIR}
@@ -54,12 +54,12 @@ file(GLOB_RECURSE KERNEL_SOURCES
 add_executable(kernel.elf ${KERNEL_SOURCES})
 
 set_target_properties(kernel.elf PROPERTIES
-    LINK_FLAGS "-T ${LINKER_SCRIPT}"
+    LINK_FLAGS "-T ${LINKER_SCRIPT} -nostdlib"
     LINK_DEPENDS ${LINKER_SCRIPT}
 )
 
 add_custom_target(run
-    COMMAND qemu-system-aarch64 -M virt -cpu cortex-a53 -kernel kernel.elf -device ramfb -serial mon:stdio
+    COMMAND qemu-system-aarch64 -M virt -cpu cortex-a53 -kernel kernel.elf -device ramfb -serial mon:stdio -d int
     DEPENDS kernel.elf
     WORKING_DIRECTORY ${CMAKE_BINARY_DIR}
     COMMENT "Running kernel in QEMU"
