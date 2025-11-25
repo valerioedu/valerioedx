@@ -36,7 +36,7 @@ hang:
     wfe
     b hang
 
-.section .bss
+.section .data
 .align 3
 .global dtb_phys_addr
 dtb_phys_addr:

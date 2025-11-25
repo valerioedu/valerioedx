@@ -17,7 +17,7 @@ void main() {
                  "lsr %0, %0, #2"
                  : "=r" (level) : :);
     level &= 0b11;
-    kprintf("Exception Level: %d", level);
+    kprintf("Exception Level: %d\n", level);
 
     u32 bg_color = (0xFF << 24) | (0x00 << 16) | (0x00 << 8) | 0x20;
     for (int i = 0; i < WIDTH * HEIGHT; i++) {
