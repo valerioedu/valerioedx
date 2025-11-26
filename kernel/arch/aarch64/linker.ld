@@ -24,6 +24,7 @@ SECTIONS
         *(.bss)
         *(.bss*)
         *(.COMMON)
+        . = ALIGN(16);
         __bss_end = .;
     }
 
