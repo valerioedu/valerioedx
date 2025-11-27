@@ -3,9 +3,21 @@
 
 #include <lib.h>
 
-void parse_multiboot_mmap(uint32_t mmap_addr, uint32_t mmap_length);
-void pmm_init(uint32_t kernel_end, uint32_t total_memory);
+#define PHY_RAM_BASE    0x40000000ULL          // Start of RAM (1GB)
+#define PHY_RAM_SIZE    (2ULL * 1024 * 1024 * 1024) // 2GB
+#define PHY_RAM_END     (PHY_RAM_BASE + PHY_RAM_SIZE)
+
+#define PAGE_SIZE       4096ULL
+#define PAGE_SHIFT      12
+
+// Calculates how many frames we need to track
+#define TOTAL_FRAMES    (PHY_RAM_SIZE / PAGE_SIZE)
+#define BITMAP_SIZE     (TOTAL_FRAMES / 8)
+
+// Functions
+void pmm_init(uintptr_t kernel_end);
 uintptr_t pmm_alloc_frame();
-void pmm_mark_used_region(uintptr_t base, uint64_t len);
+void pmm_free_frame(uintptr_t addr);
+void pmm_mark_used_region(uintptr_t base, size_t size);
 
 #endif

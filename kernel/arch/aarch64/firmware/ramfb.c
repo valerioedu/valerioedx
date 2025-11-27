@@ -344,3 +344,22 @@ void ramfb_init() {
 
     fw_cfg_dma(FW_CFG_DMA_CTL_WRITE | FW_CFG_DMA_CTL_SELECT | (select << 16), &cfg, sizeof(cfg));
 }
+
+void draw_loading_bar(u8 percentage) {
+    if (percentage > 100) percentage = 100;
+
+    const int bar_width = 400;
+    const int bar_height = 20;
+    const int start_x = (WIDTH - bar_width) / 2;
+    const int start_y = (HEIGHT - bar_height) / 2;
+    
+    int filled_width = (percentage * bar_width) / 100;
+    u32 white = 0x00FFFFFF;
+    u32 black = 0x00000000;
+
+    for (int y = 0; y < bar_height; y++) {
+        for (int x = 0; x < bar_width; x++) {
+            put_pixel(start_x + x, start_y + y, x < filled_width ? white : black);
+        }
+    }
+}

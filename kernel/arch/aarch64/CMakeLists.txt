@@ -49,6 +49,7 @@ file(GLOB_RECURSE KERNEL_SOURCES
     ${CMAKE_CURRENT_SOURCE_DIR}/firmware/*.c
     ${CMAKE_CURRENT_SOURCE_DIR}/cpu/*.S
     ${CMAKE_CURRENT_SOURCE_DIR}/../../../lib/*.c
+    ${CMAKE_CURRENT_SOURCE_DIR}/../../mm/pmm.c
 )
 
 add_executable(kernel.elf ${KERNEL_SOURCES})
@@ -59,7 +60,7 @@ set_target_properties(kernel.elf PROPERTIES
 )
 
 add_custom_target(run
-    COMMAND qemu-system-aarch64 -M virt -cpu cortex-a53 -kernel kernel.elf -device ramfb -serial mon:stdio -d int
+    COMMAND qemu-system-aarch64 -M virt -m 2G -cpu cortex-a53 -kernel kernel.elf -device ramfb -serial mon:stdio -d int
     DEPENDS kernel.elf
     WORKING_DIRECTORY ${CMAKE_BINARY_DIR}
     COMMENT "Running kernel in QEMU"

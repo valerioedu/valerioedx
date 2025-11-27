@@ -81,6 +81,26 @@ void kprintf(const char* format, ...) {
                     if (*p == 'u') {
                         unsigned long long num = va_arg(args, unsigned long long);
                         kprint_ull(num);
+                    } else if (*p == 'x') {
+                        unsigned long long num = va_arg(args, unsigned long long);
+                        char buf[32];
+                        int i = 0;
+                        
+                        do {
+                            int digit = num % 16;
+                            buf[i++] = digit < 10 ? '0' + digit : 'A' + digit - 10;
+                            num /= 16;
+                        } while (num > 0 && i < 31);
+                        
+                        buf[i] = '\0';
+                        
+                        for (int j = 0, k = i - 1; j < k; j++, k--) {
+                            char temp = buf[j];
+                            buf[j] = buf[k];
+                            buf[k] = temp;
+                        }
+                        
+                        uart_puts(buf);
                     }
                 }
             } else {

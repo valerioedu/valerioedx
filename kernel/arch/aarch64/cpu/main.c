@@ -6,12 +6,18 @@
 #include <gic.h>
 #include <timer.h>
 #include <irq.h>
+#include <pmm.h>
+
+extern u64 _kernel_end;
 
 void main() {
     ramfb_init();
     kprintf("\033[2J");
     kprintf("\033[H");
     kprintf("Hello, World!\n");
+
+    kprintf("Kernel end: 0x%llx\n", &_kernel_end);
+    pmm_init((uintptr_t)&_kernel_end);
 
     int level = -1;
 

@@ -1,141 +1,83 @@
-#include <lib.h>
-#include <vga.h>
-#include <multiboot.h>
-#include <io.h>
-#include <spinlock.h>
+#include <pmm.h>
+#include <string.h>
+#include <uart.h>
 
-#define VIRTUAL_OFFSET 0
-
-#define P2V(a)          ((uintptr_t)(a) + VIRTUAL_OFFSET)
-#define FRAME_SIZE      0x1000      // 4 KB
-#define BITS_PER_BYTE   8
-
-static u8 *pmm_bitmap = NULL;
-static u32 max_frames = 0;
+static u8 *bitmap = NULL;
 static u32 used_frames = 0;
 
-static spinlock_t pmm_lock = 0;
-
-static inline u32 addr_to_frame(uintptr_t addr) {
-    return addr / FRAME_SIZE;
+static inline u32 phys_to_index(uintptr_t addr) {
+    if (addr < PHY_RAM_BASE || addr >= PHY_RAM_END) return (u32)-1;
+    return (addr - PHY_RAM_BASE) >> PAGE_SHIFT;
 }
 
-static inline u32 frame_to_byte(u32 frame) {
-    return frame / BITS_PER_BYTE;
+static inline uintptr_t index_to_phys(u32 idx) {
+    return PHY_RAM_BASE + ((uintptr_t)idx << PAGE_SHIFT);
 }
 
-static inline uintptr_t frame_to_addr(u32 frame) {
-    return (uintptr_t)frame * FRAME_SIZE;
+// Helpers for bit manipulation
+static inline void bitmap_set(u32 bit) {
+    bitmap[bit / 8] |= (1 << (bit % 8));
 }
 
-// Marks a region as free
-void pmm_init_region(uintptr_t base, u64 len) {
-    u32 flags = spinlock_acquire_irqsave(&pmm_lock);
-
-    u32 start_frame = addr_to_frame(base);
-    u32 end_frame = addr_to_frame(base + len);
-
-    if (end_frame > max_frames) {
-        max_frames = end_frame;
-    }
-
-    for (u32 i = start_frame; i < end_frame; i++) {
-        u32 byte_idx = frame_to_byte(i);
-        u32 bit_idx = i % BITS_PER_BYTE;
-
-        // Only clear if currently set (prevent double-decrement)
-        if (pmm_bitmap[byte_idx] & (1 << bit_idx)) {
-            pmm_bitmap[byte_idx] &= ~(1 << bit_idx);
-            used_frames--;
-        }
-    }
-
-    spinlock_release_irqrestore(&pmm_lock, flags);
+static inline void bitmap_unset(u32 bit) {
+    bitmap[bit / 8] &= ~(1 << (bit % 8));
 }
 
-// Marks a region as USED
-void pmm_mark_used_region(uintptr_t base, u64 len) {
-    u32 flags = spinlock_acquire_irqsave(&pmm_lock);
+static inline bool bitmap_test(u32 bit) {
+    return bitmap[bit / 8] & (1 << (bit % 8));
+}
 
-    u32 start_frame = addr_to_frame(base);
-    u32 end_frame = addr_to_frame(base + len);
+void pmm_init(uintptr_t kernel_end) {
+    // Page aligned after kernel end
+    uintptr_t bitmap_start = (kernel_end + PAGE_SIZE - 1) & ~(PAGE_SIZE - 1);
+    bitmap = (u8*)bitmap_start;
+    
+    memset(bitmap, 0, BITMAP_SIZE);
+    
+    // Total used memory
+    uintptr_t used_end = bitmap_start + BITMAP_SIZE;
+    size_t used_size   = used_end - PHY_RAM_BASE;
+    pmm_mark_used_region(PHY_RAM_BASE, used_size);
 
-    for (u32 i = start_frame; i < end_frame; i++) {
-        u32 byte_idx = frame_to_byte(i);
-        u32 bit_idx = i % BITS_PER_BYTE;
-        
-        // Only set if currently clear (prevent double-increment)
-        if (!(pmm_bitmap[byte_idx] & (1 << bit_idx))) {
-            pmm_bitmap[byte_idx] |= (1 << bit_idx);
+    kprintf("[PMM] Initialized. Bitmap at 0x%x, Size: %d KB\n", bitmap, BITMAP_SIZE / 1024);
+    kprintf("[PMM] Managing RAM: 0x%llx - 0x%llx\n", PHY_RAM_BASE, PHY_RAM_END);
+}
+
+void pmm_mark_used_region(uintptr_t base, size_t size) {
+    u32 start_idx = phys_to_index(base);
+    u32 end_idx   = phys_to_index(base + size + PAGE_SIZE - 1); // Round up
+
+    if (start_idx == (u32)-1) return; // Address out of range
+
+    for (u32 i = start_idx; i < end_idx; i++) {
+        if (i < TOTAL_FRAMES && !bitmap_test(i)) {
+            bitmap_set(i);
             used_frames++;
         }
     }
-
-    spinlock_release_irqrestore(&pmm_lock, flags);
 }
 
-void parse_multiboot_mmap(u32 mmap_addr, u32 mmap_length) {
-    struct multiboot_mmap_entry* entry = (struct multiboot_mmap_entry*)P2V(mmap_addr);
-    uintptr_t map_end = P2V(mmap_addr + mmap_length);
-
-    while ((uintptr_t)entry < map_end) {
-        if (entry->type == MULTIBOOT_MEMORY_AVAILABLE) {
-            // This marks the memory as free
-            pmm_init_region(entry->addr_low, entry->len_low);
-        }
-        entry = (struct multiboot_mmap_entry*) 
-                ((uintptr_t)entry + entry->size + sizeof(entry->size));
-    }
-}
-
-uintptr_t pmm_alloc_frame(void) {
-    u32 flags = spinlock_acquire_irqsave(&pmm_lock);
-
-    for (u32 i = 0; i < max_frames; i++) {
-        u32 byte_idx = frame_to_byte(i);
-        u32 bit_idx = i % BITS_PER_BYTE;
-        
-        // Check if bit is 0 (Free)
-        if (!(pmm_bitmap[byte_idx] & (1 << bit_idx))) {
-            // Found free frame, mark as used
-            pmm_bitmap[byte_idx] |= (1 << bit_idx);
+uintptr_t pmm_alloc_frame() {
+    // Linear search
+    for (u32 i = 0; i < TOTAL_FRAMES; i++) {
+        if (!bitmap_test(i)) {
+            bitmap_set(i);
             used_frames++;
-
-            spinlock_release_irqrestore(&pmm_lock, flags);
-            return frame_to_addr(i);
+            return index_to_phys(i);
         }
     }
     
-    spinlock_release_irqrestore(&pmm_lock, flags);
-    return 0; // Out of memory
+    kprintf("[PMM] CRITICAL: Out of Memory!\n");
+    return 0;
 }
 
 void pmm_free_frame(uintptr_t addr) {
-    u32 flags = spinlock_acquire_irqsave(&pmm_lock);
-
-    u32 frame = addr_to_frame(addr);
-    u32 byte_idx = frame_to_byte(frame);
-    u32 bit_idx = frame % BITS_PER_BYTE;
+    u32 idx = phys_to_index(addr);
     
-    // Safety: check if it was actually used
-    if (pmm_bitmap[byte_idx] & (1 << bit_idx)) {
-        pmm_bitmap[byte_idx] &= ~(1 << bit_idx);
-        used_frames--;
+    if (idx != (u32)-1 && idx < TOTAL_FRAMES) {
+        if (bitmap_test(idx)) {
+            bitmap_unset(idx);
+            used_frames--;
+        }
     }
-
-    spinlock_release_irqrestore(&pmm_lock, flags);
-}
-
-void pmm_init(u32 kernel_end, u32 total_memory) {
-    max_frames = total_memory / FRAME_SIZE;
-    u32 bitmap_size = (max_frames + BITS_PER_BYTE - 1) / BITS_PER_BYTE;
-
-    // Place bitmap at the end of the kernel
-    uintptr_t bitmap_phys_start = kernel_end;
-    pmm_bitmap = (u8*)P2V(bitmap_phys_start);
-
-    for (u32 i = 0; i < bitmap_size; i++) {
-        pmm_bitmap[i] = 0xFF;
-    }
-    used_frames = max_frames;
 }
