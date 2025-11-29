@@ -7,10 +7,14 @@
 #include <timer.h>
 #include <irq.h>
 #include <pmm.h>
+#include <vmm.h>
+#include <heap.h>
+#include <dtb.h>
 
 extern u64 _kernel_end;
 
 void main() {
+    dtb_init(0x40000000);
     ramfb_init();
     kprintf("\033[2J");
     kprintf("\033[H");
@@ -18,6 +22,7 @@ void main() {
 
     kprintf("Kernel end: 0x%llx\n", &_kernel_end);
     pmm_init((uintptr_t)&_kernel_end);
+    init_vmm();
 
     int level = -1;
 
@@ -27,6 +32,22 @@ void main() {
                  : "=r" (level) : :);
     level &= 0b11;
     kprintf("Exception Level: %d\n", level);
+
+    heap_init(0x50000000, 8 * 1024 * 1024);
+
+    
+
+    // 3. Find Hardware dynamically!
+    u64 uart_addr = dtb_get_reg("pl011");
+    u64 gic_addr  = dtb_get_reg("intc"); // Generic interrupt controller
+
+    kprintf("Hardware Discovery:\n");
+    kprintf("  UART PL011 Found at: 0x%llx\n", uart_addr);
+    kprintf("  GIC Found at:        0x%llx\n", gic_addr);
+
+    if (uart_addr != 0x09000000) {
+        kprintf("WARNING: UART moved! You should update uart.c defines.\n");
+    }
 
     u32 bg_color = (0xFF << 24) | (0x00 << 16) | (0x00 << 8) | 0x20;
     for (int i = 0; i < WIDTH * HEIGHT; i++) {

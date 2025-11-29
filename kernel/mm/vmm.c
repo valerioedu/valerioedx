@@ -1,67 +1,67 @@
 #include <vmm.h>
-#include <pmm.h>
-#include <vga.h>
-#include <io.h>
+#include <uart.h>
 
-uint32_t pml4_physical_addr = 0;
+// Global L1 Page Table (Translation Table)
+// 512 entries * 8 bytes = 4096 bytes. Must be 4KB aligned.
+__attribute__((aligned(4096))) 
+uint64_t l1_table[512]; 
 
-void setup_paging() {
-    uint32_t pml4_addr = (uint32_t)pmm_alloc_frame();
-    uint32_t pdpt_addr = (uint32_t)pmm_alloc_frame();
-    uint32_t pd_addr   = (uint32_t)pmm_alloc_frame();
+// Helpers to write system registers
+static inline void write_mair(uint64_t val) { asm volatile("msr mair_el1, %0" :: "r"(val)); }
+static inline void write_tcr(uint64_t val)  { asm volatile("msr tcr_el1, %0" :: "r"(val)); }
+static inline void write_ttbr0(uint64_t val){ asm volatile("msr ttbr0_el1, %0" :: "r"(val)); }
+static inline void write_ttbr1(uint64_t val){ asm volatile("msr ttbr1_el1, %0" :: "r"(val)); }
+static inline void write_sctlr(uint64_t val){ asm volatile("msr sctlr_el1, %0" :: "r"(val)); }
 
-    if (!pml4_addr || !pdpt_addr || !pd_addr) {
-        kprintcolor("CRITICAL: Failed to allocate page tables.\n", RED);
-        while(1) asm volatile("hlt");
-    }
+static inline void tlb_flush() {
+    asm volatile("tlbi vmalle1is"); // Invalidate all TLB entries
+    asm volatile("dsb ish");        // Data Synchronization Barrier
+    asm volatile("isb");            // Instruction Synchronization Barrier
+}
 
-    // Zeroes out the tables
-    uint64_t* pml4 = (uint64_t*)pml4_addr;
-    uint64_t* pdpt = (uint64_t*)pdpt_addr;
-    uint64_t* pd   = (uint64_t*)pd_addr;
+void init_vmm() {
+    // 1. Setup MAIR (Memory Attribute Indirection Register)
+    // Defines what "Type 0" and "Type 1" memory mean.
+    // Index 0: Device-nGnRnE (Strictly ordered, no cache) -> For UART/GIC
+    // Index 1: Normal Memory (Write-Back Cacheable)       -> For RAM
+    uint64_t mair = (0x00UL << (8 * MT_DEVICE)) | 
+                    (0xFFUL << (8 * MT_NORMAL));
+    write_mair(mair);
 
-    for(int i=0; i<512; i++) {
-        pml4[i] = 0;
-        pdpt[i] = 0;
-        pd[i]   = 0;
-    }
+    // 2. Setup TCR (Translation Control Register)
+    // T0SZ=25  -> Use 39-bit Virtual Address space (512 GB)
+    // TG0=00   -> 4KB Granule size
+    // IPS=32   -> 32-bit Physical Address size (4GB RAM limit)
+    uint64_t tcr = (25UL << 0) | (0UL << 14) | (0UL << 32);
+    write_tcr(tcr);
 
-    // -------------------------------------------------------
-    // Identity Map (Low Half)
-    // Virtual 0x00000000 -> Physical 0x00000000
-    // -------------------------------------------------------
-    
-    // Link PML4[0] -> PDPT
-    pml4[0] = (uint64_t)pdpt_addr | PAGE_PRESENT | PAGE_WRITE;
+    // 3. Populate Identity Map (Virtual = Physical)
+    for (int i = 0; i < 512; i++) l1_table[i] = 0;
 
-    // Link PDPT[0] -> PD
-    pdpt[0] = (uint64_t)pd_addr | PAGE_PRESENT | PAGE_WRITE;
+    // Map 0x00000000 -> 1GB DEVICE (covers UART 0x09000000, GIC 0x08000000)
+    l1_table[0] = 0x00000000 | VMM_DEVICE;
 
-    // Link PD[0] -> Physical Address 0x0
-    // Uses the HUGE bit (bit 7). This tells the CPU: 
-    // "Stop here. This entry maps a massive 2MB chunk, not a 4KB page."
-    pd[0] = 0x0 | PAGE_PRESENT | PAGE_WRITE | PAGE_HUGE;
+    // Map 0x40000000 -> 1GB RAM (Kernel + Start of RAM)
+    l1_table[1] = 0x40000000 | VMM_KERNEL;
 
-    // -------------------------------------------------------
-    // 4. Higher Half Map (High Half)
-    // Virtual 0xFFFFFFFF80000000 -> Physical 0x00000000
-    // -------------------------------------------------------
-    
-    // The virtual address 0xFFFFFFFF80000000 corresponds to:
-    // PML4 Index: 511  (The very last entry)
-    // PDPT Index: 510  (The second to last entry)
-    // PD Index:   0    (The first entry)
+    // Map 0x80000000 -> 1GB RAM (Upper RAM)
+    l1_table[2] = 0x80000000 | VMM_KERNEL;
 
-    // Link PML4[511] -> The SAME PDPT as before
-    pml4[511] = (uint64_t)pdpt_addr | PAGE_PRESENT | PAGE_WRITE;
+    // 4. Set Translation Table Base Registers
+    write_ttbr0((uint64_t)l1_table); // User / Lower Half
+    write_ttbr1((uint64_t)l1_table); // Kernel / Upper Half
 
-    // Link PDPT[510] -> The SAME PD as before
-    pdpt[510] = (uint64_t)pd_addr | PAGE_PRESENT | PAGE_WRITE;
+    // 5. Enable MMU and Caches
+    // Read current SCTLR (System Control Register)
+    uint64_t sctlr;
+    asm volatile("mrs %0, sctlr_el1" : "=r"(sctlr));
 
-    // PD[0] is already set to map to Physical 0x0.
-    // So accessing high memory will lead to the same physical RAM.
+    // Set bits: M (MMU Enable), C (Data Cache), I (Instruction Cache)
+    sctlr |= (1 << 0) | (1 << 2) | (1 << 12);
 
-    pml4_physical_addr = pml4_addr;
-    
-    kprint("Page Tables Built Successfully.\n");
+    tlb_flush();       // Flush old TLB entries
+    write_sctlr(sctlr); // WRITE SCTLR -> MMU IS NOW ON!
+    asm volatile("isb");
+
+    kprintf("[VMM] MMU Enabled. Caches ON.\n");
 }
