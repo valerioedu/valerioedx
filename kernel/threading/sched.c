@@ -3,6 +3,9 @@
 #include <uart.h>
 #include <string.h>
 
+extern void ret_from_fork();
+extern void cpu_switch_to(struct task* prev, struct task* next);
+
 static task_t* current_task = NULL;
 static task_t* task_list_head = NULL;
 static task_t* task_list_tail = NULL;
@@ -46,6 +49,7 @@ void task_create(void (*entry_point)()) {
     u64 stack_top = (u64)t->stack_page + 4096;
     
     t->context.sp = stack_top;
+    t->context.lr  = (u64)ret_from_fork;
     t->context.lr = (u64)entry_point; // When 'ret' executes in switch.S, jump here
     
     // 3. Add to Linked List

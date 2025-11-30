@@ -1,4 +1,5 @@
 .global cpu_switch_to
+.global ret_from_fork
 
 # void cpu_switch_to(struct task* prev, struct task* next);
 # x0 = pointer to 'prev' task struct
@@ -25,3 +26,13 @@ cpu_switch_to:
     mov sp, x9
 
     ret
+
+ret_from_fork:
+    // 1. Enable Interrupts immediately!
+    msr daifclr, #2
+    
+    // 2. Call the entry point function (we put it in x19 in sched.c)
+    blr x19
+    
+    // 3. Loop forever if it returns
+    b .
