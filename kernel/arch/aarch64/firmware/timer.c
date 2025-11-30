@@ -1,6 +1,7 @@
 #include <timer.h>
 #include <gic.h>
 #include <uart.h>
+#include <sched.h>
 
 #define TIMER_IRQ_ID 30 // EL1 Physical Timer
 
@@ -30,4 +31,6 @@ void timer_handler() {
 
     u64 ticks = (frq * current_interval) / 1000;
     asm volatile("msr cntp_tval_el0, %0" : : "r"(ticks));
+
+    schedule();
 }

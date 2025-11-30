@@ -50,6 +50,9 @@ file(GLOB_RECURSE KERNEL_SOURCES
     ${CMAKE_CURRENT_SOURCE_DIR}/cpu/*.S
     ${CMAKE_CURRENT_SOURCE_DIR}/../../../lib/*.c
     ${CMAKE_CURRENT_SOURCE_DIR}/../../mm/*.c
+    ${CMAKE_CURRENT_SOURCE_DIR}/../../threading/*.c
+    ${CMAKE_CURRENT_SOURCE_DIR}/../../threading/*.S
+    ${CMAKE_CURRENT_SOURCE_DIR}/../../kernel.c
 )
 
 add_executable(kernel.elf ${KERNEL_SOURCES})
