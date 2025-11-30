@@ -10,11 +10,10 @@
 #define PAGE_SIZE       4096ULL
 #define PAGE_SHIFT      12
 
-// Calculates how many frames we need to track
+// Calculates how many frames need to be tracked
 #define TOTAL_FRAMES    (PHY_RAM_SIZE / PAGE_SIZE)
 #define BITMAP_SIZE     (TOTAL_FRAMES / 8)
 
-// Functions
 void pmm_init(uintptr_t kernel_end);
 uintptr_t pmm_alloc_frame();
 void pmm_free_frame(uintptr_t addr);

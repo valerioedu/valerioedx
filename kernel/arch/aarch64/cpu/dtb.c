@@ -5,12 +5,13 @@
 static u8* dtb_base = NULL;
 static u8* strings_ptr = NULL;
 
-// Helper: Big Endian to Host (Little Endian)
+// Big Endian to Little Endian 32 bit
 static inline u32 be2le32(u32 x) {
     return ((x >> 24) & 0xFF) | ((x << 8) & 0xFF0000) | 
            ((x >> 8) & 0xFF00) | ((x << 24) & 0xFF000000);
 }
 
+// Big Endian to Little Endian 64 bit
 static inline u64 be2le64(u64 x) {
     u32 hi = be2le32(x >> 32);
     u32 lo = be2le32(x & 0xFFFFFFFF);
@@ -32,11 +33,9 @@ void dtb_init(uintptr_t dtb_addr) {
     kprintf("[DTB] Initialized. Size: %d bytes\n", be2le32(header->totalsize));
 }
 
-// Internal: Advances pointer to next token, skipping data
 static u8* skip_node_name(u8* ptr) {
-    // Skip string (null terminated)
     while (*ptr) ptr++;
-    ptr++; // Skip null byte
+    ptr++;
     
     // Align to 4 bytes
     return (u8*)(((uintptr_t)ptr + 3) & ~3);
@@ -60,13 +59,13 @@ static u8* find_prop_in_node(u8** iter, const char* target_prop, u32* out_len) {
             const char* prop_name = (const char*)(strings_ptr + nameoff);
             u8* data = ptr;
 
-            // Align pointer for next iteration
+            // Aligns pointer for next iteration
             ptr += len;
             ptr = (u8*)(((uintptr_t)ptr + 3) & ~3);
 
             if (strcmp(prop_name, target_prop) == 0) {
                 *out_len = len;
-                *iter = ptr; // Update iterator state
+                *iter = ptr; // Updates iterator state
                 return data;
             }
         } 
@@ -74,8 +73,6 @@ static u8* find_prop_in_node(u8** iter, const char* target_prop, u32* out_len) {
             continue;
         }
         else {
-            // FDT_BEGIN_NODE or FDT_END_NODE means we left the node's properties
-            // Backtrack the iterator so the main loop can handle the token
             ptr -= 4; 
             *iter = ptr;
             return NULL;
@@ -83,7 +80,7 @@ static u8* find_prop_in_node(u8** iter, const char* target_prop, u32* out_len) {
     }
 }
 
-// Public: Find a specific node name (substring match) and return a property
+// Finds a specific node name (substring match) and return a property
 // Example: node_name="pl011", prop_name="reg"
 int dtb_get_property(const char* node_name, const char* prop_name, void* out_buf, u32 buf_len) {
     if (!dtb_base) return 0;
@@ -103,8 +100,6 @@ int dtb_get_property(const char* node_name, const char* prop_name, void* out_buf
             const char* name = (const char*)ptr;
             ptr = skip_node_name(ptr);
             
-            // Check if this is the node we want
-            // We use strstr to match "pl011" inside "pl011@9000000"
             bool match = false;
             
             // Simple substring check
@@ -116,7 +111,12 @@ int dtb_get_property(const char* node_name, const char* prop_name, void* out_buf
                 while (*temp_a && *temp_b && *temp_a == *temp_b) {
                     temp_a++; temp_b++;
                 }
-                if (!*temp_b) { match = true; break; } // Found match
+
+                // Found a match
+                if (!*temp_b) { 
+                    match = true;
+                    break;
+                } 
                 a++;
             }
 
@@ -136,7 +136,6 @@ int dtb_get_property(const char* node_name, const char* prop_name, void* out_buf
             depth--;
         }
         else if (token == FDT_PROP) {
-            // Skip property if we are just scanning nodes
             u32 len = be2le32(*(u32*)ptr);
             ptr += 4; // len
             ptr += 4; // nameoff
@@ -144,18 +143,16 @@ int dtb_get_property(const char* node_name, const char* prop_name, void* out_buf
             ptr = (u8*)(((uintptr_t)ptr + 3) & ~3);
         }
     }
-    return 0; // Not found
+    return 0;
 }
 
-// Helper: Get the 'reg' property (Address and Size) from a node
+// Gets the 'reg' property
 u64 dtb_get_reg(const char* node_name) {
     // Reg property is usually 2 or 4 cells (Address + Size)
     // For 64-bit: Address (u64) + Size (u64) = 16 bytes
-    // We just want the base address (first u64)
-    
+    // Will return the address
     u64 buffer[2]; // Read address and size
     if (dtb_get_property(node_name, "reg", buffer, sizeof(buffer))) {
-        // DTB data is Big Endian
         return be2le64(buffer[0]); 
     }
     return 0;

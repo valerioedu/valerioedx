@@ -1,14 +1,14 @@
 #include <heap.h>
 #include <uart.h>
-#include <string.h> // For memset (used in kcalloc)
+#include <string.h>
 
 #define HEAP_MAGIC 0xCAFEBABE
-#define MIN_ALLOC  8 // Minimum size of a data block
+#define MIN_ALLOC  8
 
 typedef struct heap_block {
     struct heap_block* next;
     struct heap_block* prev;
-    size_t size;     // Size of the data region (excluding header)
+    size_t size;     // Size of the data region
     bool is_free;
     u32 magic;
 } heap_block_t;
@@ -20,27 +20,23 @@ static inline size_t align_up(size_t n) {
     return (n + 7) & ~7;
 }
 
-// Helper: Merge 'block' with its next neighbor if it's free
+// Merges argument block with its next neighbor if it's free
 static void coalesce(heap_block_t* block) {
     if (!block) return;
 
-    // Merge Right (Next)
+    // Merges Right (Next)
     if (block->next && block->next->is_free) {
         heap_block_t* next_block = block->next;
         
-        // Add size of header + size of data
         block->size += sizeof(heap_block_t) + next_block->size;
         
-        // Update pointers
         block->next = next_block->next;
         if (block->next) {
             block->next->prev = block;
         }
     }
 
-    // Merge Left (Prev)
-    // We only need to check if *we* are free, because this is usually called
-    // after kfree(). But checking block->prev->is_free is safe.
+    // Merges Left (prev)
     if (block->prev && block->prev->is_free) {
         heap_block_t* prev_block = block->prev;
         
@@ -50,12 +46,10 @@ static void coalesce(heap_block_t* block) {
         if (prev_block->next) {
             prev_block->next->prev = prev_block;
         }
-        // After merging left, 'block' pointer is technically invalid (it's absorbed)
     }
 }
 
 void heap_init(uintptr_t start, size_t size) {
-    // Ensure strict alignment of the start address
     uintptr_t aligned_start = align_up(start);
     size_t adjustment = aligned_start - start;
     
@@ -89,9 +83,8 @@ void* kmalloc(size_t size) {
         }
 
         if (curr->is_free && curr->size >= size) {
-            // Found a fit!
+            // Fit found
             
-            // Check if we can split this block
             // Needs enough space for: Request + New Header + Min Data
             if (curr->size >= size + sizeof(heap_block_t) + MIN_ALLOC) {
                 
@@ -127,7 +120,6 @@ void* kmalloc(size_t size) {
 void kfree(void* ptr) {
     if (!ptr) return;
 
-    // Step back to header
     heap_block_t* block = (heap_block_t*)((uintptr_t)ptr - sizeof(heap_block_t));
 
     if (block->magic != HEAP_MAGIC) {
@@ -137,7 +129,7 @@ void kfree(void* ptr) {
     
     block->is_free = true;
     
-    // Coalesce with neighbors to fight fragmentation
+    // Coalesce with neighbors to reduce fragmentation
     coalesce(block);
 }
 
@@ -162,7 +154,6 @@ void* krealloc(void* ptr, size_t new_size) {
 
     void* new_ptr = kmalloc(new_size);
     if (new_ptr) {
-        // Copy old data
         memcpy(new_ptr, ptr, block->size);
         kfree(ptr);
     }
