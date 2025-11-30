@@ -1,21 +1,32 @@
 #ifndef VMM_H
 #define VMM_H
 
-#include <lib.h> 
+#include <lib.h>
 
-// x64 Page Table Flags
-#define PAGE_PRESENT    (1 << 0)
-#define PAGE_WRITE      (1 << 1)
-#define PAGE_USER       (1 << 2)
-#define PAGE_PWT        (1 << 3) // Write-Through
-#define PAGE_PCD        (1 << 4) // Cache Disable
-#define PAGE_ACCESSED   (1 << 5)
-#define PAGE_DIRTY      (1 << 6)
-#define PAGE_HUGE       (1 << 7) // 2MB Page
-#define PAGE_GLOBAL     (1 << 8)
+// AArch64 Translation Table Descriptors (Level 1 / Block Descriptor)
+// Just 1GB blocks for simplicity right now.
 
-void setup_paging(void);
+// Descriptor Types
+#define PT_TABLE        0b11    // Points to next level table
+#define PT_BLOCK        0b01    // Points to physical memory (1GB or 2MB)
+#define PT_PAGE         0b11    // Points to physical memory (4KB)
 
-extern uint32_t pml4_physical_addr;
+// Access Permissions
+#define PT_AF           (1ULL << 10) // Access Flag (Must be 1)
+#define PT_SH_INNER     (3ULL << 8)  // Inner Shareable
+#define PT_UXN          (1ULL << 54) // User Execute Never
+#define PT_PXN          (1ULL << 53) // Privileged Execute Never
+
+// MAIR Indices
+#define MT_DEVICE       0x0
+#define MT_NORMAL       0x1
+
+// Devices
+#define VMM_DEVICE  (PT_BLOCK | PT_AF | (MT_DEVICE << 2) | PT_UXN | PT_PXN)
+
+// Normal Ram
+#define VMM_KERNEL  (PT_BLOCK | PT_AF | PT_SH_INNER | (MT_NORMAL << 2))
+
+void init_vmm();
 
 #endif
