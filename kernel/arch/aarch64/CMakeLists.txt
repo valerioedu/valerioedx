@@ -1,5 +1,12 @@
 cmake_minimum_required(VERSION 3.16)
 
+if("${CMAKE_HOST_SYSTEM_NAME}" STREQUAL "Darwin")
+    set(CMAKE_SYSTEM_NAME Generic)
+    set(CMAKE_OSX_SYSROOT "")
+endif()
+
+set(CMAKE_OSX_ARCHITECTURES "")
+
 project(valerioedx ASM C)
 
 set(ARCH "AArch64")
@@ -21,13 +28,13 @@ else()
         set(CMAKE_ASM_COMPILER ${CMAKE_C_COMPILER})
         set(CMAKE_LINKER ld)
     else()
-        set(CMAKE_C_COMPILER arm-none-eabi-gcc)
+        set(CMAKE_C_COMPILER aarch64-elf-gcc)
         set(CMAKE_ASM_COMPILER ${CMAKE_C_COMPILER})
-        set(CMAKE_LINKER arm-none-eabi-ld)
+        set(CMAKE_LINKER aarch64-elf-ld)
     endif()
 endif()
 
-set(CMAKE_C_FLAGS "-march=armv8-a -mno-outline-atomics -ffreestanding -fno-pie -fno-builtin")
+set(CMAKE_C_FLAGS "-march=armv8-a -ffreestanding -fno-pie -fno-builtin")
 set(CMAKE_ASM_FLAGS "-march=armv8-a")
 
 set(CMAKE_C_LINK_EXECUTABLE "<CMAKE_C_COMPILER> <LINK_FLAGS> <OBJECTS> -o <TARGET>")
