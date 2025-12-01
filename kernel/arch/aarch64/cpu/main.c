@@ -10,6 +10,8 @@
 #include <vmm.h>
 #include <heap.h>
 #include <dtb.h>
+#include <kernel.h>
+#include <sched.h>
 
 extern u64 _kernel_end;
 
@@ -65,9 +67,17 @@ void main() {
     draw_string_bitmap(x0, y0, msg, fg_color, bg_color);
     draw_string_bitmap((WIDTH - (8 * strlen("LOADING KERNEL..."))) / 2, y0 + 16, "LOADING KERNEL...", fg_color, bg_color);
 
+    sched_init();
+
     gic_init();
     gic_enable_irq(30);
-    timer_init(2000);
+#ifdef DEBUG
+    timer_init(1000);
+#else
+    timer_init(1);
+#endif
     irq_enable();
+
+    kmain();
     while (1) asm volatile("wfi");
 }
