@@ -7,27 +7,27 @@ set(ARCH "AArch64")
 if (CMAKE_SYSTEM_NAME STREQUAL "Linux")
     if (CMAKE_SYSTEM_PROCESSOR MATCHES "aarch64|ARM64")
         set(CMAKE_C_COMPILER gcc)
-        set(CMAKE_ASM_COMPILER as)
+        set(CMAKE_ASM_COMPILER ${CMAKE_C_COMPILER})
         set(CMAKE_LINKER ld)
     else()
         set(CMAKE_C_COMPILER aarch64-linux-gnu-gcc)
-        set(CMAKE_ASM_COMPILER aarch64-linux-gnu-as)
+        set(CMAKE_ASM_COMPILER ${CMAKE_C_COMPILER})
         set(CMAKE_LINKER aarch64-linux-gnu-ld)
     endif()
 #MacOS
 else()
     if (CMAKE_SYSTEM_PROCESSOR MATCHES "aarch64|ARM64")
         set(CMAKE_C_COMPILER gcc)
-        set(CMAKE_ASM_COMPILER as)
+        set(CMAKE_ASM_COMPILER ${CMAKE_C_COMPILER})
         set(CMAKE_LINKER ld)
     else()
         set(CMAKE_C_COMPILER arm-none-eabi-gcc)
-        set(CMAKE_ASM_COMPILER arm-none-eabi-as)
+        set(CMAKE_ASM_COMPILER ${CMAKE_C_COMPILER})
         set(CMAKE_LINKER arm-none-eabi-ld)
     endif()
 endif()
 
-set(CMAKE_C_FLAGS "-march=armv8-a -mno-outline-atomics -ffreestanding -mgeneral-regs-only -fno-pie -fno-builtin")
+set(CMAKE_C_FLAGS "-march=armv8-a -mno-outline-atomics -ffreestanding -fno-pie -fno-builtin")
 set(CMAKE_ASM_FLAGS "-march=armv8-a")
 
 set(CMAKE_C_LINK_EXECUTABLE "<CMAKE_C_COMPILER> <LINK_FLAGS> <OBJECTS> -o <TARGET>")
@@ -57,6 +57,12 @@ file(GLOB_RECURSE KERNEL_SOURCES
 
 add_executable(kernel.elf ${KERNEL_SOURCES})
 
+option(VALERIOEDX_DEBUG "Enable DEBUG compile-time flag" OFF)
+
+if(VALERIOEDX_DEBUG)
+    target_compile_definitions(kernel.elf PRIVATE DEBUG=1)
+endif()
+
 set_target_properties(kernel.elf PROPERTIES
     LINK_FLAGS "-T ${LINKER_SCRIPT} -nostdlib"
     LINK_DEPENDS ${LINKER_SCRIPT}
@@ -64,8 +70,16 @@ set_target_properties(kernel.elf PROPERTIES
 
 add_custom_target(run
     COMMAND dtc -I dts -O dtb -o virt.dtb ../virt.dts
-    COMMAND qemu-system-aarch64 -M virt -m 2G -cpu cortex-a53 -kernel kernel.elf -device ramfb -serial mon:stdio -d int -dtb virt.dtb
+    COMMAND qemu-system-aarch64 -M virt -m 2G -cpu cortex-a53 -kernel kernel.elf -device ramfb -serial mon:stdio -dtb virt.dtb
     DEPENDS kernel.elf
     WORKING_DIRECTORY ${CMAKE_BINARY_DIR}
     COMMENT "Running kernel in QEMU"
+)
+
+add_custom_target(debug
+    COMMAND dtc -I dts -O dtb -o virt.dtb ../virt.dts
+    COMMAND qemu-system-aarch64 -M virt -m 2G -cpu cortex-a53 -kernel kernel.elf -device ramfb -serial mon:stdio -dtb virt.dtb -d int
+    DEPENDS kernel.elf
+    WORKING_DIRECTORY ${CMAKE_BINARY_DIR}
+    COMMENT "Running kernel in QEMU using interrupts debug"
 )

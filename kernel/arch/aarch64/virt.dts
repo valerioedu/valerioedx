@@ -264,16 +264,16 @@
 		compatible = "gpio-keys";
 
 		poweroff {
-			gpios = <0x8004 0x03 0x00>;
+			gpios = <&gpio0 0x03 0x00>;
 			linux,code = <0x74>;
 			label = "GPIO Key Poweroff";
 		};
 	};
 
-	pl061@9030000 {
+	gpio0: pl061@9030000 {
 		phandle = <0x8004>;
 		clock-names = "apb_pclk";
-		clocks = <0x8000>;
+		clocks = <&apb_pclk>;
 		interrupts = <0x00 0x07 0x04>;
 		gpio-controller;
 		#gpio-cells = <0x02>;
@@ -373,7 +373,7 @@
 		compatible = "arm,armv8-timer", "arm,armv7-timer";
 	};
 
-	apb-pclk {
+	apb_pclk: apb-pclk {
 		phandle = <0x8000>;
 		clock-output-names = "clk24mhz";
 		clock-frequency = <0x16e3600>;

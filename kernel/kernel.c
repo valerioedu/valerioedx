@@ -2,6 +2,7 @@
 #include <lib.h>
 #include <uart.h>
 #include <sched.h>
+#include <ramfb.h>
 
 void task_a() {
     while(1) {

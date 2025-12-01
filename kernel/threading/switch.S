@@ -28,11 +28,9 @@ cpu_switch_to:
     ret
 
 ret_from_fork:
-    // 1. Enable Interrupts immediately!
+#   Enables Interrupts immediately!
     msr daifclr, #2
     
-    // 2. Call the entry point function (we put it in x19 in sched.c)
+#   Calls the entry point function
     blr x19
-    
-    // 3. Loop forever if it returns
     b .

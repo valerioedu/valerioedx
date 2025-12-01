@@ -12,6 +12,7 @@ fi
 
 MACHINE=""
 CLEAN=true
+DEBUG=false
 
 while [[ $# -gt 0 ]]; do
     case $1 in
@@ -67,6 +68,10 @@ while [[ $# -gt 0 ]]; do
             echo "    -h, --help    Show this help message"
             exit 0
             ;;
+        -d|--debug)
+            DEBUG=true
+            shift
+            ;;
         *)
             echo "Unknown option: $1"
             echo "Use -h or --help for usage information"
@@ -106,8 +111,13 @@ case $MACHINE in
         cd kernel/arch/aarch64
         rm -rf build
         mkdir build && cd build
-        cmake ..
-        make run
+        if $DEBUG; then
+            cmake -DVALERIOEDX_DEBUG=ON ..
+            make debug
+        else
+            cmake -DVALERIOEDX_DEBUG=OFF ..
+            make run
+        fi
         cd ../
         rm -rf build
         ;;

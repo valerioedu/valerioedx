@@ -71,7 +71,11 @@ void main() {
 
     gic_init();
     gic_enable_irq(30);
+#ifdef DEBUG
+    timer_init(1000);
+#else
     timer_init(1);
+#endif
     irq_enable();
 
     kmain();
