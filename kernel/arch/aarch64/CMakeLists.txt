@@ -63,6 +63,8 @@ if(VALERIOEDX_DEBUG)
     target_compile_definitions(kernel.elf PRIVATE DEBUG=1)
 endif()
 
+target_compile_definitions(kernel.elf PRIVATE ARM=1)
+
 set_target_properties(kernel.elf PROPERTIES
     LINK_FLAGS "-T ${LINKER_SCRIPT} -nostdlib"
     LINK_DEPENDS ${LINKER_SCRIPT}
