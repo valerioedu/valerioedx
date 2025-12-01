@@ -7,14 +7,12 @@
 void task_a() {
     for (int i = 0; i < 10; i++){
         kprintf("A");
-        for (volatile int i=0; i<5000000; i++); 
     }
 }
 
 void task_b() {
     for (int i = 0; i < 10; i++) {
         kprintf("B");
-        for (volatile int i=0; i<5000000; i++);
     }
 }
 
