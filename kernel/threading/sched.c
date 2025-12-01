@@ -60,18 +60,42 @@ void task_create(void (*entry_point)()) {
     kprintf("[SCHED] Created Task %d\n", t->id);
 }
 
+void task_exit() {
+    current_task->state = TASK_EXITED;
+    kprintf("[SCHED] Task %d exited.\n", current_task->id);
+
+    schedule();
+}
+
 void schedule() {
     // Round Robin
     task_t* next_task = current_task->next;
-    
-    if (!next_task) next_task = task_list_head;
 
-    if (next_task == current_task) return;
+    while (1) {
+        if (!next_task)
+            next_task = task_list_head;
+
+        if (next_task == current_task) {
+            if (next_task->state == TASK_EXITED) {
+                kprintf("[SCHED] All tasks dead! Halting.\n");
+                while(1) asm volatile("wfi");
+            }
+
+            // Only task left running. Continue running.
+            return;
+        }
+
+        if (next_task->state != TASK_EXITED) {
+            break;
+        }
+
+        next_task = next_task->next;
+    }
 
     // Switch
     task_t* prev_task = current_task;
     current_task = next_task;
 
-    kprintf("[SCHED] Switch %d -> %d\n", prev_task->id, next_task->id);
+    // kprintf("[SCHED] Switch %d -> %d\n", prev_task->id, next_task->id);
     cpu_switch_to(prev_task, next_task);
 }

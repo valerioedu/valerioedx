@@ -36,6 +36,7 @@ typedef struct task {
 void sched_init();
 void task_create(void (*entry_point)());
 void schedule();
+void task_exit();
 void cpu_switch_to(struct task* prev, struct task* next); // Assembly function
 
 #endif

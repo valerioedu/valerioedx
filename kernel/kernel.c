@@ -5,14 +5,14 @@
 #include <ramfb.h>
 
 void task_a() {
-    while(1) {
+    for (int i = 0; i < 10; i++){
         kprintf("A");
         for (volatile int i=0; i<5000000; i++); 
     }
 }
 
 void task_b() {
-    while(1) {
+    for (int i = 0; i < 10; i++) {
         kprintf("B");
         for (volatile int i=0; i<5000000; i++);
     }

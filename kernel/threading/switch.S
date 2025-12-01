@@ -33,4 +33,5 @@ ret_from_fork:
     
 #   Calls the entry point function
     blr x19
+    bl task_exit
     b .
