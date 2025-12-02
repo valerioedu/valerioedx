@@ -24,7 +24,7 @@ void sched_init() {
     task_list_head = main_task;
     task_list_tail = main_task;
 
-    kprintf("[SCHED] Initialized. Main Task ID: %d\n", main_task->id);
+    kprintf("[ [CSCHED[W ] Initialized. Main Task ID: %d\n", main_task->id);
 }
 
 void task_create(void (*entry_point)()) {
@@ -34,7 +34,7 @@ void task_create(void (*entry_point)()) {
     // 4 KB stack as of now
     t->stack_page = kmalloc(4096);
     if (!t->stack_page) {
-        kprintf("[SCHED] Failed to allocate stack!\n");
+        kprintf("[ [CSCHED[W ] Failed to allocate stack!\n");
         kfree(t);
         return;
     }
@@ -59,7 +59,7 @@ void task_create(void (*entry_point)()) {
         task_list_tail = t;
     }
 
-    kprintf("[SCHED] Created Task %d\n", t->id);
+    kprintf("[ [CSCHED[W ] Created Task %d\n", t->id);
 }
 
 void sleep_on(wait_queue_t* queue) {
@@ -84,7 +84,7 @@ void wake_up(wait_queue_t* queue) {
 
 void task_exit() {
     current_task->state = TASK_EXITED;
-    kprintf("[SCHED] Task %d exited.\n", current_task->id);
+    kprintf("[ [CSCHED[W ] Task %d exited.\n", current_task->id);
 
     schedule();
 }

@@ -569,6 +569,18 @@ void ramfb_kprintf(const char* format, va_list args) {
                     ramfb_putc(*p);
                     break;
             }
+        } else if (*p == '[') {
+            p++;
+            switch (*p) {
+                case 'W': set_fg_color(0x00FFFFFF); break;
+                case 'G': set_fg_color(0x0000FF00); break;
+                case 'C': set_fg_color(0x0000FFFF); break;
+                case 'R': set_fg_color(0x00FF0000); break;
+                case 'B': set_fg_color(0x000000FF); break;
+                default:
+                    ramfb_putc('[');
+                    p--;
+            }
         } else {
             ramfb_putc(*p);
         }
