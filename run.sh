@@ -86,6 +86,117 @@ if [ -z "$MACHINE" ]; then
     exit 1
 fi
 
+check_and_install() {
+    local cmd=$1
+    local pkg=$2
+    local install_cmd=$3
+    local alt_cmd=$4
+
+    if ! command -v "$cmd" &> /dev/null; then
+        if [ -n "$alt_cmd" ] && command -v "$alt_cmd" &> /dev/null; then
+            return 0
+        fi
+
+        echo "$cmd could not be found."
+        read -p "Do you want to install it? (y/n) " choice
+        case "$choice" in 
+          y|Y ) 
+            echo "Installing $pkg..."
+            eval "$install_cmd"
+            ;;
+          n|N ) 
+            echo "Skipping installation of $pkg. Build might fail."
+            ;;
+          * ) 
+            echo "Invalid input. Skipping."
+            ;;
+        esac
+    fi
+}
+
+if [[ "$MACHINE" == "virt" ]]; then
+    OS="$(uname -s)"
+    case "${OS}" in
+        Darwin*)
+            # macOS
+            if ! command -v brew &> /dev/null; then
+                echo "Homebrew is not installed. Please install Homebrew first."
+                exit 1
+            fi
+            check_and_install "dtc" "dtc" "brew install dtc"
+            check_and_install "cmake" "cmake" "brew install cmake"
+            check_and_install "aarch64-elf-gcc" "aarch64-elf-gcc" "brew tap messense/macos-cross-toolchains && brew install aarch64-elf-gcc"
+            check_and_install "qemu-system-aarch64" "qemu" "brew install qemu"
+            ;;
+        Linux*)
+            PKG_MANAGER=""
+            INSTALL_CMD=""
+            HOST_ARCH="$(uname -m)"
+            
+            if command -v apt-get &> /dev/null; then
+                PKG_MANAGER="apt"
+                INSTALL_CMD="sudo apt-get update && sudo apt-get install -y"
+                DTC_PKG="device-tree-compiler"
+                CMAKE_PKG="cmake"
+                GCC_CROSS_PKG="gcc-aarch64-linux-gnu"
+                GCC_NATIVE_PKG="gcc"
+                QEMU_PKG="qemu-system-arm" 
+            elif command -v dnf &> /dev/null; then
+                PKG_MANAGER="dnf"
+                INSTALL_CMD="sudo dnf install -y"
+                DTC_PKG="dtc"
+                CMAKE_PKG="cmake"
+                GCC_CROSS_PKG="gcc-aarch64-linux-gnu"
+                GCC_NATIVE_PKG="gcc"
+                QEMU_PKG="qemu-system-aarch64"
+            elif command -v pacman &> /dev/null; then
+                PKG_MANAGER="pacman"
+                INSTALL_CMD="sudo pacman -S --noconfirm"
+                DTC_PKG="dtc"
+                CMAKE_PKG="cmake"
+                GCC_CROSS_PKG="aarch64-linux-gnu-gcc"
+                GCC_NATIVE_PKG="gcc"
+                QEMU_PKG="qemu-system-aarch64"
+            elif command -v zypper &> /dev/null; then
+                PKG_MANAGER="zypper"
+                INSTALL_CMD="sudo zypper install -y"
+                DTC_PKG="dtc"
+                CMAKE_PKG="cmake"
+                GCC_CROSS_PKG="cross-aarch64-gcc13"
+                GCC_NATIVE_PKG="gcc"
+                QEMU_PKG="qemu-arm"
+            elif command -v yum &> /dev/null; then
+                PKG_MANAGER="yum"
+                INSTALL_CMD="sudo yum install -y"
+                DTC_PKG="dtc"
+                CMAKE_PKG="cmake"
+                GCC_CROSS_PKG="gcc-aarch64-linux-gnu"
+                GCC_NATIVE_PKG="gcc"
+                QEMU_PKG="qemu-system-aarch64"
+            fi
+
+            if [ -n "$PKG_MANAGER" ]; then
+                check_and_install "dtc" "$DTC_PKG" "$INSTALL_CMD $DTC_PKG"
+                check_and_install "cmake" "$CMAKE_PKG" "$INSTALL_CMD $CMAKE_PKG"
+                
+                if [[ "$HOST_ARCH" == "aarch64" || "$HOST_ARCH" == "arm64" ]]; then
+                    check_and_install "gcc" "$GCC_NATIVE_PKG" "$INSTALL_CMD $GCC_NATIVE_PKG"
+                else
+                    check_and_install "aarch64-linux-gnu-gcc" "$GCC_CROSS_PKG" "$INSTALL_CMD $GCC_CROSS_PKG"
+                fi
+
+                check_and_install "qemu-system-aarch64" "$QEMU_PKG" "$INSTALL_CMD $QEMU_PKG"
+            else
+                echo "Warning: Could not detect a supported package manager (apt, dnf, pacman, zypper, yum)."
+                echo "Please ensure dtc, cmake, gcc (or cross-compiler), and qemu-system-aarch64 are installed."
+            fi
+            ;;
+        *)
+            echo "Warning: Unknown OS ${OS}, skipping dependency checks."
+            ;;
+    esac
+fi
+
 case $MACHINE in
     x64|virt)
         echo "Building for machine: $MACHINE"
