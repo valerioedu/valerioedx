@@ -3,6 +3,17 @@
 
 #include <lib.h>
 
+typedef enum task_priority {
+    IDLE = 0,
+    LOW,
+    NORMAL,
+    HIGH,
+    REALTIME,
+
+    /* Automatically 5*/
+    COUNT
+} task_priority;
+
 typedef enum task_state {
     TASK_RUNNING = 0,
     TASK_READY = 1,
@@ -32,6 +43,7 @@ typedef struct task {
     struct cpu_context context; // Must be at offset 0 for easier assembly
     u64 id;
     task_state state;
+    task_priority priority;
     struct task* next;          // Linked list pointer
     struct task* next_wait;     // Pointer to 
     void* stack_page;           // Pointer to the allocated stack memory
@@ -40,7 +52,7 @@ typedef struct task {
 typedef task_t* wait_queue_t;
 
 void sched_init();
-void task_create(void (*entry_point)());
+void task_create(void (*entry_point)(), task_priority priority);
 void schedule();
 void task_exit();
 void cpu_switch_to(struct task* prev, struct task* next); // Assembly function

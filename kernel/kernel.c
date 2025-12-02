@@ -9,6 +9,6 @@ void test_process() {
 }
 
 void kmain() {
-    task_create(test_process);
+    task_create(test_process, LOW);
     while (true) asm volatile("wfi");
 }
