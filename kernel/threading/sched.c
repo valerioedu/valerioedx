@@ -15,7 +15,6 @@ static u64 pid_counter = 0;
 void idle() {
     while (true) {
         asm volatile("wfi");
-        schedule();
     }
 }
 
@@ -114,17 +113,30 @@ void schedule() {
     task_t* prev_task = current_task;
     task_t* next_task = NULL;
 
-    // Scan from Highest Priority down to Lowest
-    // Enums are integers, so this loop works perfectly
+    // Scan priorities
     for (int i = COUNT - 1; i >= 0; i--) {
-        // Skip IDLE queue in the main scan to avoid rotating it unnecessarily
         if (i == IDLE) continue;
+
+        task_t* curr = runqueues[i];
+
+        while (curr && curr->state == TASK_EXITED) {
+            runqueues[i] = curr->next;
+            
+            // Tail clean up if queue becomes empty
+            if (runqueues[i] == NULL) {
+                runqueues_tail[i] = NULL;
+            }
+
+            kfree(curr->stack_page);
+            kfree(curr);
+
+            curr = runqueues[i];
+        }
 
         if (runqueues[i] != NULL) {
             next_task = runqueues[i];
             
-            // If we are still running the same priority class, rotate 
-            // to ensure fairness among tasks of equal importance.
+            // Round Robin Rotation logic
             if (prev_task && prev_task->priority == i && prev_task->state == TASK_RUNNING) {
                 rotate_queue(i);
                 next_task = runqueues[i];
@@ -133,15 +145,17 @@ void schedule() {
         }
     }
 
-    // Fallback to idle if everything else is blocked/empty
     if (!next_task) {
         next_task = runqueues[IDLE];
-        // Do not rotate the idle queue
     }
 
     if (next_task != prev_task) {
         current_task = next_task;
-        current_task->state = TASK_RUNNING;
+
+        if (current_task->state == TASK_READY) {
+            current_task->state = TASK_RUNNING;
+        }
+
         cpu_switch_to(prev_task, next_task);
     }
 }
