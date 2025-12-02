@@ -1,6 +1,6 @@
 #include <heap.h>
-#include <uart.h>
 #include <string.h>
+#include <kio.h>
 
 #define HEAP_MAGIC 0xCAFEBABE
 #define MIN_ALLOC  8

@@ -1,4 +1,4 @@
-#include <uart.h>
+#include <kio.h>
 #include <stdarg.h>
 
 #define UART_BASE 0x09000000
@@ -8,8 +8,9 @@
 #define UART_FR_RXFE (1 << 4)
 #define UART_FR_TXFF (1 << 5)
 
+extern u8 *uart;
+
 void uart_putc(u8 c) {
-    volatile u8 *uart = (volatile u8*)0x09000000;
     *uart = c;
 }
 
@@ -17,7 +18,7 @@ void uart_puts(const char* str) {
     while (*str) uart_putc(*str++);
 }
 
-void kprint_num(int num) {
+void uart_kprint_num(int num) {
     char buf[16];
     int i = 0;
     bool is_negative = false;
@@ -47,7 +48,7 @@ void kprint_num(int num) {
     uart_puts(buf);
 }
 
-void kprint_ull(unsigned long long num) {
+void uart_kprint_ull(unsigned long long num) {
     char buf[32];
     int i = 0;
     
@@ -67,10 +68,7 @@ void kprint_ull(unsigned long long num) {
     uart_puts(buf);
 }
 
-void kprintf(const char* format, ...) {
-    va_list args;
-    va_start(args, format);
-    
+void uart_kprintf(const char* format, va_list args) {
     for (const char* p = format; *p != '\0'; p++) {
         if (*p == '%') {
             p++;
@@ -80,7 +78,7 @@ void kprintf(const char* format, ...) {
                     p++;
                     if (*p == 'u') {
                         unsigned long long num = va_arg(args, unsigned long long);
-                        kprint_ull(num);
+                        uart_kprint_ull(num);
                     } else if (*p == 'x') {
                         unsigned long long num = va_arg(args, unsigned long long);
                         char buf[32];
@@ -107,7 +105,7 @@ void kprintf(const char* format, ...) {
                 switch (*p) {
                     case 'd': {
                         int num = va_arg(args, int);
-                        kprint_num(num);
+                        uart_kprint_num(num);
                         break;
                     } case 's': {
                         const char* str = va_arg(args, const char*);
@@ -156,6 +154,4 @@ void kprintf(const char* format, ...) {
             }
         } else uart_putc(*p);
     }
-    
-    va_end(args);
 }

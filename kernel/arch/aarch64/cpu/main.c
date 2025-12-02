@@ -2,7 +2,7 @@
 #include <string.h>
 #include <ramfb.h>
 #include <fwcfg.h>
-#include <uart.h>
+#include <kio.h>
 #include <gic.h>
 #include <timer.h>
 #include <irq.h>
@@ -14,6 +14,8 @@
 #include <sched.h>
 
 extern u64 _kernel_end;
+u8 *uart = (u8*)0x09000000;
+u64 *gic = (u64*)0x08000000;
 
 void main() {
     dtb_init(0x40000000);
@@ -37,35 +39,16 @@ void main() {
 
     heap_init(0x50000000, 8 * 1024 * 1024);
 
-    u64 uart_addr = dtb_get_reg("pl011");
-    u64 gic_addr  = dtb_get_reg("intc"); // Generic interrupt controller
+    uart = (u8*)dtb_get_reg("pl011");
+    gic  = (u64*)dtb_get_reg("intc");
 
     kprintf("Hardware Discovery:\n");
-    kprintf("  UART PL011 Found at: 0x%llx\n", uart_addr);
-    kprintf("  GIC Found at:        0x%llx\n", gic_addr);
+    kprintf("  UART PL011 Found at: 0x%llx\n", uart);
+    kprintf("  GIC Found at:        0x%llx\n", gic);
+    
 
-    u32 bg_color = (0xFF << 24) | (0x00 << 16) | (0x00 << 8) | 0x20;
-    for (int i = 0; i < WIDTH * HEIGHT; i++) {
-        fb_buffer[i] = bg_color;
-    }
-
-    const char *msg = "VALERIOEDX";
-    int msg_len = strlen(msg);
-
-
-    const int char_w = 8;
-    const int char_h = 8;
-
-    int text_width  = msg_len * char_w;
-    int text_height = char_h;
-
-    int x0 = (WIDTH  - text_width)  / 2;
-    int y0 = (HEIGHT - text_height) / 2;
-
-    u32 fg_color = (0xFF << 24) | (0xFF << 16) | (0xFF << 8) | 0xFF; // white
-
-    draw_string_bitmap(x0, y0, msg, fg_color, bg_color);
-    draw_string_bitmap((WIDTH - (8 * strlen("LOADING KERNEL..."))) / 2, y0 + 16, "LOADING KERNEL...", fg_color, bg_color);
+    kprintf("Now switching to the graphical interface...\n");
+    set_stdio(RAMFB);
 
     sched_init();
 

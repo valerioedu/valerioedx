@@ -1,5 +1,5 @@
 #include <vmm.h>
-#include <uart.h>
+#include <kio.h>
 
 // Global L1 Page Table
 // 512 entries * 8 bytes = 4096 bytes. Must be 4KB aligned.

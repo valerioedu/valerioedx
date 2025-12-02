@@ -1,6 +1,6 @@
 #include <timer.h>
 #include <gic.h>
-#include <uart.h>
+#include <kio.h>
 #include <sched.h>
 
 #define TIMER_IRQ_ID 30 // EL1 Physical Timer

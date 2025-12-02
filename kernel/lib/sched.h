@@ -3,9 +3,12 @@
 
 #include <lib.h>
 
-#define TASK_RUNNING 0
-#define TASK_READY   1
-#define TASK_EXITED  2
+typedef enum task_state {
+    TASK_RUNNING = 0,
+    TASK_READY = 1,
+    TASK_EXITED = 2,
+    TASK_BLOCKED = 3
+} task_state;
 
 // Architecture-specific context (Callee-saved registers for AArch64)
 // These are the registers that a function must preserve. We save them when switching.
@@ -28,10 +31,13 @@ struct cpu_context {
 typedef struct task {
     struct cpu_context context; // Must be at offset 0 for easier assembly
     u64 id;
-    u64 state;
+    task_state state;
     struct task* next;          // Linked list pointer
+    struct task* next_wait;     // Pointer to 
     void* stack_page;           // Pointer to the allocated stack memory
 } task_t;
+
+typedef task_t* wait_queue_t;
 
 void sched_init();
 void task_create(void (*entry_point)());

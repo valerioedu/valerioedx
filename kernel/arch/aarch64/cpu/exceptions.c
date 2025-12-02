@@ -1,7 +1,29 @@
 #include <lib.h>
-#include <uart.h>
+#include <kio.h>
 #include <gic.h>
 #include <timer.h>
+
+void dump_stack() {
+    uint64_t fp;
+    
+    asm volatile("mov %0, x29" : "=r"(fp));
+
+    kprintf("\n--- Stack Trace ---\n");
+    
+    int depth = 0;
+    while (fp != 0 && depth < 20) {
+        if (fp < 0x40000000) break; 
+
+        uint64_t lr = *(uint64_t*)(fp + 8);
+        uint64_t prev_fp = *(uint64_t*)fp;
+
+        kprintf("[%d] PC: 0x%llx\n", depth, lr);
+
+        fp = prev_fp;
+        depth++;
+    }
+    kprintf("-------------------\n");
+}
 
 void el1_sync_handler() {
     u64 esr, elr, far;
@@ -17,6 +39,7 @@ void el1_sync_handler() {
             kprintf("  ESR: 0x%llx (EC: 0x%x)\n", esr, ec);
             kprintf("  ELR: 0x%llx (PC)\n", elr);
             kprintf("  FAR: 0x%llx (Addr)\n", far);
+            dump_stack();
             break;
         /* TODO: Implement syscalls later on */
         case 0x15: return; break;
@@ -25,6 +48,7 @@ void el1_sync_handler() {
             kprintf("  ESR: 0x%llx (EC: 0x%x)\n", esr, ec);
             kprintf("  ELR: 0x%llx (PC)\n", elr);
             kprintf("  FAR: 0x%llx (Addr)\n", far);
+            dump_stack();
             break;
     }
 
@@ -45,10 +69,12 @@ void el1_irq_handler() {
 
 void el1_fiq_handler() {
     kprintf("[EXC] EL1 FIQ\n");
+    dump_stack();
     while (1) asm volatile("wfe");
 }
 
 void el1_serr_handler() {
+    dump_stack();
     kprintf("[EXC] EL1 SError\n");
     while (1) asm volatile("wfe");
 }

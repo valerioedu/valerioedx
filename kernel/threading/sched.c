@@ -1,6 +1,6 @@
 #include <sched.h>
 #include <heap.h>
-#include <uart.h>
+#include <kio.h>
 #include <string.h>
 
 extern void ret_from_fork();
@@ -18,6 +18,7 @@ void sched_init() {
     main_task->id = pid_counter++;
     main_task->state = TASK_RUNNING;
     main_task->next = NULL;
+    main_task->next_wait = NULL;
 
     current_task = main_task;
     task_list_head = main_task;
@@ -41,6 +42,7 @@ void task_create(void (*entry_point)()) {
     t->id = pid_counter++;
     t->state = TASK_READY;
     t->next = NULL;
+    t->next_wait = NULL;
 
     // Since the stack grows down SP will be at the end of the page.
     u64 stack_top = (u64)t->stack_page + 4096;
@@ -60,6 +62,26 @@ void task_create(void (*entry_point)()) {
     kprintf("[SCHED] Created Task %d\n", t->id);
 }
 
+void sleep_on(wait_queue_t* queue) {
+    current_task->state = TASK_BLOCKED;
+
+    current_task->next_wait = *queue;
+    *queue = current_task;
+
+    schedule();
+}
+
+void wake_up(wait_queue_t* queue) {
+    if (*queue == NULL) return;
+
+    task_t* t = *queue;
+    *queue = t->next_wait;
+
+    t->next_wait = NULL;
+
+    t->state = TASK_READY;
+}
+
 void task_exit() {
     current_task->state = TASK_EXITED;
     kprintf("[SCHED] Task %d exited.\n", current_task->id);
@@ -76,18 +98,21 @@ void schedule() {
             next_task = task_list_head;
 
         if (next_task == current_task) {
-            if (next_task->state == TASK_EXITED) {
-                kprintf("[SCHED] All tasks dead! Halting.\n");
-                while(1) asm volatile("wfi");
+            if (next_task->state == TASK_EXITED || next_task->state == TASK_BLOCKED) {
+                // Enables interrupts and waits for one
+                asm volatile("msr daifclr, #2"); 
+                asm volatile("wfi");
+                
+                // Checks the list again after interrupt
+                next_task = current_task->next; 
+                continue;
             }
 
-            // Only task left running. Continue running.
+            // Only task left running. Continue.
             return;
         }
 
-        if (next_task->state != TASK_EXITED) {
-            break;
-        }
+        if (next_task->state == TASK_READY || next_task->state == TASK_RUNNING) break;
 
         next_task = next_task->next;
     }

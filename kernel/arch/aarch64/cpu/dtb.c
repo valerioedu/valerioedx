@@ -1,6 +1,6 @@
 #include <dtb.h>
 #include <string.h>
-#include <uart.h>
+#include <kio.h>
 
 static u8* dtb_base = NULL;
 static u8* strings_ptr = NULL;
