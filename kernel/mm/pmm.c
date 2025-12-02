@@ -1,6 +1,6 @@
 #include <pmm.h>
 #include <string.h>
-#include <uart.h>
+#include <kio.h>
 
 static u8 *bitmap = NULL;
 static u32 used_frames = 0;

@@ -1,6 +1,6 @@
 #include <sched.h>
 #include <heap.h>
-#include <uart.h>
+#include <kio.h>
 #include <string.h>
 
 extern void ret_from_fork();

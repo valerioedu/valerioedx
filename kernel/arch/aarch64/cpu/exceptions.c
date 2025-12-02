@@ -1,23 +1,21 @@
 #include <lib.h>
-#include <uart.h>
+#include <kio.h>
 #include <gic.h>
 #include <timer.h>
 
 void dump_stack() {
     uint64_t fp;
     
-    // Read the current frame pointer
     asm volatile("mov %0, x29" : "=r"(fp));
 
     kprintf("\n--- Stack Trace ---\n");
     
     int depth = 0;
     while (fp != 0 && depth < 20) {
-        // Safe access check (optional but recommended: ensure fp is in kernel RAM)
-        // if (fp < 0x40000000) break; 
+        if (fp < 0x40000000) break; 
 
-        uint64_t lr = *(uint64_t*)(fp + 8);  // Return address is at offset 8
-        uint64_t prev_fp = *(uint64_t*)fp;   // Previous FP is at offset 0
+        uint64_t lr = *(uint64_t*)(fp + 8);
+        uint64_t prev_fp = *(uint64_t*)fp;
 
         kprintf("[%d] PC: 0x%llx\n", depth, lr);
 
