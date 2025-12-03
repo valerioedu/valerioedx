@@ -3,6 +3,8 @@
 #include <kio.h>
 #include <string.h>
 
+//TODO: Implement spinlocks for race conditions
+
 extern void ret_from_fork();
 extern void cpu_switch_to(struct task* prev, struct task* next);
 
@@ -15,6 +17,7 @@ static u64 pid_counter = 0;
 void idle() {
     while (true) {
         asm volatile("wfi");
+        schedule();
     }
 }
 

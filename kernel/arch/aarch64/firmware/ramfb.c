@@ -498,76 +498,127 @@ void ramfb_kprint_num(int num) {
     ramfb_kprint(buf);
 }
 
+void ramfb_kprint_ull(unsigned long long num) {
+    char buf[32];
+    int i = 0;
+    
+    do {
+        buf[i++] = '0' + (num % 10);
+        num /= 10;
+    } while (num > 0 && i < 31);
+    
+    buf[i] = '\0';
+    
+    for (int j = 0, k = i - 1; j < k; j++, k--) {
+        char temp = buf[j];
+        buf[j] = buf[k];
+        buf[k] = temp;
+    }
+    
+    ramfb_kprint(buf);
+}
+
 void ramfb_kprintf(const char* format, va_list args) {
     for (const char* p = format; *p != '\0'; p++) {
         if (*p == '%') {
             p++;
-            switch (*p) {
-                case 'd': {
-                    int num = va_arg(args, int);
-                    ramfb_kprint_num(num);
-                    break;
-                }
-                case 's': {
-                    const char* str = va_arg(args, const char*);
-                    ramfb_kprint(str);
-                    break;
-                }
-                case 'c': {
-                    char c = va_arg(args, int);
-                    ramfb_putc(c);
-                    break;
-                }
-                case 'x': {
-                    int num = va_arg(args, int);
-                    char buf[16];
-                    int i = 0;
-                    int is_negative = 0;
-                    
-                    if (num < 0) {
-                        is_negative = 1;
-                        num = -num;
+            if (*p == 'l') {
+                p++;
+                if (*p == 'l') {
+                    p++;
+                    if (*p == 'u') {
+                        unsigned long long num = va_arg(args, unsigned long long);
+                        ramfb_kprint_ull(num);
+                    } else if (*p == 'x') {
+                        unsigned long long num = va_arg(args, unsigned long long);
+                        char buf[32];
+                        int i = 0;
+                        
+                        do {
+                            int digit = num % 16;
+                            buf[i++] = digit < 10 ? '0' + digit : 'A' + digit - 10;
+                            num /= 16;
+                        } while (num > 0 && i < 31);
+                        
+                        buf[i] = '\0';
+                        
+                        for (int j = 0, k = i - 1; j < k; j++, k--) {
+                            char temp = buf[j];
+                            buf[j] = buf[k];
+                            buf[k] = temp;
+                        }
+                        
+                        ramfb_kprint(buf);
                     }
-                    
-                    do {
-                        int digit = num % 16;
-                        buf[i++] = digit < 10 ? '0' + digit : 'A' + digit - 10;
-                        num /= 16;
-                    } while (num > 0 && i < 15);
-                    
-                    if (is_negative) {
-                        buf[i++] = '-';
-                    }
-                    
-                    buf[i] = '\0';
-                    
-                    for (int j = 0, k = i - 1; j < k; j++, k--) {
-                        char temp = buf[j];
-                        buf[j] = buf[k];
-                        buf[k] = temp;
-                    }
-                    
-                    ramfb_kprint(buf);
-                    break;
                 }
-                case 'f': {
-                    double num = va_arg(args, double);
-                    int int_part = (int)num;
-                    double fractional_part = num - int_part;
-                    ramfb_kprint_num(int_part);
-                    ramfb_putc('.');
-                    for (int i = 0; i < 6; i++) {
-                        fractional_part *= 10;
-                        int digit = (int)fractional_part;
-                        ramfb_kprint_num(digit);
-                        fractional_part -= digit;
+            } else {
+                switch (*p) {
+                    case 'd': {
+                        int num = va_arg(args, int);
+                        ramfb_kprint_num(num);
+                        break;
                     }
-                    break;
+                    case 's': {
+                        const char* str = va_arg(args, const char*);
+                        ramfb_kprint(str);
+                        break;
+                    }
+                    case 'c': {
+                        char c = va_arg(args, int);
+                        ramfb_putc(c);
+                        break;
+                    }
+                    case 'x': {
+                        int num = va_arg(args, int);
+                        char buf[16];
+                        int i = 0;
+                        int is_negative = 0;
+                        
+                        if (num < 0) {
+                            is_negative = 1;
+                            num = -num;
+                        }
+                        
+                        do {
+                            int digit = num % 16;
+                            buf[i++] = digit < 10 ? '0' + digit : 'A' + digit - 10;
+                            num /= 16;
+                        } while (num > 0 && i < 15);
+                        
+                        if (is_negative) {
+                            buf[i++] = '-';
+                        }
+                        
+                        buf[i] = '\0';
+                        
+                        for (int j = 0, k = i - 1; j < k; j++, k--) {
+                            char temp = buf[j];
+                            buf[j] = buf[k];
+                            buf[k] = temp;
+                        }
+                        
+                        ramfb_kprint(buf);
+                        break;
+                    }
+                    case 'f': {
+                        double num = va_arg(args, double);
+                        int int_part = (int)num;
+                        double fractional_part = num - int_part;
+                        ramfb_kprint_num(int_part);
+                        ramfb_putc('.');
+                        for (int i = 0; i < 6; i++) {
+                            fractional_part *= 10;
+                            int digit = (int)fractional_part;
+                            ramfb_kprint_num(digit);
+                            fractional_part -= digit;
+                        }
+                        break;
+                    }
+                    default:
+                        ramfb_putc('%');
+                        ramfb_putc(*p);
+                        break;
                 }
-                default:
-                    ramfb_putc('%');
-                    ramfb_putc(*p);
-                    break;
             }
         } else if (*p == '[') {
             p++;

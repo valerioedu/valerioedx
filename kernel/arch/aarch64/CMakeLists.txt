@@ -54,9 +54,11 @@ set(LINKER_SCRIPT ${CMAKE_CURRENT_SOURCE_DIR}/linker.ld)
 file(GLOB_RECURSE KERNEL_SOURCES
     ${CMAKE_CURRENT_SOURCE_DIR}/cpu/*.c
     ${CMAKE_CURRENT_SOURCE_DIR}/firmware/*.c
+    ${CMAKE_CURRENT_SOURCE_DIR}/drivers/*.c
     ${CMAKE_CURRENT_SOURCE_DIR}/cpu/*.S
     ${CMAKE_CURRENT_SOURCE_DIR}/../../../lib/*.c
     ${CMAKE_CURRENT_SOURCE_DIR}/../../mm/*.c
+    ${CMAKE_CURRENT_SOURCE_DIR}/../../fs/*.c
     ${CMAKE_CURRENT_SOURCE_DIR}/../../threading/*.c
     ${CMAKE_CURRENT_SOURCE_DIR}/../../threading/*.S
     ${CMAKE_CURRENT_SOURCE_DIR}/../../kernel.c
