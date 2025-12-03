@@ -164,9 +164,8 @@ void heap_debug() {
     heap_block_t* curr = heap_head;
     kprintf("--- Heap Status ---\n");
     while (curr) {
-        kprintf("[%s] Size: %d, Addr: 0x%llx\n", 
-            curr->is_free ? "FREE" : "USED", 
-            curr->size, curr);
+        if (curr->is_free) kprintf("[ [GFREE[W ] Size: %d, Addr: 0x%llx\n", curr->size, curr);
+        else kprintf("[ [BUSED[W ] Size: %d, Addr: 0x%llx\n", curr->size, curr);
         curr = curr->next;
     }
     kprintf("-------------------\n");

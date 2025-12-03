@@ -12,6 +12,7 @@
 #include <dtb.h>
 #include <kernel.h>
 #include <sched.h>
+#include <virtio.h>
 
 extern u64 _kernel_end;
 u8 *uart = (u8*)0x09000000;
@@ -53,6 +54,7 @@ void main() {
     sched_init();
 
     gic_init();
+    virtio_init();
     gic_enable_irq(30);
 #ifdef DEBUG
     timer_init(1000);

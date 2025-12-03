@@ -59,6 +59,7 @@ file(GLOB_RECURSE KERNEL_SOURCES
     ${CMAKE_CURRENT_SOURCE_DIR}/../../../lib/*.c
     ${CMAKE_CURRENT_SOURCE_DIR}/../../mm/*.c
     ${CMAKE_CURRENT_SOURCE_DIR}/../../fs/*.c
+    ${CMAKE_CURRENT_SOURCE_DIR}/../../drivers/*.c
     ${CMAKE_CURRENT_SOURCE_DIR}/../../threading/*.c
     ${CMAKE_CURRENT_SOURCE_DIR}/../../threading/*.S
     ${CMAKE_CURRENT_SOURCE_DIR}/../../kernel.c
@@ -81,7 +82,11 @@ set_target_properties(kernel.elf PROPERTIES
 
 add_custom_target(run
     COMMAND dtc -I dts -O dtb -o virt.dtb ../virt.dts
-    COMMAND qemu-system-aarch64 -M virt -m 2G -cpu cortex-a53 -kernel kernel.elf -device ramfb -serial mon:stdio -dtb virt.dtb
+    COMMAND qemu-system-aarch64 -M virt -m 2G -cpu cortex-a53 
+            -kernel kernel.elf -device ramfb 
+            -drive if=none,file=disk.img,format=raw,id=hd0 
+            -device virtio-blk-device,drive=hd0 
+            -serial mon:stdio -dtb virt.dtb
     DEPENDS kernel.elf
     WORKING_DIRECTORY ${CMAKE_BINARY_DIR}
     COMMENT "Running kernel in QEMU"
@@ -89,7 +94,11 @@ add_custom_target(run
 
 add_custom_target(debug
     COMMAND dtc -I dts -O dtb -o virt.dtb ../virt.dts
-    COMMAND qemu-system-aarch64 -M virt -m 2G -cpu cortex-a53 -kernel kernel.elf -device ramfb -serial mon:stdio -dtb virt.dtb -d int
+    COMMAND qemu-system-aarch64 -M virt -m 2G -cpu cortex-a53 
+            -kernel kernel.elf -device ramfb 
+            -drive if=none,file=disk.img,format=raw,id=hd0 
+            -device virtio-blk-device,drive=hd0 
+            -serial mon:stdio -dtb virt.dtb -d int
     DEPENDS kernel.elf
     WORKING_DIRECTORY ${CMAKE_BINARY_DIR}
     COMMENT "Running kernel in QEMU using interrupts debug"

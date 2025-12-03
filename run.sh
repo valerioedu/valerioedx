@@ -13,6 +13,7 @@ fi
 MACHINE=""
 CLEAN=true
 DEBUG=false
+NEW=false
 
 while [[ $# -gt 0 ]]; do
     case $1 in
@@ -56,6 +57,9 @@ while [[ $# -gt 0 ]]; do
             CLEAN=false
             shift
             ;;
+        -new|--new-disk)
+            NEW=true
+            ;;
         -h|--help)
             echo "Usage: ./run.sh -machine [MACHINE] [OPTIONS]"
             echo ""
@@ -65,6 +69,8 @@ while [[ $# -gt 0 ]]; do
             echo ""
             echo "Options:"
             echo "    --no-clean    Skip cleaning build directory"
+            echo "    -new          Force create a new disk image (wipes data)"
+            echo "    -d, --debug   Enable debug mode"
             echo "    -h, --help    Show this help message"
             exit 0
             ;;
@@ -222,12 +228,18 @@ case $MACHINE in
         cd kernel/arch/aarch64
         rm -rf build
         mkdir build && cd build
+
+        if [ "$NEW" = true ] || [ ! -f disk.img ]; then
+            dd if=/dev/zero of=disk.img bs=1M count=32 status=none
+        fi
+
         if $DEBUG; then
             cmake -DVALERIOEDX_DEBUG=ON ..
             make debug
         else
             cmake -DVALERIOEDX_DEBUG=OFF ..
             make run
+
         fi
         cd ../
         rm -rf build

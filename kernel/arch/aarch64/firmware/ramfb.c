@@ -372,7 +372,7 @@ static u32 fg_color = 0x00FFFFFF; // White
 static u32 bg_color = 0x00000000; // Black
 
 #define CHAR_WIDTH 8
-#define CHAR_HEIGHT 8
+#define CHAR_HEIGHT 10
 #define MAX_COLS (WIDTH / CHAR_WIDTH)
 #define MAX_ROWS (HEIGHT / CHAR_HEIGHT)
 
