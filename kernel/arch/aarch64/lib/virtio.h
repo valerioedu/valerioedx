@@ -1,0 +1,86 @@
+#ifndef VIRTIO_H
+#define VIRTIO_H
+
+#include <lib.h>
+#include <vfs.h>
+#include <sched.h>
+
+#define VIRTIO_MMIO_MAGIC_VALUE     0x000
+#define VIRTIO_MMIO_VERSION         0x004
+#define VIRTIO_MMIO_DEVICE_ID       0x008
+#define VIRTIO_MMIO_VENDOR_ID       0x00c
+#define VIRTIO_MMIO_DEVICE_FEATURES 0x010
+#define VIRTIO_MMIO_DRIVER_FEATURES 0x020
+#define VIRTIO_MMIO_GUEST_PAGE_SIZE 0x028
+#define VIRTIO_MMIO_QUEUE_SEL       0x030
+#define VIRTIO_MMIO_QUEUE_NUM_MAX   0x034
+#define VIRTIO_MMIO_QUEUE_NUM       0x038
+#define VIRTIO_MMIO_QUEUE_ALIGN     0x03c
+#define VIRTIO_MMIO_QUEUE_PFN       0x040
+#define VIRTIO_MMIO_QUEUE_READY     0x044
+#define VIRTIO_MMIO_QUEUE_NOTIFY    0x050 
+#define VIRTIO_MMIO_INTERRUPT_STATUS 0x060
+#define VIRTIO_MMIO_INTERRUPT_ACK    0x064
+#define VIRTIO_MMIO_STATUS          0x070
+
+#define VIRTIO_MAGIC 0x74726976
+
+#define VIRTIO_STATUS_ACK       1
+#define VIRTIO_STATUS_DRV       2
+#define VIRTIO_STATUS_DRV_OK    4
+#define VIRTIO_STATUS_FEAT_OK   8
+
+#define VRING_DESC_F_NEXT       1
+#define VRING_DESC_F_WRITE      2
+#define VRING_DESC_F_INDIRECT   4
+
+#define VIRTIO_BLK_T_IN         0
+#define VIRTIO_BLK_T_OUT        1
+
+#define VIRTIO_BLK_SECTOR_SIZE  512
+
+typedef struct {
+    u64 addr;
+    u32 len;
+    u16 flags;
+    u16 next;
+} __attribute__((packed)) virtq_desc;
+
+typedef struct {
+    u16 flags;
+    u16 idx;
+    u16 ring[16]; 
+} __attribute__((packed)) virtq_avail;
+
+typedef struct {
+    u32 id;
+    u32 len;
+} __attribute__((packed)) virtq_used_elem;
+
+typedef struct {
+    u16 flags;
+    u16 idx;
+    virtq_used_elem ring[16];
+} __attribute__((packed)) virtq_used;
+
+typedef struct {
+    u32 type;
+    u32 reserved;
+    u64 sector;
+} __attribute__((packed)) virtio_blk_req;
+
+void virtio_init();
+int virtio_blk_read(u64 sector, u8* buffer);
+int virtio_blk_write(u64 sector, u8* buffer);
+void virtio_blk_handler();
+u64 virtio_fs_read(inode_t* node, u64 size, u8* buffer);
+u64 virtio_fs_write(inode_t* node, u64 size, u8* buffer);
+
+static inode_ops virtio_vfs_ops = {
+    .read = virtio_fs_read,
+    .write = virtio_fs_write,
+    .open = NULL,               // Nothing to initialize on open for now
+    .close = NULL
+};
+
+#endif

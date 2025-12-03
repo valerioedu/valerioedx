@@ -10,7 +10,7 @@ typedef enum task_priority {
     HIGH,
     REALTIME,
 
-    /* Automatically 5*/
+    /* Automatically 5 */
     COUNT
 } task_priority;
 
@@ -22,7 +22,7 @@ typedef enum task_state {
 } task_state;
 
 // Architecture-specific context (Callee-saved registers for AArch64)
-// These are the registers that a function must preserve. We save them when switching.
+// These are the registers that a function must preserve.
 struct cpu_context {
     u64 x19;
     u64 x20;
@@ -55,6 +55,8 @@ void sched_init();
 void task_create(void (*entry_point)(), task_priority priority);
 void schedule();
 void task_exit();
-void cpu_switch_to(struct task* prev, struct task* next); // Assembly function
+void cpu_switch_to(struct task* prev, struct task* next);
+void sleep_on(wait_queue_t* queue);
+void wake_up(wait_queue_t* queue);
 
 #endif
