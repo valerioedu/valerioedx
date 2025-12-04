@@ -21,8 +21,8 @@ u64 *gic = (u64*)0x08000000;
 void main() {
     dtb_init(0x40000000);
     ramfb_init();
-    kprintf("\033[2J");
-    kprintf("\033[H");
+    //kprintf("\033[2J");
+    //kprintf("\033[H");
     kprintf("Hello, World!\n");
 
     kprintf("Kernel end: 0x%llx\n", &_kernel_end);
