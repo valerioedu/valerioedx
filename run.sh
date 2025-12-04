@@ -231,29 +231,6 @@ case $MACHINE in
 
         if [ "$NEW" = true ] || [ ! -f disk.img ]; then
             dd if=/dev/zero of=disk.img bs=1M count=128 status=none
-
-                echo "Formatting as FAT32..."
-                
-                # Check PATH, then /sbin, then /usr/sbin
-                if command -v mkfs.vfat &> /dev/null; then
-                    mkfs.vfat -F 32 -n "VALERIOEDX" disk.img
-                elif [ -x /sbin/mkfs.vfat ]; then
-                    /sbin/mkfs.vfat -F 32 -n "VALERIOEDX" disk.img
-                elif [ -x /usr/sbin/mkfs.vfat ]; then
-                    /usr/sbin/mkfs.vfat -F 32 -n "VALERIOEDX" disk.img
-                else
-                    echo "ERROR: mkfs.vfat not found. Please install 'dosfstools'."
-                    exit 1
-                fi
-                
-                if command -v mcopy &> /dev/null; then
-                    echo "Hello from valerioedx host!" > TEST.TXT
-                    mcopy -i disk.img TEST.TXT ::TEST.TXT
-                    rm TEST.TXT
-                    echo "Added TEST.TXT to disk image."
-                else 
-                    echo "Warning: 'mtools' not found. Cannot add TEST.TXT."
-                fi
         fi
 
         if $DEBUG; then
