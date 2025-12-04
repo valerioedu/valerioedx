@@ -50,7 +50,6 @@ void main() {
     kprintf("  UART PL011 Found at: 0x%llx\n", uart);
     kprintf("  GIC Found at:        0x%llx\n", gic);
     
-
     kprintf("Now switching to the graphical interface...\n");
     set_stdio(RAMFB);
 

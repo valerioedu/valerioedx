@@ -97,7 +97,7 @@ add_custom_target(debug
     COMMAND qemu-system-aarch64 -M virt -m 2G -cpu cortex-a53 
             -kernel kernel.elf -device ramfb 
             -drive if=none,file=disk.img,format=raw,id=hd0 
-            -device virtio-blk-device,drive=hd0 
+            -device virtio-blk-pci,drive=hd0,disable-legacy=off,disable-modern=off
             -serial mon:stdio -dtb virt.dtb -d int
     DEPENDS kernel.elf
     WORKING_DIRECTORY ${CMAKE_BINARY_DIR}
