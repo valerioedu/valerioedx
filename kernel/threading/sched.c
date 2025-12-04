@@ -79,6 +79,14 @@ void sleep_on(wait_queue_t* queue) {
     current_task->next_wait = *queue;
     *queue = current_task;
 
+    task_priority prio = current_task->priority;
+    if (runqueues[prio] == current_task) {
+        runqueues[prio] = current_task->next;
+        if (runqueues[prio] == NULL) {
+            runqueues_tail[prio] = NULL;
+        }
+    }
+
     schedule();
 }
 
@@ -91,6 +99,17 @@ void wake_up(wait_queue_t* queue) {
     t->next_wait = NULL;
 
     t->state = TASK_READY;
+
+    task_priority prio = t->priority;
+    t->next = NULL;
+    
+    if (runqueues[prio] == NULL) {
+        runqueues[prio] = t;
+        runqueues_tail[prio] = t;
+    } else {
+        runqueues_tail[prio]->next = t;
+        runqueues_tail[prio] = t;
+    }
 }
 
 void task_exit() {

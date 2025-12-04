@@ -2,7 +2,7 @@
 #include <kio.h>
 #include <gic.h>
 #include <timer.h>
-#include <virtio.h>
+#include <uart.h>
 
 void dump_stack() {
     uint64_t fp;
@@ -63,9 +63,9 @@ void el1_irq_handler() {
     gic_end_irq(id);
     
     switch (id) {
-        case 48: virtio_blk_handler(); break;
         case 30: timer_handler(); break;
-        default: kprintf("[ EXC ] Unknown IRQ ID\n"); break;
+        case 33: uart_irq_handler(); break;
+        default: kprintf("[ EXC ] Unknown IRQ ID: %d\n", id); break;
     }
 }
 

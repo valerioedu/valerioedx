@@ -5,6 +5,9 @@
 #include <ramfb.h>
 #include <vfs.h>
 #include <heap.h>
+#include <gic.h>
+#include <irq.h>
+#include <fat32.h>
 
 void test_process() {
     kprintf("\n");
@@ -14,7 +17,7 @@ void test_process() {
 void kmain() {
     vfs_init();
     devfs_init();
-    vfs_write(&device_list[0], 16, "Hello, World!\n");
+    
     task_create(test_process, LOW);
     while (true) asm volatile("wfi");
 }

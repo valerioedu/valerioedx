@@ -73,14 +73,7 @@ void virtio_init();
 int virtio_blk_read(u64 sector, u8* buffer);
 int virtio_blk_write(u64 sector, u8* buffer);
 void virtio_blk_handler();
-u64 virtio_fs_read(inode_t* node, u64 size, u8* buffer);
+u64 virtio_fs_read(inode_t* node, u64 format, u64 size, u8* buffer);
 u64 virtio_fs_write(inode_t* node, u64 size, u8* buffer);
-
-static inode_ops virtio_vfs_ops = {
-    .read = virtio_fs_read,
-    .write = virtio_fs_write,
-    .open = NULL,               // Nothing to initialize on open for now
-    .close = NULL
-};
 
 #endif

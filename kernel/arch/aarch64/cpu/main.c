@@ -13,6 +13,7 @@
 #include <kernel.h>
 #include <sched.h>
 #include <virtio.h>
+#include <uart.h>
 
 extern u64 _kernel_end;
 u8 *uart = (u8*)0x09000000;
@@ -21,8 +22,10 @@ u64 *gic = (u64*)0x08000000;
 void main() {
     dtb_init(0x40000000);
     ramfb_init();
+#ifndef DEBUG
     kprintf("\033[2J");
     kprintf("\033[H");
+#endif    
     kprintf("Hello, World!\n");
 
     kprintf("Kernel end: 0x%llx\n", &_kernel_end);
@@ -54,6 +57,7 @@ void main() {
     sched_init();
 
     gic_init();
+    uart_init();
     virtio_init();
     gic_enable_irq(30);
 #ifdef DEBUG
