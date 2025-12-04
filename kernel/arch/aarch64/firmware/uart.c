@@ -1,17 +1,71 @@
 #include <kio.h>
 #include <stdarg.h>
+#include <sched.h>
+#include <gic.h>
 
-#define UART_BASE 0x09000000
+#define UART_BASE uart
 #define UART_DR   (UART_BASE + 0x00)
 #define UART_FR   (UART_BASE + 0x18)
+#define UART_IMSC (UART_BASE + 0x38)
+#define UART_MIS  (UART_BASE + 0x40)
+#define UART_ICR  (UART_BASE + 0x44)
 
 #define UART_FR_RXFE (1 << 4)
 #define UART_FR_TXFF (1 << 5)
+#define UART_RX_IRQ  (1 << 4)
+
+#define RX_BUF_SIZE 256 // For the circular buffer
 
 extern u8 *uart;
 
+// Circular buffer
+static u8 rx_buffer[RX_BUF_SIZE];
+static volatile int rx_head = 0;
+static volatile int rx_tail = 0;
+static wait_queue_t rx_wait_queue = NULL;
+
 void uart_putc(u8 c) {
     *uart = c;
+}
+
+u8 uart_getc() {
+    while (rx_head == rx_tail) sleep_on(&rx_wait_queue);
+
+    u8 c = rx_buffer[rx_tail];
+    rx_tail = (rx_tail + 1) % RX_BUF_SIZE;
+    return c;
+}
+
+void uart_irq_handler() {
+    volatile u32 *mis = (u32*)UART_MIS;
+    volatile u32 *dr = (u32*)UART_DR;
+    volatile u32 *icr = (u32*)UART_ICR;
+    volatile u32 *fr = (u32*)UART_FR;
+
+    if (*mis & UART_RX_IRQ) {
+        while (!(*fr & UART_FR_RXFE)) {
+            u8 c = (u8)(*dr & 0xFF);
+                
+            int next = (rx_head + 1) % RX_BUF_SIZE;
+            if (next != rx_tail) {
+                rx_buffer[rx_head] = c;
+                rx_head = next;
+            }
+        }
+
+        wake_up(&rx_wait_queue);
+
+        *icr = UART_RX_IRQ;
+    }
+
+    *icr = 0x7FF;
+}
+
+void uart_init() {
+    volatile u32 *imsc = (u32*)UART_IMSC;
+    *imsc |= (1 << 4) | (1 << 6); 
+
+    gic_enable_irq(33);
 }
 
 void uart_puts(const char* str) {

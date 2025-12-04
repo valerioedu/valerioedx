@@ -49,7 +49,6 @@ void task_create(void (*entry_point)(), task_priority priority) {
         return;
     }
 
-    kprintf("[VirtIO] Mounted Block Device as /dev/vda\n");
     t->id = pid_counter++;
     t->state = TASK_READY;
     t->priority = priority;

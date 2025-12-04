@@ -42,7 +42,6 @@ inode_t* vfs_lookup(const char* path) {
     
     inode_t* current = vfs_root;
     
-    // Create a mutable copy of path to tokenize
     char* path_copy = kmalloc(strlen(path) + 1);
     strcpy(path_copy, path);
     
@@ -51,14 +50,14 @@ inode_t* vfs_lookup(const char* path) {
     while (token != NULL) {
         if (!current->ops || !current->ops->finddir) {
             kfree(path_copy);
-            return NULL; // Not a directory
+            return NULL;
         }
 
         inode_t* next = current->ops->finddir(current, token);
         
         if (!next) {
             kfree(path_copy);
-            return NULL; // File not found
+            return NULL;
         }
         
         current = next;
