@@ -7,7 +7,6 @@
 #include <heap.h>
 #include <gic.h>
 #include <irq.h>
-#include <fat32.h>
 
 void test_process() {
     kprintf("\n");
