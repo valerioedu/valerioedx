@@ -1,6 +1,7 @@
 #include <heap.h>
 #include <string.h>
 #include <kio.h>
+#include <spinlock.h>
 
 #define HEAP_MAGIC 0xCAFEBABE
 #define MIN_ALLOC  8
@@ -14,6 +15,8 @@ typedef struct heap_block {
 } heap_block_t;
 
 static heap_block_t* heap_head = NULL;
+
+static spinlock_t heap_lock = 0;
 
 // Helper: Align a number up to nearest multiple of 8 (64-bit safe)
 static inline size_t align_up(size_t n) {
@@ -73,12 +76,16 @@ void heap_init(uintptr_t start, size_t size) {
 void* kmalloc(size_t size) {
     if (size == 0) return NULL;
 
+    u32 flags = spinlock_acquire_irqsave(&heap_lock);
+
     size = align_up(size); // Force 8-byte alignment
 
     heap_block_t* curr = heap_head;
     while (curr) {
         if (curr->magic != HEAP_MAGIC) {
             kprintf("[HEAP] Corruption detected at 0x%llx!\n", curr);
+
+            spinlock_release_irqrestore(&heap_lock, flags);
             return NULL;
         }
 
@@ -108,10 +115,15 @@ void* kmalloc(size_t size) {
             }
 
             curr->is_free = false;
+            
+            spinlock_release_irqrestore(&heap_lock, flags);
+
             return (void*)((uintptr_t)curr + sizeof(heap_block_t));
         }
         curr = curr->next;
     }
+
+    spinlock_release_irqrestore(&heap_lock, flags);
     
     kprintf("[HEAP] Out of Memory (Requested %d bytes)\n", size);
     return NULL;
@@ -120,10 +132,14 @@ void* kmalloc(size_t size) {
 void kfree(void* ptr) {
     if (!ptr) return;
 
+    u32 flags = spinlock_acquire_irqsave(&heap_lock);
+
     heap_block_t* block = (heap_block_t*)((uintptr_t)ptr - sizeof(heap_block_t));
 
     if (block->magic != HEAP_MAGIC) {
         kprintf("[HEAP] Double free or corruption at 0x%llx\n", block);
+        
+        spinlock_release_irqrestore(&heap_lock, flags);
         return;
     }
     
@@ -131,6 +147,8 @@ void kfree(void* ptr) {
     
     // Coalesce with neighbors to reduce fragmentation
     coalesce(block);
+
+    spinlock_release_irqrestore(&heap_lock, flags);
 }
 
 void* kcalloc(size_t num, size_t size) {
@@ -161,6 +179,8 @@ void* krealloc(void* ptr, size_t new_size) {
 }
 
 void heap_debug() {
+    u32 flags = spinlock_acquire_irqsave(&heap_lock);
+    
     heap_block_t* curr = heap_head;
     kprintf("--- Heap Status ---\n");
     while (curr) {
@@ -169,4 +189,6 @@ void heap_debug() {
         curr = curr->next;
     }
     kprintf("-------------------\n");
+    
+    spinlock_release_irqrestore(&heap_lock, flags);
 }
