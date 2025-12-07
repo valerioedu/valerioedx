@@ -2,6 +2,7 @@
 #include <heap.h>
 #include <kio.h>
 #include <string.h>
+#include <spinlock.h>
 
 //TODO: Implement spinlocks for race conditions
 
@@ -14,6 +15,15 @@ static task_t *runqueues_tail[COUNT];
 static task_t *current_task = NULL;
 static task_t *zombie_task = NULL;
 static u64 pid_counter = 0;
+
+static spinlock_t sched_lock = 0;
+
+void sched_unlock_release() {
+    spinlock_release_irqrestore(&sched_lock, 0); 
+#ifdef ARM
+    asm volatile("msr daifclr, #2");
+#endif
+}
 
 void idle() {
     while (true) {
@@ -62,6 +72,8 @@ void task_create(void (*entry_point)(), task_priority priority) {
     t->context.sp = stack_top;
     t->context.lr  = (u64)ret_from_fork;
     t->context.x19 = (u64)entry_point;
+
+    u32 flags = spinlock_acquire_irqsave(&sched_lock);
     
     if (runqueues[priority] == NULL) {
         runqueues[priority] = t;
@@ -71,13 +83,12 @@ void task_create(void (*entry_point)(), task_priority priority) {
         runqueues_tail[priority] = t;
     }
 
+    spinlock_release_irqrestore(&sched_lock, flags);
     kprintf("[ [CSCHED[W ] Created Process:\tID: %d\tPriority: %d\n", t->id, priority);
 }
 
 void sleep_on(wait_queue_t* queue) {
-#ifdef ARM
-    asm volatile("msr daifset, #2");
-#endif
+u32 flags = spinlock_acquire_irqsave(&sched_lock);
 
     current_task->state = TASK_BLOCKED;
 
@@ -92,21 +103,14 @@ void sleep_on(wait_queue_t* queue) {
         }
     }
 
+    spinlock_release_irqrestore(&sched_lock, flags);
     schedule();
-
-#ifdef ARM
-    asm volatile("msr daifclr, #2");
-#endif
 }
 
 void wake_up(wait_queue_t* queue) {
-#ifdef ARM
-    asm volatile("msr daifset,  #2");
-#endif
+    u32 flags = spinlock_acquire_irqsave(&sched_lock);
     if (*queue == NULL) {
-#ifdef ARM
-        asm volatile("msr daifclr, #2");
-#endif        
+        spinlock_release_irqrestore(&sched_lock, flags);
         return;
     }
 
@@ -127,9 +131,7 @@ void wake_up(wait_queue_t* queue) {
         runqueues_tail[prio]->next = t;
         runqueues_tail[prio] = t;
     }
-#ifdef ARM
-    asm volatile("msr daifclr, #2");
-#endif
+    spinlock_release_irqrestore(&sched_lock, flags);
 }
 
 void task_exit() {
@@ -151,6 +153,8 @@ void rotate_queue(task_priority priority) {
 }
 
 void schedule() {
+    u32 flags = spinlock_acquire_irqsave(&sched_lock);
+
     if (zombie_task) {
         kfree(zombie_task->stack_page);
         kfree(zombie_task);
@@ -204,4 +208,6 @@ void schedule() {
 
         cpu_switch_to(prev_task, next_task);
     }
+
+    spinlock_release_irqrestore(&sched_lock, flags);
 }

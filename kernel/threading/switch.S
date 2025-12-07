@@ -1,5 +1,6 @@
 .global cpu_switch_to
 .global ret_from_fork
+.extern sched_unlock_release
 
 # void cpu_switch_to(struct task* prev, struct task* next);
 # x0 = pointer to 'prev' task struct
@@ -28,8 +29,7 @@ cpu_switch_to:
     ret
 
 ret_from_fork:
-#   Enables Interrupts immediately!
-    msr daifclr, #2
+    bl sched_unlock_release
     
 #   Calls the entry point function
     blr x19
