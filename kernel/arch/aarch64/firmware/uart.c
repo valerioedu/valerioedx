@@ -14,7 +14,7 @@
 #define UART_FR_TXFF (1 << 5)
 #define UART_RX_IRQ  (1 << 4)
 
-#define RX_BUF_SIZE 256 // For the circular buffer
+#define RX_BUF_SIZE 512 // For the circular buffer
 
 extern u8 *uart;
 
