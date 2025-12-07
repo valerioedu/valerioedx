@@ -2,7 +2,9 @@
 #include <string.h>
 #include <kio.h>
 
-static u8 *bitmap = NULL;
+static u32 *frame_stack = NULL;
+static u32 stack_top = 0;      // Points to the next free slot (or count of free frames)
+static u32 stack_capacity = 0;
 static u32 used_frames = 0;
 
 static inline u32 phys_to_index(uintptr_t addr) {
@@ -14,70 +16,81 @@ static inline uintptr_t index_to_phys(u32 idx) {
     return PHY_RAM_BASE + ((uintptr_t)idx << PAGE_SHIFT);
 }
 
-// Helpers for bit manipulation
-static inline void bitmap_set(u32 bit) {
-    bitmap[bit / 8] |= (1 << (bit % 8));
-}
-
-static inline void bitmap_unset(u32 bit) {
-    bitmap[bit / 8] &= ~(1 << (bit % 8));
-}
-
-static inline bool bitmap_test(u32 bit) {
-    return bitmap[bit / 8] & (1 << (bit % 8));
-}
-
 void pmm_init(uintptr_t kernel_end) {
-    // Page aligned after kernel end
-    uintptr_t bitmap_start = (kernel_end + PAGE_SIZE - 1) & ~(PAGE_SIZE - 1);
-    bitmap = (u8*)bitmap_start;
+    uintptr_t stack_start = (kernel_end + PAGE_SIZE - 1) & ~(PAGE_SIZE - 1);
     
-    memset(bitmap, 0, BITMAP_SIZE);
+    size_t stack_size_bytes = TOTAL_FRAMES * sizeof(u32);
     
-    // Total used memory
-    uintptr_t used_end = bitmap_start + BITMAP_SIZE;
-    size_t used_size   = used_end - PHY_RAM_BASE;
-    pmm_mark_used_region(PHY_RAM_BASE, used_size);
+    frame_stack = (u32*)stack_start;
+    stack_capacity = TOTAL_FRAMES;
+    stack_top = 0;
 
-    kprintf("[PMM] Initialized. Bitmap at 0x%x, Size: %d KB\n", bitmap, BITMAP_SIZE / 1024);
-    kprintf("[PMM] Managing RAM: 0x%llx - 0x%llx\n", PHY_RAM_BASE, PHY_RAM_END);
+    uintptr_t pmm_reserved_end = stack_start + stack_size_bytes;
+
+    kprintf("[PMM] Initializing Page Stack Allocator...\n");
+    kprintf("[PMM] Stack at 0x%x, Size: %d KB\n", frame_stack, stack_size_bytes / 1024);
+
+    for (u32 i = 0; i < TOTAL_FRAMES; i++) {
+        uintptr_t addr = index_to_phys(i);
+
+        // If used don't push to stack, else push
+        if (addr >= PHY_RAM_BASE && addr < pmm_reserved_end) {
+            used_frames++;
+        } else {
+            if (stack_top < stack_capacity)
+                frame_stack[stack_top++] = i;
+        }
+    }
+
+    kprintf("[PMM] Initialization complete. Free frames: %d\n", stack_top);
 }
 
 void pmm_mark_used_region(uintptr_t base, size_t size) {
     u32 start_idx = phys_to_index(base);
-    u32 end_idx   = phys_to_index(base + size + PAGE_SIZE - 1); // Round up
+    u32 end_idx   = phys_to_index(base + size + PAGE_SIZE - 1);
 
-    if (start_idx == (u32)-1) return; // Address out of range
+    if (start_idx == (u32)-1) return;
 
-    for (u32 i = start_idx; i < end_idx; i++) {
-        if (i < TOTAL_FRAMES && !bitmap_test(i)) {
-            bitmap_set(i);
-            used_frames++;
+    // This is linear with a stack, but is called just at the start of the kernel
+    for (u32 target = start_idx; target < end_idx; target++) {
+        for (u32 i = 0; i < stack_top; i++) {
+            if (frame_stack[i] == target) {
+                stack_top--;
+                frame_stack[i] = frame_stack[stack_top];
+                used_frames++;
+                break; 
+            }
         }
     }
 }
 
 uintptr_t pmm_alloc_frame() {
-    // Linear search
-    for (u32 i = 0; i < TOTAL_FRAMES; i++) {
-        if (!bitmap_test(i)) {
-            bitmap_set(i);
-            used_frames++;
-            return index_to_phys(i);
-        }
+    // O(1) with a stack
+    if (stack_top == 0) {
+        kprintf("[PMM] CRITICAL: Out of Memory!\n");
+        return 0;
     }
+
+    // Pop from stack
+    stack_top--;
+    u32 idx = frame_stack[stack_top];
+    used_frames++;
     
-    kprintf("[PMM] CRITICAL: Out of Memory!\n");
-    return 0;
+    return index_to_phys(idx);
 }
 
 void pmm_free_frame(uintptr_t addr) {
     u32 idx = phys_to_index(addr);
     
-    if (idx != (u32)-1 && idx < TOTAL_FRAMES) {
-        if (bitmap_test(idx)) {
-            bitmap_unset(idx);
-            used_frames--;
-        }
+    if (idx == (u32)-1 || idx >= TOTAL_FRAMES) return;
+
+    // Safety check to not overflow the stack
+    if (stack_top >= stack_capacity) {
+        kprintf("[PMM] Error: Stack overflow on free!\n");
+        return;
     }
+
+    // Push to stack
+    frame_stack[stack_top++] = idx;
+    used_frames--;
 }
