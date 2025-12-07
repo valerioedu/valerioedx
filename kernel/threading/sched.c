@@ -12,6 +12,7 @@ static task_t *runqueues[COUNT];
 static task_t *runqueues_tail[COUNT];
 
 static task_t *current_task = NULL;
+static task_t *zombie_task = NULL;
 static u64 pid_counter = 0;
 
 void idle() {
@@ -74,6 +75,10 @@ void task_create(void (*entry_point)(), task_priority priority) {
 }
 
 void sleep_on(wait_queue_t* queue) {
+#ifdef ARM
+    asm volatile("msr daifset, #2");
+#endif
+
     current_task->state = TASK_BLOCKED;
 
     current_task->next_wait = *queue;
@@ -88,10 +93,22 @@ void sleep_on(wait_queue_t* queue) {
     }
 
     schedule();
+
+#ifdef ARM
+    asm volatile("msr daifclr, #2");
+#endif
 }
 
 void wake_up(wait_queue_t* queue) {
-    if (*queue == NULL) return;
+#ifdef ARM
+    asm volatile("msr daifset,  #2");
+#endif
+    if (*queue == NULL) {
+#ifdef ARM
+        asm volatile("msr daifclr, #2");
+#endif        
+        return;
+    }
 
     task_t* t = *queue;
     *queue = t->next_wait;
@@ -110,6 +127,9 @@ void wake_up(wait_queue_t* queue) {
         runqueues_tail[prio]->next = t;
         runqueues_tail[prio] = t;
     }
+#ifdef ARM
+    asm volatile("msr daifclr, #2");
+#endif
 }
 
 void task_exit() {
@@ -131,6 +151,11 @@ void rotate_queue(task_priority priority) {
 }
 
 void schedule() {
+    if (zombie_task) {
+        kfree(zombie_task->stack_page);
+        kfree(zombie_task);
+        zombie_task = NULL;
+    }
     // Round Robin
     task_t* prev_task = current_task;
     task_t* next_task = NULL;
@@ -148,9 +173,6 @@ void schedule() {
             if (runqueues[i] == NULL) {
                 runqueues_tail[i] = NULL;
             }
-
-            kfree(curr->stack_page);
-            kfree(curr);
 
             curr = runqueues[i];
         }
@@ -172,6 +194,8 @@ void schedule() {
     }
 
     if (next_task != prev_task) {
+        if (prev_task->state == TASK_EXITED) zombie_task = prev_task;
+        
         current_task = next_task;
 
         if (current_task->state == TASK_READY) {
