@@ -36,7 +36,16 @@ struct cpu_context {
     u64 x28;
     u64 fp;  // x29
     u64 lr;  // x30
-    u64 sp;  
+    u64 sp;
+
+    __uint128_t q8;
+    __uint128_t q9;
+    __uint128_t q10;
+    __uint128_t q11;
+    __uint128_t q12;
+    __uint128_t q13;
+    __uint128_t q14;
+    __uint128_t q15;
 };
 
 typedef struct task {

@@ -16,6 +16,11 @@ cpu_switch_to:
     mov x9, sp
     str x9, [x0, #96]
 
+    stp q8,  q9,  [x0, #112]
+    stp q10, q11, [x0, #144]
+    stp q12, q13, [x0, #176]
+    stp q14, q15, [x0, #208]
+
     ldp x19, x20, [x1, #0]
     ldp x21, x22, [x1, #16]
     ldp x23, x24, [x1, #32]
@@ -25,6 +30,11 @@ cpu_switch_to:
 
     ldr x9, [x1, #96]
     mov sp, x9
+
+    ldp q8,  q9,  [x1, #112]
+    ldp q10, q11, [x1, #144]
+    ldp q12, q13, [x1, #176]
+    ldp q14, q15, [x1, #208]
 
     ret
 

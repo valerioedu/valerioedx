@@ -1,11 +1,13 @@
 #include <pmm.h>
 #include <string.h>
 #include <kio.h>
+#include <spinlock.h>
 
 static u32 *frame_stack = NULL;
 static u32 stack_top = 0;      // Points to the next free slot (or count of free frames)
 static u32 stack_capacity = 0;
 static u32 used_frames = 0;
+static spinlock_t pmm_lock = 0;
 
 static inline u32 phys_to_index(uintptr_t addr) {
     if (addr < PHY_RAM_BASE || addr >= PHY_RAM_END) return (u32)-1;
@@ -65,9 +67,13 @@ void pmm_mark_used_region(uintptr_t base, size_t size) {
 }
 
 uintptr_t pmm_alloc_frame() {
+    u32 flags = spinlock_acquire_irqsave(&pmm_lock);
+
     // O(1) with a stack
     if (stack_top == 0) {
         kprintf("[PMM] CRITICAL: Out of Memory!\n");
+        
+        spinlock_release_irqrestore(&pmm_lock, flags);
         return 0;
     }
 
@@ -75,11 +81,16 @@ uintptr_t pmm_alloc_frame() {
     stack_top--;
     u32 idx = frame_stack[stack_top];
     used_frames++;
+
+    uintptr_t release = index_to_phys(idx);
     
+    spinlock_release_irqrestore(&pmm_lock, flags);
     return index_to_phys(idx);
 }
 
 void pmm_free_frame(uintptr_t addr) {
+    u32 flags = spinlock_acquire_irqsave(&pmm_lock);
+
     u32 idx = phys_to_index(addr);
     
     if (idx == (u32)-1 || idx >= TOTAL_FRAMES) return;
@@ -93,4 +104,6 @@ void pmm_free_frame(uintptr_t addr) {
     // Push to stack
     frame_stack[stack_top++] = idx;
     used_frames--;
+
+    spinlock_release_irqrestore(&pmm_lock, flags);
 }

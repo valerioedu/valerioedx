@@ -4,8 +4,6 @@
 #include <string.h>
 #include <spinlock.h>
 
-//TODO: Implement spinlocks for race conditions
-
 extern void ret_from_fork();
 extern void cpu_switch_to(struct task* prev, struct task* next);
 
