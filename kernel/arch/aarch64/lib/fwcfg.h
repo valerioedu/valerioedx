@@ -4,7 +4,6 @@
 #include <lib.h>
 
 /* QEMU virt Machine Hardware Constants */
-#define FW_CFG_BASE             0x09020000
 #define FW_CFG_CTL_OFF          0x08
 #define FW_CFG_DATA_OFF         0x00
 #define FW_CFG_DMA_OFF          0x10
@@ -53,6 +52,7 @@ static inline u64 bswap64(u64 x) {
     return __builtin_bswap64(x);
 }
 
+void fw_cfg_init(u64 base_addr);
 u16 find_ramfb_file();
 void fw_cfg_dma(u32 control, void* data, u32 len);
 

@@ -3,30 +3,25 @@
 
 #include <lib.h>
 
-// AArch64 Translation Table Descriptors (Level 1 / Block Descriptor)
-// Just 1GB blocks for simplicity right now.
+#define PAGE_SIZE   4096ULL
+#define PAGE_SHIFT  12
 
-// Descriptor Types
-#define PT_TABLE        0b11    // Points to next level table
-#define PT_BLOCK        0b01    // Points to physical memory (1GB or 2MB)
-#define PT_PAGE         0b11    // Points to physical memory (4KB)
+// Standard AArch64 Page Table Flags
+#define PT_VALID    (1ULL << 0)
+#define PT_TABLE    (1ULL << 1)
+#define PT_PAGE     (1ULL << 1)
+#define PT_BLOCK    (0ULL << 1)
 
-// Access Permissions
-#define PT_AF           (1ULL << 10) // Access Flag (Must be 1)
-#define PT_SH_INNER     (3ULL << 8)  // Inner Shareable
-#define PT_UXN          (1ULL << 54) // User Execute Never
-#define PT_PXN          (1ULL << 53) // Privileged Execute Never
+#define PT_AF       (1ULL << 10) // Access Flag
+#define PT_SH_INNER (3ULL << 8)  // Inner Shareable
 
-// MAIR Indices
-#define MT_DEVICE       0x0
-#define MT_NORMAL       0x1
-
-// Devices
-#define VMM_DEVICE  (PT_BLOCK | PT_AF | (MT_DEVICE << 2) | PT_UXN | PT_PXN)
-
-// Normal Ram
-#define VMM_KERNEL  (PT_BLOCK | PT_AF | PT_SH_INNER | (MT_NORMAL << 2))
+#define VM_WRITABLE  (1ULL << 0)
+#define VM_USER      (1ULL << 1)
+#define VM_NO_EXEC   (1ULL << 2)
+#define VM_DEVICE    (1ULL << 3) // Memory Mapped I/O (nGnRnE)
 
 void init_vmm();
+void vmm_map_page(uintptr_t virt, uintptr_t phys, u64 flags);
+void vmm_map_region(uintptr_t virt, uintptr_t phys, size_t size, u64 flags);
 
 #endif

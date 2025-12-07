@@ -1,7 +1,11 @@
 #include <fwcfg.h>
 #include <string.h>
 
-static volatile u64* fw_cfg_dma_addr = (u64*)(FW_CFG_BASE + FW_CFG_DMA_OFF);
+static volatile u64* fw_cfg_dma_addr = NULL;
+
+void fw_cfg_init(u64 base_addr) {
+    fw_cfg_dma_addr = (u64*)(base_addr + FW_CFG_DMA_OFF);
+}
 
 void fw_cfg_dma(u32 control, void* data, u32 len) {
     volatile FWCfgDmaAccess access __attribute__((aligned(16)));

@@ -18,10 +18,11 @@
 extern u64 _kernel_end;
 u8 *uart = (u8*)0x09000000;
 u64 *gic = (u64*)0x08000000;
+u64 *fwcfg = (u64*)0x09020000;
+u64 *virtio = (u64*)0x0A000000;
 
 void main() {
     dtb_init(0x40000000);
-    ramfb_init();
 #ifndef DEBUG
     kprintf("\033[2J");
     kprintf("\033[H");
@@ -45,11 +46,19 @@ void main() {
 
     uart = (u8*)dtb_get_reg("pl011");
     gic  = (u64*)dtb_get_reg("intc");
+    fwcfg = (u64*)dtb_get_reg("fw-cfg");
+    virtio = (u64*)dtb_get_reg("mmio");
+    
+    fw_cfg_init((u64)fwcfg);
 
     kprintf("Hardware Discovery:\n");
     kprintf("  UART PL011 Found at: 0x%llx\n", uart);
     kprintf("  GIC Found at:        0x%llx\n", gic);
+    kprintf("  FWCFG Found at:      0x%llx\n", fwcfg);
+    kprintf("  VIRTIO Found at:     0x%llx\n", virtio);
     
+    ramfb_init();
+
     kprintf("Now switching to the graphical interface...\n");
     set_stdio(RAMFB);
 
