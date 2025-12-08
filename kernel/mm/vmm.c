@@ -156,8 +156,8 @@ void init_vmm() {
     // Setup Translation Control (TCR)
     // T0SZ=25 (User 512GB), T1SZ=25 (Kernel 512GB)
     // TG0=4KB, TG1=4KB
-    // IPS=32-bit PA
-    u64 tcr = (25UL << 0) | (0UL << 14) | (0UL << 32) | (25UL << 16) | (2UL << 30);
+    // IPS=40-bit PA
+    u64 tcr = (25UL << 0) | (0UL << 14) | (2UL << 32) | (25UL << 16) | (2UL << 30);
     write_tcr(tcr);
 #endif
 
