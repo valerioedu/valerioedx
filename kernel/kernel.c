@@ -2,11 +2,8 @@
 #include <lib.h>
 #include <kio.h>
 #include <sched.h>
-#include <ramfb.h>
 #include <vfs.h>
 #include <heap.h>
-#include <gic.h>
-#include <irq.h>
 
 void test_process() {
     kprintf("\n");

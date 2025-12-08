@@ -16,38 +16,71 @@
 
 static u64* root_table;
 
-static inline void write_mair(u64 val) { asm volatile("msr mair_el1, %0" :: "r"(val)); }
-static inline void write_tcr(u64 val)  { asm volatile("msr tcr_el1, %0" :: "r"(val)); }
-static inline void write_ttbr0(u64 val){ asm volatile("msr ttbr0_el1, %0" :: "r"(val)); }
-static inline void write_ttbr1(u64 val){ asm volatile("msr ttbr1_el1, %0" :: "r"(val)); }
-static inline void write_sctlr(u64 val){ asm volatile("msr sctlr_el1, %0" :: "r"(val)); }
+// Helper flag
+static bool paging_enabled = false;
+
+static void* safe_P2V(u64 phys) {
+    if (paging_enabled) {
+        return (void*)((uintptr_t)phys + PHYS_OFFSET);
+    }
+    return (void*)phys;
+}
+
+#ifdef ARM
+static inline void isb() { asm volatile("isb" ::: "memory"); }
+static inline void dsb() { asm volatile("dsb ish" ::: "memory"); }
 
 static inline void tlb_flush() {
     asm volatile("tlbi vmalle1is"); 
-    asm volatile("dsb ish");
-    asm volatile("isb");
+    dsb();
+    isb();
 }
+
+static inline void write_mair(u64 val) { asm volatile("msr mair_el1, %0" :: "r"(val) : "memory"); }
+static inline void write_tcr(u64 val)  { asm volatile("msr tcr_el1, %0" :: "r"(val) : "memory"); }
+static inline void write_ttbr0(u64 val){ asm volatile("msr ttbr0_el1, %0" :: "r"(val) : "memory"); }
+static inline void write_ttbr1(u64 val){ asm volatile("msr ttbr1_el1, %0" :: "r"(val) : "memory"); }
+static inline void write_sctlr(u64 val){ asm volatile("msr sctlr_el1, %0" :: "r"(val) : "memory"); }
 
 static u64* get_next_table(u64* table, u64 idx) {
     if (table[idx] & PT_VALID) {
         // For 4KB granule, output address is bits [47:12]
         u64 phys = table[idx] & 0x0000FFFFFFFFF000ULL;
-        return (u64*)phys;
+        return (u64*)safe_P2V(phys);
     }
-    
+
     // Invalid
     u64 new_table_phys = pmm_alloc_frame();
     if (!new_table_phys) return NULL;   // Out of memory
     
-    memset((void*)new_table_phys, 0, PAGE_SIZE);
+    u64* new_table_virt = (u64*)safe_P2V(new_table_phys);
+
+    memset((void*)new_table_virt, 0, PAGE_SIZE);
     
     table[idx] = new_table_phys | PT_TABLE | PT_VALID;
+
+    return (u64*)new_table_virt;
+}
+#endif
+
+void dcache_clean_poc(void *addr, size_t size) {
+#ifdef ARM
+    uintptr_t start = (uintptr_t)addr & ~(64 - 1);
+    uintptr_t end = (uintptr_t)addr + size;
     
-    return (u64*)new_table_phys;
+    asm volatile("dsb sy" ::: "memory");
+    while (start < end) {
+        asm volatile("dc cvac, %0" :: "r"(start) : "memory");
+        start += 64;
+    }
+    asm volatile("dsb sy" ::: "memory");
+    asm volatile("isb" ::: "memory");
+#endif
 }
 
 // Maps a single 4KB page
 void vmm_map_page(uintptr_t virt, uintptr_t phys, u64 flags) {
+#ifdef ARM
     // Indices for 39-bit Virtual Address Space
     // L1: bits [38:30]
     // L2: bits [29:21]
@@ -89,6 +122,7 @@ void vmm_map_page(uintptr_t virt, uintptr_t phys, u64 flags) {
     }
 
     l3_table[l3_idx] = entry;
+#endif
 }
 
 // Maps a contiguous range of physical memory
@@ -107,9 +141,12 @@ extern u64 *fwcfg;
 extern u64 *virtio;
 
 void init_vmm() {
-    root_table = (u64*)pmm_alloc_frame();
-    memset(root_table, 0, PAGE_SIZE);
+    u64 root_phys = pmm_alloc_frame();
+    memset((void*)root_phys, 0, PAGE_SIZE);
 
+    root_table = (u64*)root_phys;
+
+#ifdef ARM
     // Index 0: Device-nGnRnE (Strict order, no cache)
     // Index 1: Normal Memory (Outer/Inner Write-Back Cacheable)
     u64 mair = (0x00UL << (8 * MT_DEVICE_nGnRnE)) | 
@@ -122,23 +159,27 @@ void init_vmm() {
     // IPS=32-bit PA
     u64 tcr = (25UL << 0) | (0UL << 14) | (0UL << 32) | (25UL << 16) | (2UL << 30);
     write_tcr(tcr);
-    
+#endif
+
     // Kernel map
     u64 kernel_size = (u64)&_kernel_end - 0x40000000;
     vmm_map_region(0x40000000, 0x40000000, kernel_size, VM_WRITABLE);
 
+    vmm_map_region(PHYS_OFFSET + PHY_RAM_BASE, PHY_RAM_BASE, PHY_RAM_SIZE, VM_WRITABLE);
+
     // Heap map
     vmm_map_region(0x50000000, 0x50000000, 8 * 1024 * 1024, VM_WRITABLE);
 
+#ifdef ARM
     // MMIO Peripherals map
-    vmm_map_region((uintptr_t)gic, (uintptr_t)gic, 0x00100000, VM_DEVICE | VM_WRITABLE); // GIC
-    vmm_map_region((uintptr_t)uart, (uintptr_t)uart, 0x00100000, VM_DEVICE | VM_WRITABLE); // UART
-    vmm_map_region((uintptr_t)fwcfg, (uintptr_t)fwcfg, 0x00010000, VM_DEVICE | VM_WRITABLE); // FW_CFG
-    vmm_map_region((uintptr_t)virtio, (uintptr_t)virtio, 0x00100000, VM_DEVICE | VM_WRITABLE); // VirtIO
+    vmm_map_region(PHYS_OFFSET + (uintptr_t)gic, (uintptr_t)gic, 0x00100000, VM_DEVICE | VM_WRITABLE); // GIC
+    vmm_map_region(PHYS_OFFSET + (uintptr_t)uart, (uintptr_t)uart, 0x00100000, VM_DEVICE | VM_WRITABLE); // UART
+    vmm_map_region(PHYS_OFFSET + (uintptr_t)fwcfg, (uintptr_t)fwcfg, 0x00010000, VM_DEVICE | VM_WRITABLE); // FW_CFG
+    vmm_map_region(PHYS_OFFSET + (uintptr_t)virtio, (uintptr_t)virtio, 0x00100000, VM_DEVICE | VM_WRITABLE); // VirtIO
 
     // Activates Paging
-    write_ttbr0((u64)root_table); // User space
-    write_ttbr1((u64)root_table); // Kernel space (Temporary sharing)
+    write_ttbr0(root_phys); // User space
+    write_ttbr1(root_phys); // Kernel space (Temporary sharing)
 
     tlb_flush();
 
@@ -148,5 +189,29 @@ void init_vmm() {
     sctlr |= (1 << 0) | (1 << 2) | (1 << 12);
     write_sctlr(sctlr);
 
-    kprintf("[VMM] 4KB Paging Engine Initialized.\n");
+    isb();
+
+    uart = (u8*)((uintptr_t)uart + PHYS_OFFSET);
+    gic = (u64*)((uintptr_t)gic + PHYS_OFFSET);
+    fwcfg = (u64*)((uintptr_t)fwcfg + PHYS_OFFSET);
+    virtio = (u64*)((uintptr_t)virtio + PHYS_OFFSET);
+#endif
+
+    paging_enabled = true;
+    
+    root_table = (u64*)((uintptr_t)root_phys + PHYS_OFFSET);
+    kprintf("[VMM] Higher Half Kernel Initialized.\n");
+#ifdef ARM
+    // Switches execution to Higher Half
+    asm volatile(
+        "mov x0, %0         \n"     // Loads PHYS_OFFSET into x0
+        "add sp, sp, x0     \n"     // Adds the offset to the SP
+        "add x29, x29, x0   \n"     // then to the frame pointer
+        "adr x1, 1f         \n"
+        "add x1, x1, x0     \n"     // Calculates high address
+        "br x1              \n"     // Jump to high address 
+        "1:                 \n"
+        : : "r"(PHYS_OFFSET) : "x0", "x1", "memory"
+    );
+#endif
 }

@@ -42,7 +42,7 @@ void main() {
     level &= 0b11;
     kprintf("Exception Level: %d\n", level);
 
-    heap_init(0x50000000, 8 * 1024 * 1024);
+    heap_init(PHYS_OFFSET + 0x50000000, 8 * 1024 * 1024);
 
     uart = (u8*)dtb_get_reg("pl011");
     gic  = (u64*)dtb_get_reg("intc");
