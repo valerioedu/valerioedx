@@ -1,7 +1,7 @@
 #include <virtio.h>
 #include <string.h>
 
-u64 virtio_fs_read(inode_t* node, u64 offset, u64 size, u8* buffer) {
+u64 virtio_blk_fs_read(inode_t* node, u64 offset, u64 size, u8* buffer) {
     if (size == 0) return 0;
 
     u64 start_sector = offset / VIRTIO_BLK_SECTOR_SIZE;
@@ -34,7 +34,7 @@ u64 virtio_fs_read(inode_t* node, u64 offset, u64 size, u8* buffer) {
     return read_len;
 }
 
-u64 virtio_fs_write(inode_t* node, u64 offset, u64 size, u8* buffer) {
+u64 virtio_blk_fs_write(inode_t* node, u64 offset, u64 size, u8* buffer) {
     if (size == 0) return 0;
 
     u64 start_sector = offset / VIRTIO_BLK_SECTOR_SIZE;
@@ -72,3 +72,10 @@ u64 virtio_fs_write(inode_t* node, u64 offset, u64 size, u8* buffer) {
 
     return written_len;
 }
+
+inode_ops virtio_blk_ops = {
+    .read = virtio_blk_fs_read,
+    .write = virtio_blk_fs_write,
+    .close = NULL,
+    .open = NULL
+};

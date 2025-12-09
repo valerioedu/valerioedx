@@ -34,10 +34,22 @@
 #define VRING_DESC_F_WRITE      2
 #define VRING_DESC_F_INDIRECT   4
 
+#define EV_SYN  0x00
+#define EV_KEY  0x01
+#define EV_REL  0x02
+#define EV_ABS  0x03
+
 #define VIRTIO_BLK_T_IN         0
 #define VIRTIO_BLK_T_OUT        1
 
 #define VIRTIO_BLK_SECTOR_SIZE  512
+#define KB_BUFFER_SIZE 1024
+
+typedef struct {
+    u16 type;
+    u16 code;
+    u32 value;
+} __attribute__((packed)) virtio_input_event;
 
 typedef struct {
     u64 addr;
@@ -73,14 +85,12 @@ void virtio_init();
 int virtio_blk_read(u64 sector, u8* buffer);
 int virtio_blk_write(u64 sector, u8* buffer);
 void virtio_blk_handler();
-u64 virtio_fs_read(inode_t* node, u64 offset, u64 size, u8* buffer);
-u64 virtio_fs_write(inode_t* node, u64 offset, u64 size, u8* buffer);
+void virtio_input_handler();
+u64 virtio_blk_fs_read(inode_t* node, u64 offset, u64 size, u8* buffer);
+u64 virtio_blk_fs_write(inode_t* node, u64 offset, u64 size, u8* buffer);
+u64 virtio_kb_fs_read(inode_t *node, u64 offset, u64 size, u8 *buffer);
 
-static inode_ops virtio_blk_ops = {
-    .read = virtio_fs_read,
-    .write = virtio_fs_write,
-    .close = NULL,
-    .open = NULL
-};
+extern inode_ops virtio_blk_ops;
+extern inode_ops virtio_kb_ops;
 
 #endif

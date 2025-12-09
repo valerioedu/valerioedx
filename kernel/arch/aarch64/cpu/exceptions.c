@@ -60,22 +60,30 @@ void el1_sync_handler() {
 
 void el1_irq_handler() {
     u32 id = gic_acknowledge_irq();
-
-    gic_end_irq(id);
-
     extern u8 virtio_blk_irq_id;
+    extern u8 virtio_key_irq_id;
     
+    static int first = 1;
+    if (first && id != 30) {
+        kprintf("[DEBUG] blk_irq=%d, key_irq=%d, got id=%d\n", 
+                virtio_blk_irq_id, virtio_key_irq_id, id);
+        first = 0;
+    }
+
     switch (id) {
         case 30: timer_handler(); break;
         case 33: uart_irq_handler(); break;
         default:
-            if (virtio_blk_irq_id) {
+            if (id == virtio_blk_irq_id) {
                 virtio_blk_handler();
+            } else if (id == virtio_key_irq_id) {
+                virtio_input_handler();
             } else {
                 kprintf("[ EXC ] Unknown IRQ ID: %d\n", id);
             }
             break;
     }
+    gic_end_irq(id);
 }
 
 void el1_fiq_handler() {

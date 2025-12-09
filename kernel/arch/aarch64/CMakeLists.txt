@@ -86,6 +86,7 @@ add_custom_target(run
             -kernel kernel.elf -device ramfb 
             -drive if=none,file=../disk.img,format=raw,id=hd0 
             -device virtio-blk-device,drive=hd0
+            -device virtio-keyboard-device
             -serial mon:stdio -dtb virt.dtb
     DEPENDS kernel.elf
     WORKING_DIRECTORY ${CMAKE_BINARY_DIR}
@@ -98,6 +99,7 @@ add_custom_target(debug
             -kernel kernel.elf -device ramfb 
             -drive if=none,file=../disk.img,format=raw,id=hd0 
             -device virtio-blk-device,drive=hd0
+            -device virtio-keyboard-device
             -serial mon:stdio -dtb virt.dtb -d int
     DEPENDS kernel.elf
     WORKING_DIRECTORY ${CMAKE_BINARY_DIR}
