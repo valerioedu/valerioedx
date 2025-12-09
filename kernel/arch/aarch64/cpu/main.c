@@ -21,6 +21,45 @@ u64 *gic = (u64*)0x08000000;
 u64 *fwcfg = (u64*)0x09020000;
 u64 *virtio = (u64*)0x0A000000;
 
+void signature() {
+    kprintf("[ [CVirtIO Test [W] Checking data persistence...\n");
+    u8 *buf = (u8*)kmalloc(512);
+    if (!buf) {
+        kprintf("[ [RVirtIO Test [W] Failed to allocate buffer\n");
+        return;
+    }
+
+    virtio_blk_read(1, buf);
+    
+    const char *signature = "VALERIOEDX_PERSISTENT_DATA";
+
+    int match = 1;
+    for (int i = 0; signature[i] != 0; i++) {
+        if (buf[i] != signature[i]) {
+            match = 0;
+            break;
+        }
+    }
+
+    if (match) {
+        kprintf("[ [GVirtIO Test [W] SUCCESS: Data persisted from previous boot!\n");
+        kprintf("[ [CVirtIO Test [W] Content: [G%s[W\n", buf);
+    } else {
+        kprintf("[ [RVirtIO Test [W] No signature found (First run or clean disk).\n");
+        kprintf("[ [RVirtIO Test [W] Writing signature to sector 1...\n");
+        
+        memset(buf, 0, 512);
+        
+        int i = 0;
+        while(signature[i]) { buf[i] = signature[i]; i++; }
+        buf[i] = 0;
+
+        virtio_blk_write(1, buf);
+    }
+
+    kfree(buf);
+}
+
 void main() {
     dtb_init(0x40000000);
 #ifndef DEBUG
@@ -74,6 +113,8 @@ void main() {
     timer_init(1);
 #endif
     irq_enable();
+
+    signature();
 
     kmain();
     while (1) asm volatile("wfi");

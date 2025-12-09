@@ -3,6 +3,7 @@
 #include <gic.h>
 #include <timer.h>
 #include <uart.h>
+#include <virtio.h>
 
 void dump_stack() {
     uint64_t fp;
@@ -65,7 +66,14 @@ void el1_irq_handler() {
     switch (id) {
         case 30: timer_handler(); break;
         case 33: uart_irq_handler(); break;
-        default: kprintf("[ EXC ] Unknown IRQ ID: %d\n", id); break;
+        default:
+            // TODO: Standardize this
+            if (id >= 48 && id < 48+32) {
+                virtio_blk_handler();
+            } else {
+                kprintf("[ EXC ] Unknown IRQ ID: %d\n", id);
+            }
+            break;
     }
 }
 

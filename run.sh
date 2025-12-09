@@ -59,6 +59,7 @@ while [[ $# -gt 0 ]]; do
             ;;
         -new|--new-disk)
             NEW=true
+            shift
             ;;
         -h|--help)
             echo "Usage: ./run.sh -machine [MACHINE] [OPTIONS]"
@@ -229,8 +230,10 @@ case $MACHINE in
         rm -rf build
         mkdir build && cd build
 
-        if [ "$NEW" = true ] || [ ! -f disk.img ]; then
+        if [ "$NEW" = true ] || [ ! -f ../disk.img ]; then
+            cd ..
             dd if=/dev/zero of=disk.img bs=1M count=128 status=none
+            cd build
         fi
 
         if $DEBUG; then

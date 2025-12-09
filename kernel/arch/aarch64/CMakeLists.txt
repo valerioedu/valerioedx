@@ -84,8 +84,8 @@ add_custom_target(run
     COMMAND dtc -I dts -O dtb -o virt.dtb ../virt.dts
     COMMAND qemu-system-aarch64 -M virt -m 2G -cpu cortex-a53 
             -kernel kernel.elf -device ramfb 
-            -drive if=none,file=disk.img,format=raw,id=hd0 
-            -device virtio-blk-pci,drive=hd0,disable-legacy=on,disable-modern=off
+            -drive if=none,file=../disk.img,format=raw,id=hd0 
+            -device virtio-blk-device,drive=hd0
             -serial mon:stdio -dtb virt.dtb
     DEPENDS kernel.elf
     WORKING_DIRECTORY ${CMAKE_BINARY_DIR}
@@ -97,7 +97,7 @@ add_custom_target(debug
     COMMAND qemu-system-aarch64 -M virt -m 2G -cpu cortex-a53 
             -kernel kernel.elf -device ramfb 
             -drive if=none,file=disk.img,format=raw,id=hd0 
-            -device virtio-blk-pci,drive=hd0,disable-legacy=on,disable-modern=off
+            -device virtio-blk-device,drive=hd0
             -serial mon:stdio -dtb virt.dtb -d int
     DEPENDS kernel.elf
     WORKING_DIRECTORY ${CMAKE_BINARY_DIR}

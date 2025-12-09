@@ -32,6 +32,7 @@ inode_t *devfs_fetch_device(const char* name) {
 
 void devfs_init() {
 #ifdef ARM
+    devfs_mount_device("virtio-blk", &virtio_blk_ops);
     devfs_mount_device("uart", &uart_ops);
 #endif
 }

@@ -76,4 +76,11 @@ void virtio_blk_handler();
 u64 virtio_fs_read(inode_t* node, u64 offset, u64 size, u8* buffer);
 u64 virtio_fs_write(inode_t* node, u64 offset, u64 size, u8* buffer);
 
+static inode_ops virtio_blk_ops = {
+    .read = virtio_fs_read,
+    .write = virtio_fs_write,
+    .close = NULL,
+    .open = NULL
+};
+
 #endif
