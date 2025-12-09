@@ -27,8 +27,14 @@ char virtio_kb_getchar(void) {
 
 // Read multiple characters into buffer (blocks until newline or buffer full)
 u64 virtio_kb_read(char *buf, u64 count) {
+    if (count == 0) return 0;
+    
     u64 i = 0;
-    while (i < count - 1) {  // Leave room for null terminator
+    
+    // In canonical mode: read until newline or buffer full
+    // In raw mode: return immediately with available data
+    // For now, implementing canonical mode (line-buffered)
+    while (i < count) {
         // Wait for input if buffer is empty
         while (kb_head == kb_tail) {
             sleep_on(&kb_wait_queue);
@@ -39,12 +45,8 @@ u64 virtio_kb_read(char *buf, u64 count) {
         
         buf[i++] = c;
         
-        // Return on newline (line-buffered input)
-        if (c == '\n' || c == '\r') {
-            break;
-        }
+        if (c == '\n') break;
     }
-    buf[i] = '\0';
     return i;
 }
 

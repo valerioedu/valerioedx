@@ -36,12 +36,16 @@ void el1_sync_handler() {
     u32 ec = (esr >> 26) & 0x3F;
 
     switch (ec) {
-        case 0x25:
+        case 0x20:  // Instruction Abort (Higher EL)
+        case 0x21:  // Data Abort   (Higher EL)
+        case 0x24:  // Instruction Abort (Lower EL)
+        case 0x25:  // Data Abort   (Lower EL)
             kprintf("\n[PANIC] SYNC EXCEPTION\n");
             kprintf("  ESR: 0x%llx (EC: 0x%x)\n", esr, ec);
             kprintf("  ELR: 0x%llx (PC)\n", elr);
             kprintf("  FAR: 0x%llx (Addr)\n", far);
             dump_stack();
+            //TODO: Implement page fault handler with copy on write and demand paging
             break;
         /* TODO: Implement syscalls later on */
         case 0x15: return; break;
@@ -62,13 +66,6 @@ void el1_irq_handler() {
     u32 id = gic_acknowledge_irq();
     extern u8 virtio_blk_irq_id;
     extern u8 virtio_key_irq_id;
-    
-    static int first = 1;
-    if (first && id != 30) {
-        kprintf("[DEBUG] blk_irq=%d, key_irq=%d, got id=%d\n", 
-                virtio_blk_irq_id, virtio_key_irq_id, id);
-        first = 0;
-    }
 
     switch (id) {
         case 30: timer_handler(); break;

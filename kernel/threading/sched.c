@@ -4,7 +4,8 @@
 #include <string.h>
 #include <spinlock.h>
 
-//TODO: Make a reaper for zombie tasks 
+//TODO: Make a reaper for zombie tasks
+//TODO: Implement mutexes and semaphores
 
 extern void ret_from_fork();
 extern void cpu_switch_to(struct task* prev, struct task* next);
