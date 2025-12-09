@@ -58,3 +58,4 @@ dkms.conf
 kernel/arch/aarch64/build
 kernel/arch/x64/build
 disk.img
+TEST.TXT

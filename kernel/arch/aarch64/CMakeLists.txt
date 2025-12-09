@@ -96,7 +96,7 @@ add_custom_target(debug
     COMMAND dtc -I dts -O dtb -o virt.dtb ../virt.dts
     COMMAND qemu-system-aarch64 -M virt -m 2G -cpu cortex-a53 
             -kernel kernel.elf -device ramfb 
-            -drive if=none,file=disk.img,format=raw,id=hd0 
+            -drive if=none,file=../disk.img,format=raw,id=hd0 
             -device virtio-blk-device,drive=hd0
             -serial mon:stdio -dtb virt.dtb -d int
     DEPENDS kernel.elf

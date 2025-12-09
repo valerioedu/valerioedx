@@ -132,7 +132,8 @@ if [[ "$MACHINE" == "virt" ]]; then
             fi
             check_and_install "dtc" "dtc" "brew install dtc"
             check_and_install "cmake" "cmake" "brew install cmake"
-            check_and_install "aarch64-elf-gcc" "aarch64-elf-gcc" "brew tap messense/macos-cross-toolchains && brew install aarch64-elf-gcc"
+            check_and_install "dosfstools" "dosfstools" "brew install dosfstools"
+            check_and_install "aarch64-elf-gcc" "aarch64-elf-gcc" "brew install aarch64-elf-gcc"
             check_and_install "qemu-system-aarch64" "qemu" "brew install qemu"
             ;;
         Linux*)
@@ -233,6 +234,9 @@ case $MACHINE in
         if [ "$NEW" = true ] || [ ! -f ../disk.img ]; then
             cd ..
             dd if=/dev/zero of=disk.img bs=1M count=128 status=none
+            /usr/sbin/mkfs.fat -F 32 -I disk.img
+            echo "Hello from the Host OS!" > TEST.TXT
+            mcopy -i disk.img TEST.TXT ::TEST.TXT
             cd build
         fi
 
