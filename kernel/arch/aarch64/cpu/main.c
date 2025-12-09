@@ -75,7 +75,7 @@ void main() {
     kprintf("MEMORY SIZE: %lluB\n             %lluMB\n             %lluGB\n",
          memory_size, memory_size / 1024 / 1024, memory_size / 1024 / 1024 / 1024);
 
-    pmm_init((uintptr_t)&_kernel_end);
+    pmm_init((uintptr_t)&_kernel_end, memory_size);
     init_vmm();
 
     int level = -1;

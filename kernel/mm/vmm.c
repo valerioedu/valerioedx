@@ -165,7 +165,7 @@ void init_vmm() {
     u64 kernel_size = (u64)&_kernel_end - 0x40000000;
     vmm_map_region(0x40000000, 0x40000000, kernel_size, VM_WRITABLE);
 
-    vmm_map_region(PHYS_OFFSET + PHY_RAM_BASE, PHY_RAM_BASE, PHY_RAM_SIZE, VM_WRITABLE);
+    vmm_map_region(PHYS_OFFSET + PHY_RAM_BASE, PHY_RAM_BASE, phy_ram_size, VM_WRITABLE);
 
     // Heap map
     vmm_map_region(0x50000000, 0x50000000, 8 * 1024 * 1024, VM_WRITABLE);

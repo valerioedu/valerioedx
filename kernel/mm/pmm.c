@@ -9,8 +9,12 @@ static u32 stack_capacity = 0;
 static u32 used_frames = 0;
 static spinlock_t pmm_lock = 0;
 
+u64 phy_ram_size = 0;
+u64 phy_ram_end = 0;
+u32 total_frames = 0;
+
 static inline u32 phys_to_index(uintptr_t addr) {
-    if (addr < PHY_RAM_BASE || addr >= PHY_RAM_END) return (u32)-1;
+    if (addr < PHY_RAM_BASE || addr >= phy_ram_end) return (u32)-1;
     return (addr - PHY_RAM_BASE) >> PAGE_SHIFT;
 }
 
@@ -18,13 +22,17 @@ static inline uintptr_t index_to_phys(u32 idx) {
     return PHY_RAM_BASE + ((uintptr_t)idx << PAGE_SHIFT);
 }
 
-void pmm_init(uintptr_t kernel_end) {
+void pmm_init(uintptr_t kernel_end, u64 ram_size) {
+    phy_ram_size = ram_size;
+    phy_ram_end = PHY_RAM_BASE + phy_ram_size;
+    total_frames = phy_ram_size / PAGE_SIZE;
+
     uintptr_t stack_start = (kernel_end + PAGE_SIZE - 1) & ~(PAGE_SIZE - 1);
     
-    size_t stack_size_bytes = TOTAL_FRAMES * sizeof(u32);
+    size_t stack_size_bytes = total_frames * sizeof(u32);
     
     frame_stack = (u32*)stack_start;
-    stack_capacity = TOTAL_FRAMES;
+    stack_capacity = total_frames;
     stack_top = 0;
 
     uintptr_t pmm_reserved_end = stack_start + stack_size_bytes;
@@ -32,7 +40,7 @@ void pmm_init(uintptr_t kernel_end) {
     kprintf("[PMM] Initializing Page Stack Allocator...\n");
     kprintf("[PMM] Stack at 0x%x, Size: %d KB\n", frame_stack, stack_size_bytes / 1024);
 
-    for (u32 i = 0; i < TOTAL_FRAMES; i++) {
+    for (u32 i = 0; i < total_frames; i++) {
         uintptr_t addr = index_to_phys(i);
 
         // If used don't push to stack, else push
@@ -93,7 +101,7 @@ void pmm_free_frame(uintptr_t addr) {
 
     u32 idx = phys_to_index(addr);
     
-    if (idx == (u32)-1 || idx >= TOTAL_FRAMES) return;
+    if (idx == (u32)-1 || idx >= total_frames) return;
 
     // Safety check to not overflow the stack
     if (stack_top >= stack_capacity) {
