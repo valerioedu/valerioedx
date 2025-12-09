@@ -3,6 +3,8 @@
 #include <kio.h>
 #include <spinlock.h>
 
+//TODO: Implement a slab allocator
+
 #define HEAP_MAGIC 0xCAFEBABE
 #define MIN_ALLOC  8
 

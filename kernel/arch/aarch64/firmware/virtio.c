@@ -16,6 +16,9 @@ static virtq_avail *virtq_avail_base;
 static virtq_used *virtq_used_base;
 static u16 last_used_idx = 0;
 
+static wait_queue_t blk_wait_queue = NULL;
+static int virtio_async = 0;
+
 static virtio_blk_req *req_headers;
 static u8 *req_statuses;
 
@@ -87,6 +90,10 @@ void virtio_init() {
     }
 }
 
+void virtio_set_async(int enable) {
+    virtio_async = enable;
+}
+
 int virtio_blk_op(u64 sector, u8* buffer, int write) {
     if (virtio_blk_base == 0) return -1;
 
@@ -127,7 +134,11 @@ int virtio_blk_op(u64 sector, u8* buffer, int write) {
     
     // Wait for completion
     while (last_used_idx == virtq_used_base->idx) {
-        asm volatile("wfe");
+        if (virtio_async) {
+            sleep_on(&blk_wait_queue);
+        } else {
+            asm volatile("wfi");
+        }
     }
     
     last_used_idx++;
@@ -147,4 +158,5 @@ void virtio_blk_handler() {
     if (virtio_blk_base == 0) return;
     u32 status = mmio_read32(virtio_blk_base + VIRTIO_MMIO_INTERRUPT_STATUS);
     mmio_write32(virtio_blk_base + VIRTIO_MMIO_INTERRUPT_ACK, status);
+    wake_up(&blk_wait_queue);
 }
