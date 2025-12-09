@@ -22,6 +22,8 @@ static int virtio_async = 0;
 static virtio_blk_req *req_headers;
 static u8 *req_statuses;
 
+u8 virtio_blk_irq_id = 0;
+
 void virtio_blk_init(u64 base) {
     virtio_blk_base = base;
     
@@ -36,7 +38,7 @@ void virtio_blk_init(u64 base) {
     mmio_write32(base + VIRTIO_MMIO_QUEUE_SEL, 0);
     u32 max_queue = mmio_read32(base + VIRTIO_MMIO_QUEUE_NUM_MAX);
     if (max_queue == 0) {
-        kprintf("[VirtIO] Queue 0 not available\n");
+        kprintf("[ [CVirtIO [W] Queue 0 not available\n");
         return;
     }
     
@@ -84,6 +86,8 @@ void virtio_init() {
         } else if (device_id == 2) {
             kprintf("[ [CVirtIO [W] Found Block Device at 0x%llx\n", addr);
             virtio_blk_init(addr);
+            virtio_blk_irq_id = 32 + i;
+            gic_enable_irq(virtio_blk_irq_id);
         } else if (device_id == 3) {
             kprintf("[ [CVirtIO [W] Found Console Device at 0x%llx\n", addr);
         }

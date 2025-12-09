@@ -62,13 +62,14 @@ void el1_irq_handler() {
     u32 id = gic_acknowledge_irq();
 
     gic_end_irq(id);
+
+    extern u8 virtio_blk_irq_id;
     
     switch (id) {
         case 30: timer_handler(); break;
         case 33: uart_irq_handler(); break;
         default:
-            // TODO: Standardize this
-            if (id >= 48 && id < 48+32) {
+            if (virtio_blk_irq_id) {
                 virtio_blk_handler();
             } else {
                 kprintf("[ EXC ] Unknown IRQ ID: %d\n", id);
