@@ -16,6 +16,7 @@
 #include <uart.h>
 
 extern u64 _kernel_end;
+u64 memory_size = 0;
 u8 *uart = (u8*)0x09000000;
 u64 *gic = (u64*)0x08000000;
 u64 *fwcfg = (u64*)0x09020000;
@@ -69,6 +70,11 @@ void main() {
     kprintf("Hello, World!\n");
 
     kprintf("Kernel end: 0x%llx\n", &_kernel_end);
+
+    u64 memory_size = dtb_get_memory_size();
+    kprintf("MEMORY SIZE: %lluB\n             %lluMB\n             %lluGB\n",
+         memory_size, memory_size / 1024 / 1024, memory_size / 1024 / 1024 / 1024);
+
     pmm_init((uintptr_t)&_kernel_end);
     init_vmm();
 

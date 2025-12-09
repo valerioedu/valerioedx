@@ -146,14 +146,61 @@ int dtb_get_property(const char* node_name, const char* prop_name, void* out_buf
     return 0;
 }
 
+static void get_root_cells(u32 *addr_cells, u32 *size_cells) {
+    // Default for AArch64
+    *addr_cells = 2;
+    *size_cells = 2;
+
+    if (!dtb_base) return;
+    fdt_header_t* header = (fdt_header_t*)dtb_base;
+    u8* ptr = dtb_base + be2le32(header->off_dt_struct);
+
+    if (be2le32(*(u32*)ptr) != FDT_BEGIN_NODE) return;
+    ptr += 4;
+    ptr = skip_node_name(ptr);
+
+    u32 len = 0;
+    u8* iter = ptr;
+    u8* data;
+
+    iter = ptr;
+    data = find_prop_in_node(&iter, "#address-cells", &len);
+    if (data && len == 4) *addr_cells = be2le32(*(u32*)data);
+
+    iter = ptr;
+    data = find_prop_in_node(&iter, "#size-cells", &len);
+    if (data && len == 4) *size_cells = be2le32(*(u32*)data);
+}
+
 // Gets the 'reg' property
 u64 dtb_get_reg(const char* node_name) {
-    // Reg property is usually 2 or 4 cells (Address + Size)
-    // For 64-bit: Address (u64) + Size (u64) = 16 bytes
-    // Will return the address
-    u64 buffer[2]; // Read address and size
+    u32 addr_cells, size_cells;
+    get_root_cells(&addr_cells, &size_cells);
+
+    // Reg property is usually Address + Size
+    // Max size: 2 cells addr + 2 cells size = 16 bytes
+    u8 buffer[16]; 
     if (dtb_get_property(node_name, "reg", buffer, sizeof(buffer))) {
-        return be2le64(buffer[0]); 
+        u8* ptr = buffer;
+        if (addr_cells == 1) return be2le32(*(u32*)ptr);
+        if (addr_cells == 2) return be2le64(*(u64*)ptr);
+    }
+    return 0;
+}
+
+u64 dtb_get_memory_size() {
+    u32 addr_cells, size_cells;
+    get_root_cells(&addr_cells, &size_cells);
+
+    u8 buffer[16];
+    int len = dtb_get_property("memory", "reg", buffer, sizeof(buffer));
+    
+    if (len > 0) {
+        u8* ptr = buffer;
+        ptr += (addr_cells * 4);
+        
+        if (size_cells == 1) return be2le32(*(u32*)ptr);
+        if (size_cells == 2) return be2le64(*(u64*)ptr);
     }
     return 0;
 }

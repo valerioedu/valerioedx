@@ -26,5 +26,6 @@ typedef struct {
 void dtb_init(uintptr_t dtb_addr);
 int dtb_get_property(const char* node_name, const char* prop_name, void* out_buf, u32 buf_len);
 u64 dtb_get_reg(const char* node_name);
+u64 dtb_get_memory_size();
 
 #endif
