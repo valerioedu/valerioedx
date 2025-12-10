@@ -23,10 +23,9 @@ u64 *fwcfg = (u64*)0x09020000;
 u64 *virtio = (u64*)0x0A000000;
 
 void signature() {
-    kprintf("[ [CVirtIO Test [W] Checking data persistence...\n");
     u8 *buf = (u8*)kmalloc(512);
     if (!buf) {
-        kprintf("[ [RVirtIO Test [W] Failed to allocate buffer\n");
+        kprintf("[ [RVirtIO [W] Failed to allocate buffer to check data persistency\n");
         return;
     }
 
@@ -43,11 +42,9 @@ void signature() {
     }
 
     if (match) {
-        kprintf("[ [GVirtIO Test [W] SUCCESS: Data persisted from previous boot!\n");
-        kprintf("[ [CVirtIO Test [W] Content: [G%s[W\n", buf);
+        kprintf("[ [GVirtIO [W] Disk signature found\n");
     } else {
-        kprintf("[ [RVirtIO Test [W] No signature found (First run or clean disk).\n");
-        kprintf("[ [RVirtIO Test [W] Writing signature to sector 1...\n");
+        kprintf("[ [RVirtIO [W] No signature found (First run or clean disk).\n");
         
         memset(buf, 0, 512);
         

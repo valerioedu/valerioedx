@@ -86,7 +86,7 @@ void virtio_input_init(u64 base) {
         kprintf("[ [RVirtIO Input [W] Queue 0 not available\n");
         return;
     }
-    kprintf("[ [CVirtIO Input [W] Max queue size: %d\n", max_queue);
+    kprintf("[ [CVirtIO [W] Max input queue size: %d\n", max_queue);
 
     mmio_write32(base + VIRTIO_MMIO_QUEUE_NUM, QUEUE_SIZE);
     mmio_write32(base + VIRTIO_MMIO_QUEUE_ALIGN, 16);

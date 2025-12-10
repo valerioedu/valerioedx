@@ -4,7 +4,6 @@
 #include <string.h>
 #include <spinlock.h>
 
-//TODO: Make a reaper for zombie tasks
 //TODO: Implement mutexes and semaphores
 
 extern void ret_from_fork();
@@ -14,10 +13,12 @@ static task_t *runqueues[COUNT];
 static task_t *runqueues_tail[COUNT];
 
 static task_t *current_task = NULL;
-static task_t *zombie_task = NULL;
 static u64 pid_counter = 0;
 
 static spinlock_t sched_lock = 0;
+
+static task_t *zombie_head = NULL;
+static wait_queue_t reaper_wq = NULL;
 
 void sched_unlock_release() {
     spinlock_release_irqrestore(&sched_lock, 0); 
@@ -33,6 +34,37 @@ void idle() {
     }
 }
 
+// The Reaper Thread cleans up zombie tasks
+void reaper_thread() {
+    while (true) {
+        u32 flags = spinlock_acquire_irqsave(&sched_lock);
+
+        // If no zombies, sleep until one arrives
+        if (zombie_head == NULL) {
+            spinlock_release_irqrestore(&sched_lock, flags);
+            sleep_on(&reaper_wq);
+            continue;
+        }
+
+        // Detach the list of zombies to process them without holding the lock
+        task_t *zombies_to_free = zombie_head;
+        zombie_head = NULL;
+
+        spinlock_release_irqrestore(&sched_lock, flags);
+
+        // Free resources
+        while (zombies_to_free) {
+            task_t *next = zombies_to_free->next;
+            
+            kprintf("[ [CReaper [W] Cleaning up PID %d\n", zombies_to_free->id);
+            kfree(zombies_to_free->stack_page);
+            kfree(zombies_to_free);
+            
+            zombies_to_free = next;
+        }
+    }
+}
+
 void sched_init() {
     // Clears all queues
     for (int i = 0; i < COUNT; i++) {
@@ -44,13 +76,17 @@ void sched_init() {
 
     current_task = runqueues[IDLE];
 
+    task_create(reaper_thread, HIGH);
+
     kprintf("[ [CSCHED[W ] Multi-Queue Scheduler Initialized (%d Levels).\n", COUNT);
+    kprintf("[ [CSCHED[W ] Reaper Thread started.\n");
 }
 
 void task_create(void (*entry_point)(), task_priority priority) {
     if (priority >= COUNT) priority = NORMAL;
 
     task_t* t = (task_t*)kmalloc(sizeof(task_t));
+    if (!t) return;
     memset(t, 0, sizeof(task_t));
     
     // 4 KB stack as of now
@@ -89,7 +125,7 @@ void task_create(void (*entry_point)(), task_priority priority) {
 }
 
 void sleep_on(wait_queue_t* queue) {
-u32 flags = spinlock_acquire_irqsave(&sched_lock);
+    u32 flags = spinlock_acquire_irqsave(&sched_lock);
 
     current_task->state = TASK_BLOCKED;
 
@@ -156,11 +192,6 @@ void rotate_queue(task_priority priority) {
 void schedule() {
     u32 flags = spinlock_acquire_irqsave(&sched_lock);
 
-    if (zombie_task) {
-        kfree(zombie_task->stack_page);
-        kfree(zombie_task);
-        zombie_task = NULL;
-    }
     // Round Robin
     task_t* prev_task = current_task;
     task_t* next_task = NULL;
@@ -199,7 +230,31 @@ void schedule() {
     }
 
     if (next_task != prev_task) {
-        if (prev_task->state == TASK_EXITED) zombie_task = prev_task;
+        
+        if (prev_task->state == TASK_EXITED) {
+            // Add to zombie list
+            prev_task->next = zombie_head;
+            zombie_head = prev_task;
+
+            // Wake up Reaper if it is sleeping
+            if (reaper_wq) {
+                task_t *reaper = reaper_wq;
+                reaper_wq = reaper->next_wait;
+                
+                reaper->next_wait = NULL;
+                reaper->state = TASK_READY;
+                reaper->next = NULL;
+
+                task_priority p = reaper->priority;
+                if (runqueues[p] == NULL) {
+                    runqueues[p] = reaper;
+                    runqueues_tail[p] = reaper;
+                } else {
+                    runqueues_tail[p]->next = reaper;
+                    runqueues_tail[p] = reaper;
+                }
+            }
+        }
         
         current_task = next_task;
 
