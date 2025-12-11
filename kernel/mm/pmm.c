@@ -3,6 +3,8 @@
 #include <kio.h>
 #include <spinlock.h>
 
+//TODO: Implement a buddy allocator
+
 static u32 *frame_stack = NULL;
 static u32 stack_top = 0;      // Points to the next free slot (or count of free frames)
 static u32 stack_capacity = 0;
@@ -13,6 +15,8 @@ u64 phy_ram_size = 0;
 u64 phy_ram_end = 0;
 u32 total_frames = 0;
 
+static u8* ref_counts = NULL;
+
 static inline u32 phys_to_index(uintptr_t addr) {
     if (addr < PHY_RAM_BASE || addr >= phy_ram_end) return (u32)-1;
     return (addr - PHY_RAM_BASE) >> PAGE_SHIFT;
@@ -20,6 +24,15 @@ static inline u32 phys_to_index(uintptr_t addr) {
 
 static inline uintptr_t index_to_phys(u32 idx) {
     return PHY_RAM_BASE + ((uintptr_t)idx << PAGE_SHIFT);
+}
+
+void pmm_inc_ref(uintptr_t phys) {
+    u32 idx = phys_to_index(phys);
+    if (idx != (u32)-1 && ref_counts) {
+        u32 flags = spinlock_acquire_irqsave(&pmm_lock);
+        if (ref_counts[idx] < 255) ref_counts[idx]++;
+        spinlock_release_irqrestore(&pmm_lock, flags);
+    }
 }
 
 void pmm_init(uintptr_t kernel_end, u64 ram_size) {
@@ -32,20 +45,26 @@ void pmm_init(uintptr_t kernel_end, u64 ram_size) {
     size_t stack_size_bytes = total_frames * sizeof(u32);
     
     frame_stack = (u32*)stack_start;
+
+    ref_counts = (u8*)(stack_start + stack_size_bytes);
+    size_t ref_size_bytes = total_frames * sizeof(u8);
+
     stack_capacity = total_frames;
     stack_top = 0;
 
-    uintptr_t pmm_reserved_end = stack_start + stack_size_bytes;
+    uintptr_t pmm_reserved_end = stack_start + stack_size_bytes + ref_size_bytes;
 
     kprintf("[PMM] Initializing Page Stack Allocator...\n");
     kprintf("[PMM] Stack at 0x%x, Size: %d KB\n", frame_stack, stack_size_bytes / 1024);
 
     for (u32 i = 0; i < total_frames; i++) {
         uintptr_t addr = index_to_phys(i);
+        ref_counts[i] = 0;
 
         // If used don't push to stack, else push
         if (addr >= PHY_RAM_BASE && addr < pmm_reserved_end) {
             used_frames++;
+            ref_counts[i] = 1;
         } else {
             if (stack_top < stack_capacity)
                 frame_stack[stack_top++] = i;
@@ -90,7 +109,7 @@ uintptr_t pmm_alloc_frame() {
     u32 idx = frame_stack[stack_top];
     used_frames++;
 
-    uintptr_t release = index_to_phys(idx);
+    ref_counts[idx] = 1;
     
     spinlock_release_irqrestore(&pmm_lock, flags);
     return index_to_phys(idx);
@@ -101,11 +120,21 @@ void pmm_free_frame(uintptr_t addr) {
 
     u32 idx = phys_to_index(addr);
     
-    if (idx == (u32)-1 || idx >= total_frames) return;
+    if (idx == (u32)-1 || idx >= total_frames) {
+        spinlock_release_irqrestore(&pmm_lock, flags);
+        return;
+    }
+
+    if (ref_counts[idx] > 0) ref_counts[idx]--;
+    if (ref_counts[idx] > 0) {
+        spinlock_release_irqrestore(&pmm_lock, flags);
+        return;
+    }   \
 
     // Safety check to not overflow the stack
     if (stack_top >= stack_capacity) {
         kprintf("[PMM] Error: Stack overflow on free!\n");
+        spinlock_release_irqrestore(&pmm_lock, flags);
         return;
     }
 

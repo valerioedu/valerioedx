@@ -4,6 +4,7 @@
 #include <timer.h>
 #include <uart.h>
 #include <virtio.h>
+#include <vmm.h>
 
 void dump_stack() {
     uint64_t fp;
@@ -34,18 +35,33 @@ void el1_sync_handler() {
     asm volatile("mrs %0, far_el1" : "=r"(far));
 
     u32 ec = (esr >> 26) & 0x3F;
+    u64 iss = esr & 0x1FFFFFF;
 
     switch (ec) {
         case 0x20:  // Instruction Abort (Higher EL)
         case 0x21:  // Data Abort   (Higher EL)
         case 0x24:  // Instruction Abort (Lower EL)
         case 0x25:  // Data Abort   (Lower EL)
-            kprintf("\n[PANIC] SYNC EXCEPTION\n");
-            kprintf("  ESR: 0x%llx (EC: 0x%x)\n", esr, ec);
-            kprintf("  ELR: 0x%llx (PC)\n", elr);
-            kprintf("  FAR: 0x%llx (Addr)\n", far);
+            u8 fsc = iss & 0x3F;
+            
+            // Extract Write flag (Bit 6 of ISS for Data Aborts)
+            bool is_write = (iss >> 6) & 1; 
+
+            if ((fsc & 0x3C) == 0x04) {
+                if (vmm_handle_page_fault(far, false) == 0) return;
+            }
+
+            else if ((fsc & 0x3C) == 0x0C) {
+                if (is_write && vmm_handle_page_fault(far, true) == 0) return;
+            }
+
+            // TODO: if in userland kill the process
+            kprintf("\n[PANIC] UNHANDLED SYNC EXCEPTION\n");
+            kprintf("  Type: %s Abort\n", (ec & 0x1) ? "Data" : "Instruction");
+            kprintf("  ESR: 0x%llx (FSC: 0x%x, Write: %d)\n", esr, fsc, is_write);
+            kprintf("  FAR: 0x%llx\n", far);
             dump_stack();
-            //TODO: Implement page fault handler with copy on write and demand paging
+            while(1) asm volatile("wfe");
             break;
         /* TODO: Implement syscalls later on */
         case 0x15: return; break;

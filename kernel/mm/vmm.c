@@ -3,6 +3,8 @@
 #include <pmm.h>
 #include <string.h>
 
+// TODO: Implement VMA
+
 #define MT_DEVICE_nGnRnE 0
 #define MT_NORMAL        1
 
@@ -61,6 +63,23 @@ static u64* get_next_table(u64* table, u64 idx) {
 
     return (u64*)new_table_virt;
 }
+
+// Gets the page table entry
+static u64* vmm_get_pte(uintptr_t virt, bool allocate) {
+    u64 l1_idx = (virt >> 30) & 0x1FF;
+    u64 l2_idx = (virt >> 21) & 0x1FF;
+    u64 l3_idx = (virt >> 12) & 0x1FF;
+
+    if (!root_table) return NULL;
+
+    u64* l2_table = get_next_table(root_table, l1_idx);
+    if (!l2_table) return NULL;
+
+    u64* l3_table = get_next_table(l2_table, l2_idx);
+    if (!l3_table) return NULL;
+
+    return &l3_table[l3_idx];
+}
 #endif
 
 void dcache_clean_poc(void *addr, size_t size) {
@@ -106,19 +125,29 @@ void vmm_map_page(uintptr_t virt, uintptr_t phys, u64 flags) {
     u64 entry = phys | PT_PAGE | PT_VALID | PT_AF | PT_SH_INNER;
     
     if (flags & VM_DEVICE) {
-        entry |= (MT_DEVICE_nGnRnE << 2);
         entry |= PT_PXN | PT_UXN;
     } else {
         entry |= (MT_NORMAL << 2);
     }
 
     if (flags & VM_USER) {
-        entry |= (flags & VM_WRITABLE) ? PT_AP_RW_EL0 : PT_AP_RO_EL0;
         if (flags & VM_NO_EXEC) entry |= PT_UXN;
+        
+        if (flags & PT_SW_COW) {
+            entry |= PT_AP_RO_EL0;   // Read-only for user
+            entry |= PT_SW_COW;      // Preserve the COW marker
+        } else if (flags & VM_WRITABLE) {
+            entry |= PT_AP_RW_EL0;   // Read-Write for user
+        } else {
+            entry |= PT_AP_RO_EL0;   // Read-only for user
+        }
     } else {
-        entry |= (flags & VM_WRITABLE) ? PT_AP_RW_EL1 : PT_AP_RO_EL1;
-        entry |= PT_UXN;        // User cannot execute kernel pages
-        if (flags & VM_NO_EXEC) entry |= PT_PXN;
+        entry |= PT_UXN;
+        if (flags & VM_WRITABLE) {
+            entry |= PT_AP_RW_EL1;
+        } else {
+            entry |= PT_AP_RO_EL1;
+        }
     }
 
     l3_table[l3_idx] = entry;
@@ -215,3 +244,74 @@ void init_vmm() {
     );
 #endif
 }
+
+#ifdef ARM
+// Returns 0 on success, -1 on unrecoverable error (If in userland kill the process)
+int vmm_handle_page_fault(uintptr_t virt, bool is_write) {
+    u64* pte = vmm_get_pte(virt, false);
+    if (!pte) return -1; // Tables missing, fatal for now (to implement large range demand paging)
+
+    u64 entry = *pte;
+
+    // Case 1: demand paging
+    // Page is not valid (Bit 0 is 0)
+    if (!(entry & PT_VALID)) {
+        // TODO: check VMA structures here.
+        
+        u64 new_frame = pmm_alloc_frame();
+        if (!new_frame) {
+            kprintf("[VMM] OOM during demand paging\n");
+            return -1;
+        }
+
+        memset((void*)P2V(new_frame), 0, PAGE_SIZE);
+
+        // Later check VMA  permissions
+        u64 new_entry = new_frame | PT_PAGE | PT_VALID | PT_AF | PT_SH_INNER;
+        new_entry |= (MT_NORMAL << 2);  // Normal memory
+        new_entry |= PT_AP_RW_EL0;      // User read/write
+        new_entry |= PT_UXN;            // No user execute (data page)
+        
+        *pte = new_entry;
+        
+        // Invalidate TLB for this address
+        asm volatile("tlbi vaale1is, %0" :: "r"(virt >> 12));
+        asm volatile("dsb ish");
+        asm volatile("isb");
+        
+        return 0;
+    }
+
+    // Case 2: copy and write
+    // Page is Valid, Write Access attempted, and SW_COW bit is set
+    if ((entry & PT_VALID) && is_write && (entry & PT_SW_COW)) {
+        u64 old_phys = entry & 0x0000FFFFFFFFF000ULL;
+        
+        // Allocate new frame
+        u64 new_phys = pmm_alloc_frame();
+        if (!new_phys) return -1;
+
+        memcpy((void*)P2V(new_phys), (void*)P2V(old_phys), PAGE_SIZE);
+
+        u64 new_entry = entry;
+        new_entry &= ~0x0000FFFFFFFFF000ULL; // Clear old address
+        new_entry |= new_phys;               // Set new address
+        new_entry &= ~PT_SW_COW;             // Clear COW flag
+        new_entry &= ~(1ULL << 7);           // Clear AP[2] (ReadOnly bit) to make it RW
+
+        *pte = new_entry;
+
+        pmm_free_frame(old_phys); 
+
+        // Flush TLB
+        asm volatile("tlbi vaale1is, %0" :: "r"(virt >> 12));
+        asm volatile("dsb ish");
+        asm volatile("isb");
+
+        return 0;
+    }
+
+    // Segfault
+    return -1;
+}
+#endif

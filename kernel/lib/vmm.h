@@ -19,6 +19,7 @@
 
 #define PT_AF       (1ULL << 10) // Access Flag
 #define PT_SH_INNER (3ULL << 8)  // Inner Shareable
+#define PT_SW_COW   (1ULL << 55)
 #endif
 
 #define VM_WRITABLE  (1ULL << 0)
@@ -30,5 +31,6 @@ void init_vmm();
 void vmm_map_page(uintptr_t virt, uintptr_t phys, u64 flags);
 void vmm_map_region(uintptr_t virt, uintptr_t phys, size_t size, u64 flags);
 void dcache_clean_poc(void *addr, size_t size);
+int vmm_handle_page_fault(uintptr_t virt, bool is_write);
 
 #endif
