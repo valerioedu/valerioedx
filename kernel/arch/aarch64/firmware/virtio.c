@@ -38,7 +38,8 @@ volatile int kb_head = 0;
 volatile int kb_tail = 0;
 wait_queue_t kb_wait_queue = NULL;
 
-//TODO: implement shift and other keys
+static bool shifting = false;
+
 static char key_map[] = {
     0, 0, '1', '2', '3', '4', '5', '6', '7', '8', '9', '0', '-', '=', '\b', '\t',
     'q', 'w', 'e', 'r', 't', 'y', 'u', 'i', 'o', 'p', '[', ']', '\n', 0,
@@ -46,10 +47,18 @@ static char key_map[] = {
     'z', 'x', 'c', 'v', 'b', 'n', 'm', ',', '.', '/', 0, '*', 0, ' '
 };
 
+// Shifted characters map
+static char key_map_shift[] = {
+    0, 0, '!', '@', '#', '$', '%', '^', '&', '*', '(', ')', '_', '+', '\b', '\t',
+    'Q', 'W', 'E', 'R', 'T', 'Y', 'U', 'I', 'O', 'P', '{', '}', '\n', 0,
+    'A', 'S', 'D', 'F', 'G', 'H', 'J', 'K', 'L', ':', '"', '~', 0, '|',
+    'Z', 'X', 'C', 'V', 'B', 'N', 'M', '<', '>', '?', 0, '*', 0, ' '
+};
+
 static char virtio_scancode_to_ascii(u16 code) {
     if (code == 1) return 0; // ESC
     if (code >= 2 && code < sizeof(key_map)) {
-        return key_map[code];
+        return shifting ? key_map_shift[code] : key_map[code];
     }
     return 0;
 }
@@ -146,15 +155,20 @@ void virtio_input_handler() {
         u32 id = input_used->ring[input_last_used_idx % QUEUE_SIZE].id;
         virtio_input_event *evt = &input_events[id];
 
-        if (evt->type == EV_KEY && evt->value == 1) {
-            char c = virtio_scancode_to_ascii(evt->code);
-            if (c) {
-                // Add to circular buffer
-                int next_head = (kb_head + 1) % KB_BUFFER_SIZE;
-                if (next_head != kb_tail) { // Buffer not full
-                    kb_buffer[kb_head] = c;
-                    kb_head = next_head;
-                    wake_up(&kb_wait_queue);
+        if (evt->type == EV_KEY) {
+            // Handle shift key press/release
+            if (evt->code == KEY_LEFTSHIFT || evt->code == KEY_RIGHTSHIFT) {
+                shifting = (evt->value == 1); // 1 = press, 0 = release
+            } else if (evt->value == 1) { // Key press
+                char c = virtio_scancode_to_ascii(evt->code);
+                if (c) {
+                    // Add to circular buffer
+                    int next_head = (kb_head + 1) % KB_BUFFER_SIZE;
+                    if (next_head != kb_tail) { // Buffer not full
+                        kb_buffer[kb_head] = c;
+                        kb_head = next_head;
+                        wake_up(&kb_wait_queue);
+                    }
                 }
             }
         }

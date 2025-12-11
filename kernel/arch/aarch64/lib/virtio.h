@@ -45,6 +45,9 @@
 #define VIRTIO_BLK_SECTOR_SIZE  512
 #define KB_BUFFER_SIZE 1024
 
+#define KEY_LEFTSHIFT  42
+#define KEY_RIGHTSHIFT 54
+
 typedef struct {
     u16 type;
     u16 code;
