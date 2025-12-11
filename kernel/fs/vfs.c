@@ -5,6 +5,8 @@
 
 inode_t *vfs_root = NULL;
 
+//TODO: Implement page cache
+
 void vfs_init() {
     vfs_root = NULL;
     kprintf("[ [CVFS [W] Virtual File System Initialized\n");

@@ -4,6 +4,7 @@
 #include <string.h>
 
 //TODO: Implement more ops
+//TODO: Implement LFN parsing
 
 static inode_ops fat32_ops;
 
