@@ -11,4 +11,6 @@ void set_stdio(u8 device);
 void kprintf(const char* fmt, ...);
 #endif
 
+int snprintf(char* buf, size_t size, const char* fmt, ...);
+
 #endif
