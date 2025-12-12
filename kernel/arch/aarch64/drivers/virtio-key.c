@@ -17,7 +17,7 @@ char virtio_kb_getchar_nonblock(void) {
 // Blocking read - waits for a key
 char virtio_kb_getchar(void) {
     while (kb_head == kb_tail) {
-        sleep_on(&kb_wait_queue);
+        sleep_on(&kb_wait_queue, NULL);
     }
     
     char c = kb_buffer[kb_tail];
@@ -37,7 +37,7 @@ u64 virtio_kb_read(char *buf, u64 count) {
     while (i < count) {
         // Wait for input if buffer is empty
         while (kb_head == kb_tail) {
-            sleep_on(&kb_wait_queue);
+            sleep_on(&kb_wait_queue, NULL);
         }
         
         char c = kb_buffer[kb_tail];

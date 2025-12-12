@@ -2,6 +2,7 @@
 #include <kio.h>
 #include <pmm.h>
 #include <string.h>
+#include <sync.h>
 
 // TODO: Implement VMA
 
@@ -20,6 +21,8 @@ static u64* root_table;
 
 // Helper flag
 static bool paging_enabled = false;
+
+static mutex_t vmm_lock;
 
 static void* safe_P2V(u64 phys) {
     if (paging_enabled) {
@@ -99,6 +102,7 @@ void dcache_clean_poc(void *addr, size_t size) {
 
 // Maps a single 4KB page
 void vmm_map_page(uintptr_t virt, uintptr_t phys, u64 flags) {
+    mutex_acquire(&vmm_lock);
 #ifdef ARM
     // Indices for 39-bit Virtual Address Space
     // L1: bits [38:30]
@@ -152,6 +156,7 @@ void vmm_map_page(uintptr_t virt, uintptr_t phys, u64 flags) {
 
     l3_table[l3_idx] = entry;
 #endif
+    mutex_release(&vmm_lock);
 }
 
 // Maps a contiguous range of physical memory
@@ -243,6 +248,7 @@ void init_vmm() {
         : : "r"(PHYS_OFFSET) : "x0", "x1", "memory"
     );
 #endif
+    mutex_acquire(&vmm_lock);
 }
 
 #ifdef ARM

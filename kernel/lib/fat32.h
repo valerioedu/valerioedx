@@ -3,6 +3,7 @@
 
 #include <lib.h>
 #include <vfs.h>
+#include <sync.h>
 
 // Attribute Flags
 #define FAT_ATTR_READ_ONLY  0x01
@@ -86,6 +87,7 @@ typedef struct {
     u32 total_clusters;
     u8* fat_cache;          // Cached FAT table
     u32 fat_cache_sector;   // Which FAT sector is cached
+    mutex_t lock;
 } fat32_fs_t;
 
 typedef struct {

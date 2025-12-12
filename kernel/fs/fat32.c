@@ -163,6 +163,8 @@ static u32 find_free_cluster(fat32_fs_t* fs) {
 
 // Allocate a new cluster and linking it to prev_cluster if provided
 static u32 allocate_cluster(fat32_fs_t* fs, u32 prev_cluster) {
+    mutex_acquire(&fs->lock);
+
     u32 new_cluster = find_free_cluster(fs);
     if (new_cluster == 0) return 0;
     
@@ -172,6 +174,8 @@ static u32 allocate_cluster(fat32_fs_t* fs, u32 prev_cluster) {
     // Link previous cluster to new one
     if (prev_cluster >= 2)
         set_cluster_value(fs, prev_cluster, new_cluster);
+
+    mutex_release(&fs->lock);
     
     // Zero out the new cluster
     u8* zero_buf = kmalloc(fs->bytes_per_cluster);
@@ -261,6 +265,8 @@ u64 fat32_write_file(inode_t* node, u64 offset, u64 size, u8* buffer) {
     u64 written = 0;
     u8* cl_buf = kmalloc(cluster_size);
     if (!cl_buf) return 0;
+
+    mutex_acquire(&fs->lock);
     
     while (written < size) {
         // Read existing cluster data (for partial writes)
@@ -307,6 +313,8 @@ u64 fat32_write_file(inode_t* node, u64 offset, u64 size, u8* buffer) {
             kfree(dir_buf);
         }
     }
+
+    mutex_release(&fs->lock);
     
     return written;
 }
@@ -635,6 +643,8 @@ static int write_dir_entries(fat32_fs_t* fs, u32 start_cluster, u32 start_offset
     
     int entry_idx = start_offset / sizeof(fat_dir_entry_t);
     int written = 0;
+
+    mutex_acquire(&fs->lock);
     
     while (written < count && cluster < FAT_EOC) {
         read_cluster(fs, cluster, buf);
@@ -654,6 +664,7 @@ static int write_dir_entries(fat32_fs_t* fs, u32 start_cluster, u32 start_offset
         }
     }
     
+    mutex_release(&fs->lock);
     kfree(buf);
     return written == count;
 }
@@ -661,7 +672,7 @@ static int write_dir_entries(fat32_fs_t* fs, u32 start_cluster, u32 start_offset
 static inode_t* fat32_create_entry(inode_t* parent, const char* name, u8 attr) {
     fat32_file_t* parent_info = (fat32_file_t*)parent->ptr;
     fat32_fs_t* fs = parent_info->fs;
-    
+
     // Checks if entry already exists
     inode_t* existing = fat32_finddir(parent, name);
     if (existing) {
@@ -683,6 +694,8 @@ static inode_t* fat32_create_entry(inode_t* parent, const char* name, u8 attr) {
                                 &entry_cluster, &entry_offset)) {
         return NULL;
     }
+
+    mutex_acquire(&fs->lock);
     
     u32 new_cluster = 0;
     if (attr & FAT_ATTR_DIRECTORY) {
@@ -755,6 +768,8 @@ static inode_t* fat32_create_entry(inode_t* parent, const char* name, u8 attr) {
     file_data->dir_entry_cluster = entry_cluster;
     file_data->dir_entry_offset = entry_offset + (lfn_count * sizeof(fat_dir_entry_t));
     node->ptr = file_data;
+
+    mutex_release(&fs->lock);
     
     return node;
 }
@@ -768,11 +783,15 @@ inode_t* fat32_mkdir(inode_t* parent, const char* name) {
 }
 
 static void free_cluster_chain(fat32_fs_t* fs, u32 cluster) {
+    mutex_acquire(&fs->lock);
+
     while (cluster >= 2 && cluster < FAT_EOC) {
         u32 next = get_next_cluster(fs, cluster);
         set_cluster_value(fs, cluster, 0);  // Mark as free
         cluster = next;
     }
+
+    mutex_release(&fs->lock);
 }
 
 // Checks if directory is empty (only . and ..)
@@ -829,6 +848,8 @@ static int delete_dir_entries(fat32_fs_t* fs, u32 dir_cluster, const char* name)
     // Track LFN entries to delete
     u32 lfn_start_cluster = 0;
     u32 lfn_start_idx = 0;
+
+    mutex_acquire(&fs->lock);
     
     while (cluster < FAT_EOC) {
         read_cluster(fs, cluster, buf);
@@ -921,6 +942,7 @@ static int delete_dir_entries(fat32_fs_t* fs, u32 dir_cluster, const char* name)
     
 done:
     kfree(buf);
+    mutex_release(&fs->lock);
     return 0;
 }
 
@@ -1033,6 +1055,8 @@ inode_t* fat32_mount(inode_t* device) {
     fs->sectors_per_cluster = bpb->sectors_per_cluster;
     fs->bytes_per_cluster = bpb->sectors_per_cluster * 512;
     fs->root_cluster = bpb->root_cluster;
+
+    mutex_init(&fs->lock);
     
     u32 fat_size = bpb->sectors_per_fat_32;
     if (fat_size == 0) fat_size = bpb->sectors_per_fat_16;
