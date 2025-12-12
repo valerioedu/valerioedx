@@ -163,6 +163,8 @@ static u32 find_free_cluster(fat32_fs_t* fs) {
 
 // Allocate a new cluster and linking it to prev_cluster if provided
 static u32 allocate_cluster(fat32_fs_t* fs, u32 prev_cluster) {
+    mutex_acquire(&fs->lock);
+
     u32 new_cluster = find_free_cluster(fs);
     if (new_cluster == 0) return 0;
     
@@ -172,6 +174,8 @@ static u32 allocate_cluster(fat32_fs_t* fs, u32 prev_cluster) {
     // Link previous cluster to new one
     if (prev_cluster >= 2)
         set_cluster_value(fs, prev_cluster, new_cluster);
+
+    mutex_release(&fs->lock);
     
     // Zero out the new cluster
     u8* zero_buf = kmalloc(fs->bytes_per_cluster);
@@ -1033,6 +1037,8 @@ inode_t* fat32_mount(inode_t* device) {
     fs->sectors_per_cluster = bpb->sectors_per_cluster;
     fs->bytes_per_cluster = bpb->sectors_per_cluster * 512;
     fs->root_cluster = bpb->root_cluster;
+
+    mutex_init(&fs->lock);
     
     u32 fat_size = bpb->sectors_per_fat_32;
     if (fat_size == 0) fat_size = bpb->sectors_per_fat_16;

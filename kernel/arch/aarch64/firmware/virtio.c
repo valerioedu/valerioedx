@@ -7,6 +7,7 @@
 #include <gic.h>
 #include <spinlock.h>
 #include <vmm.h>
+#include <sync.h>
 
 #define QUEUE_SIZE 16
 
@@ -39,6 +40,8 @@ volatile int kb_tail = 0;
 wait_queue_t kb_wait_queue = NULL;
 
 static bool shifting = false;
+
+static mutex_t blk_mutex;
 
 static char key_map[] = {
     0, 0, '1', '2', '3', '4', '5', '6', '7', '8', '9', '0', '-', '=', '\b', '\t',
@@ -228,6 +231,8 @@ void virtio_blk_init(u64 base) {
     // Driver OK
     status |= VIRTIO_STATUS_DRV_OK;
     mmio_write32(base + VIRTIO_MMIO_STATUS, status);
+
+    mutex_init(&blk_mutex);
     
     kprintf("[ [CVirtIO [W] Blk Initialized. Queue PFN: 0x%llx\n", page_phys >> 12);
 }
@@ -266,6 +271,8 @@ void virtio_set_async(int enable) {
 
 int virtio_blk_op(u64 sector, u8* buffer, int write) {
     if (virtio_blk_base == 0) return -1;
+
+    mutex_acquire(&blk_mutex);
 
     int idx = 0; 
     
@@ -313,6 +320,7 @@ int virtio_blk_op(u64 sector, u8* buffer, int write) {
     
     last_used_idx++;
     
+    mutex_release(&blk_mutex);
     return req_statuses[idx] == 0 ? 0 : -1;
 }
 
