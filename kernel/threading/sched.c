@@ -215,16 +215,22 @@ void schedule() {
             curr = runqueues[i];
         }
 
-        if (runqueues[i] != NULL) {
-            next_task = runqueues[i];
-            
-            // Round Robin Rotation logic
-            if (prev_task && prev_task->priority == i && prev_task->state == TASK_RUNNING) {
-                rotate_queue(i);
-                next_task = runqueues[i];
-            }
-            break; 
+        if (runqueues[i] && prev_task && 
+            prev_task->priority == i && 
+            prev_task->state == TASK_RUNNING) {
+            rotate_queue(i);
         }
+
+        curr = runqueues[i];
+        while (curr) {
+            if (curr->state == TASK_READY || curr->state == TASK_RUNNING) {
+                next_task = curr;
+                break;
+            }
+            curr = curr->next;
+        }
+
+        if (next_task) break;
     }
 
     if (!next_task) {
