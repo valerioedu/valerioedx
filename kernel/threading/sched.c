@@ -3,8 +3,7 @@
 #include <kio.h>
 #include <string.h>
 #include <spinlock.h>
-
-//TODO: Implement mutexes and semaphores
+#include <sync.h>
 
 extern void ret_from_fork();
 extern void cpu_switch_to(struct task* prev, struct task* next);
@@ -42,7 +41,7 @@ void reaper_thread() {
         // If no zombies, sleep until one arrives
         if (zombie_head == NULL) {
             spinlock_release_irqrestore(&sched_lock, flags);
-            sleep_on(&reaper_wq);
+            sleep_on(&reaper_wq, NULL);
             continue;
         }
 
@@ -124,7 +123,7 @@ void task_create(void (*entry_point)(), task_priority priority) {
     kprintf("[ [CSCHED[W ] Created Process:\tID: %d\tPriority: %d\n", t->id, priority);
 }
 
-void sleep_on(wait_queue_t* queue) {
+void sleep_on(wait_queue_t* queue, spinlock_t* release_lock) {
     u32 flags = spinlock_acquire_irqsave(&sched_lock);
 
     current_task->state = TASK_BLOCKED;
@@ -139,6 +138,9 @@ void sleep_on(wait_queue_t* queue) {
             runqueues_tail[prio] = NULL;
         }
     }
+    
+    if (release_lock) 
+        __atomic_store_n(release_lock, 0, __ATOMIC_RELEASE);
 
     spinlock_release_irqrestore(&sched_lock, flags);
     schedule();

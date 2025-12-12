@@ -18,9 +18,7 @@ void sem_wait(semaphore_t* sem) {
             return;
         }
 
-        spinlock_release_irqrestore(&sem->lock, flags);
-
-        sleep_on(&sem->wait_list);
+        sleep_on(&sem->wait_list, &sem->lock);
     }
 }
 
@@ -49,10 +47,8 @@ void mutex_acquire(mutex_t* mutex) {
             spinlock_release_irqrestore(&mutex->lock, flags);
             return;
         }
-
-        spinlock_release_irqrestore(&mutex->lock, flags);
         
-        sleep_on(&mutex->wait_list);
+        sleep_on(&mutex->wait_list, &mutex->lock);
     }
 }
 

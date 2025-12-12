@@ -2,6 +2,7 @@
 #define SCHED_H
 
 #include <lib.h>
+#include <spinlock.h>
 
 typedef enum task_priority {
     IDLE = 0,
@@ -65,7 +66,7 @@ void task_create(void (*entry_point)(), task_priority priority);
 void schedule();
 void task_exit();
 void cpu_switch_to(struct task* prev, struct task* next);
-void sleep_on(wait_queue_t* queue);
+void sleep_on(wait_queue_t* queue, spinlock_t* release_lock);
 void wake_up(wait_queue_t* queue);
 
 #endif

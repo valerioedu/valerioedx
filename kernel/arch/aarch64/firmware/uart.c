@@ -29,7 +29,7 @@ void uart_putc(u8 c) {
 }
 
 u8 uart_getc() {
-    while (rx_head == rx_tail) sleep_on(&rx_wait_queue);
+    while (rx_head == rx_tail) sleep_on(&rx_wait_queue, NULL);
 
     u8 c = rx_buffer[rx_tail];
     rx_tail = (rx_tail + 1) % RX_BUF_SIZE;

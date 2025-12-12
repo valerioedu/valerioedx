@@ -305,7 +305,7 @@ int virtio_blk_op(u64 sector, u8* buffer, int write) {
     // Wait for completion
     while (last_used_idx == virtq_used_base->idx) {
         if (virtio_async) {
-            sleep_on(&blk_wait_queue);
+            sleep_on(&blk_wait_queue, NULL);
         } else {
             asm volatile("wfi");
         }
