@@ -981,7 +981,7 @@ inode_t* fat32_mount(inode_t* device) {
 
     // Read Sector 0
     if (vfs_read(device, 0, 512, buf) != 512) {
-        kprintf("[FAT32] Failed to read Boot Sector\n");
+        kprintf("[ [CFAT32 [W] [RFailed to read Boot Sector[W\n");
         kfree(buf);
         return NULL;
     }
@@ -991,7 +991,7 @@ inode_t* fat32_mount(inode_t* device) {
 
     // Check for 0x55AA signature
     if (buf[510] != 0x55 || buf[511] != 0xAA) {
-        kprintf("[FAT32] Invalid Boot Signature at Sector 0\n");
+        kprintf("[ [CFAT32 [W] [RInvalid Boot Signature at Sector 0[W\n");
         kfree(buf);
         return NULL;
     }
@@ -1006,13 +1006,13 @@ inode_t* fat32_mount(inode_t* device) {
         // FAT32 LBA Types: 0x0B, 0x0C
         if (part1->type == 0x0B || part1->type == 0x0C) {
             partition_offset = part1->lba_start;
-            kprintf("[FAT32] Found Partition at Sector %d\n", partition_offset);
+            kprintf("[ [CFAT32 [W] Found Partition at Sector %d\n", partition_offset);
             
             // Read the VBR from the partition start
             vfs_read(device, partition_offset * 512, 512, buf);
             bpb = (fat32_bpb_t*)buf;
         } else {
-            kprintf("[FAT32] No FAT32 partition found (Type 0x%x)\n", part1->type);
+            kprintf("[ [CFAT32 [W] [RNo FAT32 partition found (Type 0x%x)[W\n", part1->type);
             kfree(buf);
             return NULL;
         }
@@ -1020,7 +1020,7 @@ inode_t* fat32_mount(inode_t* device) {
 
     // Validate the VBR/BPB
     if (bpb->bytes_per_sector != 512) {
-        kprintf("[FAT32] Unsupported sector size: %d\n", bpb->bytes_per_sector);
+        kprintf("[ [CFAT32 [W] [RUnsupported sector size: %d[W\n", bpb->bytes_per_sector);
         kfree(buf);
         return NULL;
     }
@@ -1044,7 +1044,7 @@ inode_t* fat32_mount(inode_t* device) {
     u32 data_sectors = total_sectors - (bpb->reserved_sectors + bpb->num_fats * fat_size);
     fs->total_clusters = data_sectors / bpb->sectors_per_cluster;
 
-    kprintf("[FAT32] Mount Success. Root Cluster: %d, Total Clusters: %d\n", 
+    kprintf("[ [CFAT32 [W] Mount Success. Root Cluster: %d, Total Clusters: %d\n", 
             fs->root_cluster, fs->total_clusters);
 
     inode_t* root = kmalloc(sizeof(inode_t));

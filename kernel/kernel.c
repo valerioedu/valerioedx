@@ -6,26 +6,6 @@
 #include <heap.h>
 #include <fat32.h>
 
-void test_process() {
-    kprintf("\n");
-    heap_debug();
-}
-
-void test_kb_read() {
-    char buffer[32];
-
-    inode_t *virtio_kb = devfs_fetch_device("virtio-kb");
-    if (virtio_kb) {
-        kprintf("Test the keyboard: ");
-        u64 bytes = vfs_read(virtio_kb, 0, 31, (u8*)buffer);
-        buffer[bytes] = '\0';
-        kprintf("Result: %s\n", buffer);
-        task_create(test_process, LOW);
-    } else {
-        kprintf("virtio-kb device not found\n");
-    }
-}
-
 void kmain() {
     vfs_init();
     devfs_init();
@@ -54,6 +34,6 @@ void kmain() {
         }
     }
 
-    task_create(test_kb_read, HIGH);
+    heap_debug();
     while (true) asm volatile("wfi");
 }
