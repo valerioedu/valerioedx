@@ -11,12 +11,14 @@
 #define FAT_ATTR_VOLUME_ID  0x08
 #define FAT_ATTR_DIRECTORY  0x10
 #define FAT_ATTR_ARCHIVE    0x20
-#define FAT_ATTR_LFN        (FAT_ATTR_READ_ONLY | FAT_ATTR_HIDDEN | FAT_ATTR_SYSTEM | FAT_ATTR_VOLUME_ID)
+#define FAT_ATTR_LFN        0x0F
+
+#define FAT_EOC             0x0FFFFFF8  // End of cluster chain
 
 // BIOS Parameter Block (BPB)
 typedef struct {
-    u8  jmp_boot[3];
-    u8  oem_name[8];
+    u8  jmp[3];
+    u8  oem[8];
     u16 bytes_per_sector;
     u8  sectors_per_cluster;
     u16 reserved_sectors;
@@ -48,37 +50,65 @@ typedef struct {
 
 // Directory Entry (32 bytes)
 typedef struct {
-    u8  name[11];      // 8.3 format
+    u8  name[11];
     u8  attr;
-    u8  nt_res;
-    u8  crt_time_tenth;
-    u16 crt_time;
-    u16 crt_date;
-    u16 lst_acc_date;
-    u16 fst_clus_hi;   // High word of first cluster
-    u16 wrt_time;
-    u16 wrt_date;
-    u16 fst_clus_lo;   // Low word of first cluster
+    u8  nt_reserved;
+    u8  create_time_tenths;
+    u16 create_time;
+    u16 create_date;
+    u16 access_date;
+    u16 fst_clus_hi;
+    u16 write_time;
+    u16 write_date;
+    u16 fst_clus_lo;
     u32 file_size;
 } __attribute__((packed)) fat_dir_entry_t;
 
-// Internal structure to store FS state in inode->ptr
+// Long File Name entry
 typedef struct {
-    inode_t* device;       // Underlying block device (virtio-blk)
-    u32 cluster_begin_lba;
-    u32 fat_begin_lba;
-    u32 sectors_per_cluster;
+    u8  order;          // Sequence number (1-20), 0x40 = last
+    u16 name1[5];       // First 5 UTF-16 chars
+    u8  attr;           // Always 0x0F
+    u8  type;           // Always 0
+    u8  checksum;       // Checksum of short name
+    u16 name2[6];       // Next 6 UTF-16 chars
+    u16 first_cluster;  // Always 0
+    u16 name3[2];       // Final 2 UTF-16 chars
+} __attribute__((packed)) fat_lfn_entry_t;
+
+typedef struct {
+    inode_t* device;
+    u8  sectors_per_cluster;
     u32 bytes_per_cluster;
+    u32 fat_begin_lba;
+    u32 cluster_begin_lba;
     u32 root_cluster;
+    u32 total_clusters;
+    u8* fat_cache;          // Cached FAT table
+    u32 fat_cache_sector;   // Which FAT sector is cached
 } fat32_fs_t;
 
-// Internal structure for specific file data in inode->ptr
 typedef struct {
     fat32_fs_t* fs;
     u32 first_cluster;
-    u32 current_cluster;
-    u32 current_offset;
+    u32 parent_cluster;     // Parent directory cluster
+    u32 dir_entry_cluster;  // Cluster containing this entry
+    u32 dir_entry_offset;   // Offset within that cluster
 } fat32_file_t;
+
+// File handle for open files
+typedef struct {
+    inode_t* inode;
+    u64 position;           // Current read/write position
+    u32 flags;              // Open flags (read/write mode)
+} fat32_handle_t;
+
+#define O_RDONLY  0x0001
+#define O_WRONLY  0x0002
+#define O_RDWR    0x0003
+#define O_CREAT   0x0100
+#define O_TRUNC   0x0200
+#define O_APPEND  0x0400
 
 inode_t* fat32_mount(inode_t* device);
 

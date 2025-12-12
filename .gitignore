@@ -59,3 +59,8 @@ kernel/arch/aarch64/build
 kernel/arch/x64/build
 disk.img
 TEST.TXT
+
+# currently working on it
+kshell.c
+kshell
+kshell.h
