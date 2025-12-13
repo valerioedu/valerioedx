@@ -17,5 +17,6 @@ void ramfb_kprintf(const char* format, va_list args);
 void set_fg_color(u32 color);
 void set_bg_color(u32 color);
 void ramfb_clear();
+void ramfb_putc(u8 c);
 
 #endif

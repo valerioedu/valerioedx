@@ -5,8 +5,10 @@
 #include <vfs.h>
 #include <heap.h>
 #include <fat32.h>
+#include <tty.h>
 
 void kmain() {
+    tty_init();
     vfs_init();
     devfs_init();
 

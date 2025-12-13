@@ -2,6 +2,7 @@
 #include <stdarg.h>
 #include <sched.h>
 #include <gic.h>
+#include <tty.h>
 
 #define UART_BASE uart
 #define UART_DR   (UART_BASE + 0x00)
@@ -33,6 +34,7 @@ u8 uart_getc() {
 
     u8 c = rx_buffer[rx_tail];
     rx_tail = (rx_tail + 1) % RX_BUF_SIZE;
+    tty_push_char(c, &tty_serial);
     return c;
 }
 

@@ -1,6 +1,7 @@
 #include <vfs.h>
 #include <string.h>
 #include <kio.h>
+#include <tty.h>
 
 #ifdef ARM
 #include <uart.h>
@@ -35,5 +36,10 @@ void devfs_init() {
     devfs_mount_device("virtio-blk", &virtio_blk_ops);
     devfs_mount_device("uart", &uart_ops);
     devfs_mount_device("virtio-kb", &virtio_kb_ops);
+    devfs_mount_device("tty0", &tty_console_ops);
+    devfs_mount_device("ttS0", &tty_serial_ops);
+    devfs_mount_device("stdin", &stdin_ops);
+    devfs_mount_device("stdout", &stdout_ops);
+    devfs_mount_device("stderr", &stderr_ops);
 #endif
 }
