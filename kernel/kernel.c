@@ -21,6 +21,23 @@ void kmain() {
         
         if (root_fs) {
             vfs_mount_root(root_fs);
+
+            inode_t* dev_dir = vfs_lookup("/dev");
+
+            if (!dev_dir) {
+                 if (root_fs->ops && root_fs->ops->mkdir) {
+                    kprintf("[ [CKMAIN [W] /dev not detected\n");
+                    dev_dir = root_fs->ops->mkdir(root_fs, "dev");
+                 }
+            }
+
+            if (dev_dir) {
+                kprintf("[ [CKMAIN [W] Got here\n");
+                vfs_mount(dev_dir, devfs_get_root());
+                kprintf("[ [CKMAIN [W] Mounted devfs on /dev\n");
+            } else {
+                kprintf("[ [RKMAIN [W] Failed to find or create /dev directory\n");
+            }
             
             inode_t* text_file = vfs_lookup("/TEST.TXT");
             if (text_file) {
@@ -37,5 +54,9 @@ void kmain() {
     }
 
     heap_debug();
+    
+    inode_t *uart = vfs_lookup("/dev/uart");
+    if (uart) kprintf("TEST: %s", uart->name);
+    else kprintf("TEST FAILED\n");
     while (true) asm volatile("wfi");
 }

@@ -84,10 +84,12 @@ void vfs_open(inode_t* node);
 void vfs_close(inode_t* node);
 
 void vfs_mount_root(inode_t *node);
+int vfs_mount(inode_t* mountpoint, inode_t* fs_root);
 inode_t *vfs_lookup(const char *path);
 
 inode_t* devfs_fetch_device(const char* name);
 void devfs_mount_device(char* name, inode_ops* ops);
 void devfs_init();
+inode_t *devfs_get_root();
 
 #endif

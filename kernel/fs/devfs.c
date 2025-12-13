@@ -9,10 +9,32 @@
 #endif
 
 static int dev_count = 0;
-inode_t device_list[10];
+// TODO: Implement a list
+inode_t device_list[32];
+
+inode_t *defvs_finddir(inode_t *node, const char *name) {
+    return devfs_fetch_device(name);
+}
+
+static inode_ops devfs_root_ops = {
+    .finddir = defvs_finddir
+};
+
+static inode_t devfs_root_node = {
+    .name = "devfs",
+    .flags = FS_DIRECTORY,
+    .ops = &devfs_root_ops,
+    .id = 0,
+    .size = 0,
+    .mount_point = NULL
+};
+
+inode_t *devfs_get_root() {
+    return &devfs_root_node;
+}
 
 void devfs_mount_device(char* name, inode_ops* ops) {
-    if (dev_count >= 10) return;
+    if (dev_count >= 32) return;
 
     inode_t* node = &device_list[dev_count++];
     strcpy(node->name, name);

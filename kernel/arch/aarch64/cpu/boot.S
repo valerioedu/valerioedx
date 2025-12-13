@@ -116,7 +116,8 @@ irq_entry:
 
 .global sync_entry
 sync_entry:
-    SAVE_CONTEXT 
+    SAVE_CONTEXT
+    mov x0, sp
     bl el1_sync_handler
     RESTORE_CONTEXT
     
