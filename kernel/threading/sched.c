@@ -11,7 +11,7 @@ extern void cpu_switch_to(struct task* prev, struct task* next);
 static task_t *runqueues[COUNT];
 static task_t *runqueues_tail[COUNT];
 
-static task_t *current_task = NULL;
+task_t *current_task = NULL;
 static u64 pid_counter = 0;
 
 static spinlock_t sched_lock = 0;
@@ -101,6 +101,10 @@ void task_create(void (*entry_point)(), task_priority priority) {
     t->priority = priority;
     t->next = NULL;
     t->next_wait = NULL;
+
+    for (int i = 0; i < MAX_FD; i++) {
+        t->fd_table[i] = NULL;
+    }
 
     // Since the stack grows down SP will be at the end of the page.
     u64 stack_top = (u64)t->stack_page + 4096;
