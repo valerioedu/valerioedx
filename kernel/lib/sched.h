@@ -3,6 +3,9 @@
 
 #include <lib.h>
 #include <spinlock.h>
+#include <file.h>
+
+#define MAX_FD 1024
 
 typedef enum task_priority {
     IDLE = 0,
@@ -57,6 +60,7 @@ typedef struct task {
     struct task* next;          // Linked list pointer
     struct task* next_wait;     // Pointer to 
     void* stack_page;           // Pointer to the allocated stack memory
+    struct file *fd_table[MAX_FD];
 } task_t;
 
 typedef task_t* wait_queue_t;
