@@ -30,13 +30,66 @@ u64 tty_serial_write(struct vfs_node* file, u64 format, u64 size, u8* buffer) {
     for (u32 i = 0; i < size; i++) tty_serial.putc(buffer[i]);
 }
 
+u64 tty_console_read(struct vfs_node *file, u64 format, u64 size, u8 *buffer) {
+    u64 read_count = 0;
+
+    while (read_count < size) {
+        while (tty_console.read_head == tty_console.read_tail) {
+#ifdef ARM
+            asm volatile("wfi");
+#else
+            asm volatile("hlt");
+#endif
+        }
+
+        u32 flags = spinlock_acquire_irqsave(&tty_console.lock);
+
+        if (tty_console.read_head != tty_console.read_tail) {
+            buffer[read_count] = tty_console.read_buffer[tty_console.read_tail];
+            tty_console.read_tail = (tty_console.read_tail + 1) % BUF_SIZE;
+            read_count++;
+        }
+
+        spinlock_release_irqrestore(&tty_console.lock, flags);
+    }
+
+    return read_count;
+}
+
+u64 tty_serial_read(struct vfs_node *file, u64 format, u64 size, u8 *buffer) {
+    u64 read_count = 0;
+
+    while (read_count < size) {
+        while (tty_serial.read_head == tty_serial.read_tail) {
+#ifdef ARM
+            asm volatile("wfi");
+#else
+            asm volatile("hlt");
+#endif
+        }
+
+        u32 flags = spinlock_acquire_irqsave(&tty_serial.lock);
+
+        if (tty_serial.read_head != tty_serial.read_tail) {
+            buffer[read_count] = tty_serial.read_buffer[tty_serial.read_tail];
+            tty_serial.read_tail = (tty_serial.read_tail + 1) % BUF_SIZE;
+            read_count++;
+        }
+
+        spinlock_release_irqrestore(&tty_serial.lock, flags);
+    }
+
+    return read_count;
+}
+
 void tty_push_char(char c, tty_t *tty) {
     u32 flags = spinlock_acquire_irqsave(&tty->lock);
 
     tty->read_buffer[tty->read_head] = c;
     tty->read_head = (tty->read_head + 1) % 1024;
 
-    if (tty->echo && tty->putc) tty->putc(c);
+    // Don't echo for now, until a graphical interface implementation
+    //if (tty->echo && tty->putc) tty->putc(c);
 
     spinlock_release_irqrestore(&tty->lock, flags);
 }
