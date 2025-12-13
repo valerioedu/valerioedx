@@ -8,6 +8,7 @@
 #include <spinlock.h>
 #include <vmm.h>
 #include <sync.h>
+#include <tty.h>
 
 #define QUEUE_SIZE 16
 
@@ -173,6 +174,7 @@ void virtio_input_handler() {
                         wake_up(&kb_wait_queue);
                     }
                 }
+                tty_push_char(c, &tty_console);
             }
         }
 

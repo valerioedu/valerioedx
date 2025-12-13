@@ -446,7 +446,7 @@ void ramfb_scroll() {
     }
 }
 
-void ramfb_putc(char c) {
+void ramfb_putc(u8 c) {
     if (c == '\n') {
         cursor_x = 0;
         cursor_y++;
