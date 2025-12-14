@@ -1013,6 +1013,69 @@ int fat32_rmdir(inode_t* parent, const char* name) {
     return delete_dir_entries(fs, parent_info->first_cluster, name) ? 0 : -1;
 }
 
+
+int fat32_readdir(inode_t* node, int index, char* namebuf, int buflen, int* is_dir) {
+    fat32_file_t* dir_info = (fat32_file_t*)node->ptr;
+    fat32_fs_t* fs = dir_info->fs;
+
+    u32 cluster = dir_info->first_cluster;
+    u32 cluster_size = fs->bytes_per_cluster;
+    u8* buf = kmalloc(cluster_size);
+
+    int entry_idx = 0;
+    char lfn_buffer[256];
+    u8 lfn_checksum_expected = 0;
+    int lfn_valid = 0;
+
+    while (cluster < FAT_EOC) {
+        read_cluster(fs, cluster, buf);
+        fat_dir_entry_t* entries = (fat_dir_entry_t*)buf;
+        int entries_per_cluster = cluster_size / sizeof(fat_dir_entry_t);
+
+        for (int i = 0; i < entries_per_cluster; i++) {
+            fat_dir_entry_t* entry = &entries[i];
+
+            if (entry->name[0] == 0x00) goto done;  // End of directory
+            if (entry->name[0] == 0xE5) { lfn_valid = 0; continue; }
+            if (entry->attr == FAT_ATTR_LFN) {
+                fat_lfn_entry_t* lfn = (fat_lfn_entry_t*)entry;
+                if (lfn->order & 0x40) {
+                    memset(lfn_buffer, 0, sizeof(lfn_buffer));
+                    lfn_checksum_expected = lfn->checksum;
+                    lfn_valid = 1;
+                }
+                if (lfn_valid && lfn->checksum == lfn_checksum_expected) {
+                    int order = lfn->order & 0x3F;
+                    int pos = (order - 1) * 13;
+                    lfn_extract_chars(lfn, lfn_buffer, &pos);
+                }
+                continue;
+            }
+
+            if (entry_idx == index) {
+                char entry_name[256];
+                if (lfn_valid && lfn_checksum(entry->name) == lfn_checksum_expected) {
+                    strncpy(entry_name, lfn_buffer, buflen - 1);
+                } else {
+                    fat_get_short_name(entry_name, entry->name);
+                }
+                entry_name[buflen - 1] = '\0';
+                strncpy(namebuf, entry_name, buflen - 1);
+                namebuf[buflen - 1] = '\0';
+                if (is_dir) *is_dir = (entry->attr & FAT_ATTR_DIRECTORY) ? 1 : 0;
+                kfree(buf);
+                return 1;
+            }
+            lfn_valid = 0;
+            entry_idx++;
+        }
+        cluster = get_next_cluster(fs, cluster);
+    }
+done:
+    kfree(buf);
+    return 0;
+}
+
 inode_t* fat32_mount(inode_t* device) {
     if (!device) return NULL;
 
@@ -1116,6 +1179,7 @@ inode_t* fat32_mount(inode_t* device) {
     fat32_ops.rmdir = fat32_rmdir;
     // FAT32 doesn't support symlink natively
     fat32_ops.symlink = NULL;
+    fat32_ops.readdir = fat32_readdir;
 
     return root;
 }

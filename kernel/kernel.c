@@ -53,6 +53,5 @@ void kmain() {
     }
 
     heap_debug();
-    
     while (true) asm volatile("wfi");
 }

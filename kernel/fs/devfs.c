@@ -16,8 +16,28 @@ inode_t *defvs_finddir(inode_t *node, const char *name) {
     return devfs_fetch_device(name);
 }
 
+int devfs_readdir(inode_t* node, int index, char* namebuf, int buflen, int* is_dir) {
+    if (index < 0) return 0;
+    if (index == 0) {
+        strncpy(namebuf, ".", buflen);
+        if (is_dir) *is_dir = 1;
+        return 1;
+    }
+    if (index == 1) {
+        strncpy(namebuf, "..", buflen);
+        if (is_dir) *is_dir = 1;
+        return 1;
+    }
+    int dev_idx = index - 2;
+    if (dev_idx >= dev_count) return 0;
+    strncpy(namebuf, device_list[dev_idx].name, buflen);
+    if (is_dir) *is_dir = 0; // Devices are not directories
+    return 1;
+}
+
 static inode_ops devfs_root_ops = {
-    .finddir = defvs_finddir
+    .finddir = defvs_finddir,
+    .readdir = devfs_readdir
 };
 
 static inode_t devfs_root_node = {
