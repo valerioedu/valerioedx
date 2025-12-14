@@ -32,7 +32,6 @@ void kmain() {
             }
 
             if (dev_dir) {
-                kprintf("[ [CKMAIN [W] Got here\n");
                 vfs_mount(dev_dir, devfs_get_root());
                 kprintf("[ [CKMAIN [W] Mounted devfs on /dev\n");
             } else {
@@ -55,8 +54,5 @@ void kmain() {
 
     heap_debug();
     
-    inode_t *uart = vfs_lookup("/dev/uart");
-    if (uart) kprintf("TEST: %s", uart->name);
-    else kprintf("TEST FAILED\n");
     while (true) asm volatile("wfi");
 }

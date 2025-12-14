@@ -3,6 +3,8 @@
 #include <heap.h>
 #include <string.h>
 
+//TODO: Implement a robust mutex implementation
+
 static inode_ops fat32_ops;
 
 typedef struct {
@@ -163,8 +165,6 @@ static u32 find_free_cluster(fat32_fs_t* fs) {
 
 // Allocate a new cluster and linking it to prev_cluster if provided
 static u32 allocate_cluster(fat32_fs_t* fs, u32 prev_cluster) {
-    mutex_acquire(&fs->lock);
-
     u32 new_cluster = find_free_cluster(fs);
     if (new_cluster == 0) return 0;
     
@@ -174,11 +174,16 @@ static u32 allocate_cluster(fat32_fs_t* fs, u32 prev_cluster) {
     // Link previous cluster to new one
     if (prev_cluster >= 2)
         set_cluster_value(fs, prev_cluster, new_cluster);
-
-    mutex_release(&fs->lock);
     
     // Zero out the new cluster
     u8* zero_buf = kmalloc(fs->bytes_per_cluster);
+
+    if (!zero_buf) {
+        kprintf("[FAT32] [Error] allocate_cluster: kmalloc failed\n");
+        set_cluster_value(fs, new_cluster, 0); 
+        return 0;
+    }
+    
     memset(zero_buf, 0, fs->bytes_per_cluster);
     write_cluster(fs, new_cluster, zero_buf);
     kfree(zero_buf);
@@ -265,8 +270,6 @@ u64 fat32_write_file(inode_t* node, u64 offset, u64 size, u8* buffer) {
     u64 written = 0;
     u8* cl_buf = kmalloc(cluster_size);
     if (!cl_buf) return 0;
-
-    mutex_acquire(&fs->lock);
     
     while (written < size) {
         // Read existing cluster data (for partial writes)
@@ -313,8 +316,6 @@ u64 fat32_write_file(inode_t* node, u64 offset, u64 size, u8* buffer) {
             kfree(dir_buf);
         }
     }
-
-    mutex_release(&fs->lock);
     
     return written;
 }
@@ -644,8 +645,6 @@ static int write_dir_entries(fat32_fs_t* fs, u32 start_cluster, u32 start_offset
     int entry_idx = start_offset / sizeof(fat_dir_entry_t);
     int written = 0;
 
-    mutex_acquire(&fs->lock);
-    
     while (written < count && cluster < FAT_EOC) {
         read_cluster(fs, cluster, buf);
         fat_dir_entry_t* dir_entries = (fat_dir_entry_t*)buf;
@@ -664,7 +663,6 @@ static int write_dir_entries(fat32_fs_t* fs, u32 start_cluster, u32 start_offset
         }
     }
     
-    mutex_release(&fs->lock);
     kfree(buf);
     return written == count;
 }
@@ -694,13 +692,13 @@ static inode_t* fat32_create_entry(inode_t* parent, const char* name, u8 attr) {
                                 &entry_cluster, &entry_offset)) {
         return NULL;
     }
-
-    mutex_acquire(&fs->lock);
     
     u32 new_cluster = 0;
     if (attr & FAT_ATTR_DIRECTORY) {
         new_cluster = allocate_cluster(fs, 0);
-        if (new_cluster == 0) return NULL;
+        if (new_cluster == 0) {
+            return NULL;
+        }
     }
     
     // Builds directory entries
@@ -732,6 +730,12 @@ static inode_t* fat32_create_entry(inode_t* parent, const char* name, u8 attr) {
     // If creating directory, initialize with . and .. entries
     if (attr & FAT_ATTR_DIRECTORY) {
         u8* dir_buf = kmalloc(fs->bytes_per_cluster);
+
+        if (!dir_buf) {
+            kprintf("[ [RFAT32 [W] Allocation fail: dir_buf\n");
+            return NULL;
+        }
+
         memset(dir_buf, 0, fs->bytes_per_cluster);
         
         fat_dir_entry_t* dot = (fat_dir_entry_t*)dir_buf;
@@ -746,8 +750,14 @@ static inode_t* fat32_create_entry(inode_t* parent, const char* name, u8 attr) {
         dotdot->name[0] = '.';
         dotdot->name[1] = '.';
         dotdot->attr = FAT_ATTR_DIRECTORY;
-        dotdot->fst_clus_hi = (parent_info->first_cluster >> 16) & 0xFFFF;
-        dotdot->fst_clus_lo = parent_info->first_cluster & 0xFFFF;
+
+        u32 parent_clus = parent_info->first_cluster;
+        if (parent_clus == fs->root_cluster) {
+            parent_clus = 0;
+        }
+
+        dotdot->fst_clus_hi = (parent_clus >> 16) & 0xFFFF;
+        dotdot->fst_clus_lo = parent_clus & 0xFFFF;
         
         write_cluster(fs, new_cluster, dir_buf);
         kfree(dir_buf);
@@ -755,6 +765,14 @@ static inode_t* fat32_create_entry(inode_t* parent, const char* name, u8 attr) {
     
     // Create and return inode
     inode_t* node = kmalloc(sizeof(inode_t));
+
+    if (!node) {
+        kfree(node);
+        kfree(entries);
+        kprintf("[ [RFAT32 [W] Allocation fail: node\n");
+        return NULL;
+    }
+
     memset(node, 0, sizeof(inode_t));
     strncpy(node->name, name, sizeof(node->name) - 1);
     node->flags = (attr & FAT_ATTR_DIRECTORY) ? FS_DIRECTORY : FS_FILE;
@@ -762,14 +780,21 @@ static inode_t* fat32_create_entry(inode_t* parent, const char* name, u8 attr) {
     node->ops = &fat32_ops;
     
     fat32_file_t* file_data = kmalloc(sizeof(fat32_file_t));
+
+    if (!file_data) {
+        kfree(node);
+        kfree(entries);
+        kfree(file_data);
+        kprintf("[ [RFAT32 [W] Allocation fail: node\n");
+        return NULL;
+    }
+
     file_data->fs = fs;
     file_data->first_cluster = new_cluster;
     file_data->parent_cluster = parent_info->first_cluster;
     file_data->dir_entry_cluster = entry_cluster;
     file_data->dir_entry_offset = entry_offset + (lfn_count * sizeof(fat_dir_entry_t));
     node->ptr = file_data;
-
-    mutex_release(&fs->lock);
     
     return node;
 }
@@ -783,15 +808,11 @@ inode_t* fat32_mkdir(inode_t* parent, const char* name) {
 }
 
 static void free_cluster_chain(fat32_fs_t* fs, u32 cluster) {
-    mutex_acquire(&fs->lock);
-
     while (cluster >= 2 && cluster < FAT_EOC) {
         u32 next = get_next_cluster(fs, cluster);
         set_cluster_value(fs, cluster, 0);  // Mark as free
         cluster = next;
     }
-
-    mutex_release(&fs->lock);
 }
 
 // Checks if directory is empty (only . and ..)
@@ -848,8 +869,6 @@ static int delete_dir_entries(fat32_fs_t* fs, u32 dir_cluster, const char* name)
     // Track LFN entries to delete
     u32 lfn_start_cluster = 0;
     u32 lfn_start_idx = 0;
-
-    mutex_acquire(&fs->lock);
     
     while (cluster < FAT_EOC) {
         read_cluster(fs, cluster, buf);
@@ -942,7 +961,6 @@ static int delete_dir_entries(fat32_fs_t* fs, u32 dir_cluster, const char* name)
     
 done:
     kfree(buf);
-    mutex_release(&fs->lock);
     return 0;
 }
 
