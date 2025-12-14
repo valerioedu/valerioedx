@@ -4,6 +4,7 @@
 #include <string.h>
 
 //TODO: Implement a robust mutex implementation
+//TODO: Implement a close to free all of the temporary nodes
 
 static inode_ops fat32_ops;
 
@@ -407,6 +408,7 @@ inode_t* fat32_finddir(inode_t* node, const char* name) {
                 file_data->dir_entry_offset = i * sizeof(fat_dir_entry_t);
                 
                 result->ptr = file_data;
+                result->id = (entry->fst_clus_hi << 16) | entry->fst_clus_lo;
                 goto done;
             }
         }

@@ -3,12 +3,20 @@
 #include <heap.h>
 #include <string.h>
 
+#define MAX_MOUNTS 16
+
+struct mount_entry {
+    u64 host_id;
+    inode_t *target;
+} mount_table[MAX_MOUNTS];
+
 inode_t *vfs_root = NULL;
 
 //TODO: Implement page cache
 
 void vfs_init() {
     vfs_root = NULL;
+    memset(mount_table, 0, sizeof(mount_table));
     kprintf("[ [CVFS [W] Virtual File System Initialized\n");
 }
 
@@ -19,8 +27,16 @@ void vfs_mount_root(inode_t *node) {
 
 int vfs_mount(inode_t* mountpoint, inode_t* fs_root) {
     if (!mountpoint || !fs_root) return 0;
-    mountpoint->mount_point = fs_root;
-    return 1;
+
+    for (int i = 0; i < MAX_MOUNTS; i++) {
+        if (mount_table[i].target == NULL) {
+            mount_table[i].host_id = mountpoint->id; // Bind by ID, not pointer
+            mount_table[i].target = fs_root;
+            return 1;
+        }
+    }
+
+    return 0;
 }
 
 u64 vfs_read(inode_t* node, u64 offset, u64 size, u8* buffer) {
@@ -72,9 +88,15 @@ inode_t* vfs_lookup(const char* path) {
         
         current = next;
 
-        if (current->mount_point) {
-            current = current->mount_point;
+        for (int i = 0; i < MAX_MOUNTS; i++) {
+        if (mount_table[i].target != NULL && mount_table[i].host_id == current->id) {
+            // We found a mount! Switch current to the mounted root
+            inode_t* mounted_root = mount_table[i].target;
+            // Optionally: free(current) if you want to avoid leaks of the transient node
+            current = mounted_root;
+            break;
         }
+    }
 
         token = strtok(NULL, "/");
     }
