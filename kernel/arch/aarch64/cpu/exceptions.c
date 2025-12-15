@@ -76,9 +76,9 @@ void el1_sync_handler(trapframe_t *tf) {
 
             // Advances PC past the SVC instruction (4 bytes)
             tf->elr += 4; 
-            break;
+            return;
         }
-        
+
         default:
             kprintf("\n[PANIC] SYNC EXCEPTION\n");
             kprintf("  ESR: 0x%llx (EC: 0x%x)\n", esr, ec);
