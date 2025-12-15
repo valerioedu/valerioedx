@@ -6,10 +6,11 @@
 extern task_t *current_task;
 
 int fd_alloc() {
-    if (!current_task) return -1;
+    // Not having a process means that it is a kernel thread
+    if (!current_task || !current_task->proc) return -1;
 
     for (int i = 0; i < MAX_FD; i++) {
-        if (current_task->fd_table[i] == NULL) {
+        if (current_task->proc->fd_table[i] == NULL) {
             return i;
         }
     }
@@ -18,10 +19,10 @@ int fd_alloc() {
 
 // Does not close the file itself
 void fd_free(int fd) {
-    if (!current_task) return;
+    if (!current_task || !current_task->proc) return;
     if (fd < 0 || fd >= MAX_FD) return;
 
-    current_task->fd_table[fd] = NULL;
+    current_task->proc->fd_table[fd] = NULL;
 }
 
 file_t* file_new(inode_t* inode, u32 flags) {
@@ -52,8 +53,8 @@ void file_close(file_t* file) {
 }
 
 file_t* fd_get(int fd) {
-    if (!current_task) return NULL;
+    if (!current_task || !current_task->proc) return NULL;
     if (fd < 0 || fd >= MAX_FD) return NULL;
 
-    return current_task->fd_table[fd];
+    return current_task->proc->fd_table[fd];
 }

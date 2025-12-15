@@ -4,6 +4,7 @@
 #include <string.h>
 #include <spinlock.h>
 #include <sync.h>
+#include <vmm.h>
 
 extern void ret_from_fork();
 extern void cpu_switch_to(struct task* prev, struct task* next);
@@ -12,7 +13,8 @@ static task_t *runqueues[COUNT];
 static task_t *runqueues_tail[COUNT];
 
 task_t *current_task = NULL;
-static u64 pid_counter = 0;
+static u64 pid_counter = 1;
+static u64 tid_counter = 1;
 
 static spinlock_t sched_lock = 0;
 
@@ -71,17 +73,36 @@ void sched_init() {
         runqueues_tail[i] = NULL;
     }
 
-    task_create(idle, IDLE);
+    task_create(idle, IDLE, NULL);
 
     current_task = runqueues[IDLE];
 
-    task_create(reaper_thread, HIGH);
+    task_create(reaper_thread, HIGH, NULL);
 
     kprintf("[ [CSCHED[W ] Multi-Queue Scheduler Initialized (%d Levels).\n", COUNT);
     kprintf("[ [CSCHED[W ] Reaper Thread started.\n");
 }
 
-void task_create(void (*entry_point)(), task_priority priority) {
+process_t *process_create(const char *name, void (*entry_point)(), task_priority priority) {
+    process_t *proc = (process_t*)kmalloc(sizeof(process_t));
+    if (!proc) {
+        kprintf("[ [CSCHED [W] [RFailed to allocate memory for new process[W");
+        return NULL;
+    }
+    
+    memset(proc, 0, sizeof(process_t));
+
+    proc->pid = pid_counter++;
+    strncpy(proc->name, name, 63);
+
+    //TODO: implement vmm for user space
+    proc->page_table = NULL;
+
+    task_create(entry_point, priority, proc);
+    kprintf("[ [CSCHED[W ] Created Process:\tPID: %d\tName: %s\n", proc->pid, proc->name);
+}
+
+void task_create(void (*entry_point)(), task_priority priority, struct process *proc) {
     if (priority >= COUNT) priority = NORMAL;
 
     task_t* t = (task_t*)kmalloc(sizeof(task_t));
@@ -96,15 +117,12 @@ void task_create(void (*entry_point)(), task_priority priority) {
         return;
     }
 
-    t->id = pid_counter++;
+    t->id = tid_counter++;
     t->state = TASK_READY;
     t->priority = priority;
     t->next = NULL;
     t->next_wait = NULL;
-
-    for (int i = 0; i < MAX_FD; i++) {
-        t->fd_table[i] = NULL;
-    }
+    t->proc = proc;
 
     // Since the stack grows down SP will be at the end of the page.
     u64 stack_top = (u64)t->stack_page + 4096;
@@ -124,7 +142,7 @@ void task_create(void (*entry_point)(), task_priority priority) {
     }
 
     spinlock_release_irqrestore(&sched_lock, flags);
-    kprintf("[ [CSCHED[W ] Created Process:\tID: %d\tPriority: %d\n", t->id, priority);
+    kprintf("[ [CSCHED[W ] Created Kernel Thread:\tID: %d\tPriority: %d\n", t->id, priority);
 }
 
 void sleep_on(wait_queue_t* queue, spinlock_t* release_lock) {
@@ -272,6 +290,19 @@ void schedule() {
 
         if (current_task->state == TASK_READY) {
             current_task->state = TASK_RUNNING;
+        }
+
+        u64 *next_pt = (next_task->proc) ? next_task->proc->page_table : NULL;
+        u64 *prev_pt = (prev_task->proc) ? prev_task->proc->page_table : NULL;
+
+        if (next_pt && next_pt != prev_pt) {
+#ifdef ARM
+            // Ensure we use physical address
+            asm volatile("msr ttbr0_el1, %0" :: "r"(V2P(next_pt)));
+            asm volatile("tlbi vmalle1is"); 
+            asm volatile("dsb ish");
+            asm volatile("isb");
+#endif
         }
 
         cpu_switch_to(prev_task, next_task);

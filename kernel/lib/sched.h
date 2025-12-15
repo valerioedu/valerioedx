@@ -52,6 +52,9 @@ struct cpu_context {
     __uint128_t q15;
 };
 
+struct process;
+
+// Thread
 typedef struct task {
     struct cpu_context context; // Must be at offset 0 for easier assembly
     u64 id;
@@ -60,13 +63,21 @@ typedef struct task {
     struct task* next;          // Linked list pointer
     struct task* next_wait;     // Pointer to 
     void* stack_page;           // Pointer to the allocated stack memory
-    struct file *fd_table[MAX_FD];
+    struct process *proc;
 } task_t;
+
+// Process
+typedef struct process {
+    u64 pid;
+    u64 *page_table;
+    struct file *fd_table[MAX_FD];
+    char name[64];
+} process_t;
 
 typedef task_t* wait_queue_t;
 
 void sched_init();
-void task_create(void (*entry_point)(), task_priority priority);
+void task_create(void (*entry_point)(), task_priority priority, struct process *proc);
 void schedule();
 void task_exit();
 void cpu_switch_to(struct task* prev, struct task* next);
