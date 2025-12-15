@@ -395,7 +395,7 @@ inode_t* fat32_finddir(inode_t* node, const char* name) {
                 memset(result, 0, sizeof(inode_t));
                 strncpy(result->name, entry_name, sizeof(result->name) - 1);
                 
-                result->flags = (entry->attr & FAT_ATTR_DIRECTORY) ? FS_DIRECTORY : FS_FILE;
+                result->flags = ((entry->attr & FAT_ATTR_DIRECTORY) ? FS_DIRECTORY : FS_FILE) | FS_TEMPORARY;
                 result->size = entry->file_size;
                 result->ops = &fat32_ops;
 
@@ -777,7 +777,7 @@ static inode_t* fat32_create_entry(inode_t* parent, const char* name, u8 attr) {
 
     memset(node, 0, sizeof(inode_t));
     strncpy(node->name, name, sizeof(node->name) - 1);
-    node->flags = (attr & FAT_ATTR_DIRECTORY) ? FS_DIRECTORY : FS_FILE;
+    node->flags = ((attr & FAT_ATTR_DIRECTORY) ? FS_DIRECTORY : FS_FILE) | FS_TEMPORARY;
     node->size = 0;
     node->ops = &fat32_ops;
     
@@ -1078,6 +1078,14 @@ done:
     return 0;
 }
 
+// Simply frees the inode
+void fat32_close(inode_t *inode) {
+    if (inode->ptr) {
+        kfree(inode->ptr);
+        inode->ptr = NULL;
+    }
+}
+
 inode_t* fat32_mount(inode_t* device) {
     if (!device) return NULL;
 
@@ -1173,7 +1181,7 @@ inode_t* fat32_mount(inode_t* device) {
     fat32_ops.write = fat32_write_file;
     // Open and Close are not supported on FAT32
     fat32_ops.open = NULL;
-    fat32_ops.close = NULL;
+    fat32_ops.close = fat32_close;
     fat32_ops.finddir = fat32_finddir;
     fat32_ops.create = fat32_create;
     fat32_ops.mkdir = fat32_mkdir;

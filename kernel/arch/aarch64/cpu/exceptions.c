@@ -62,8 +62,23 @@ void el1_sync_handler(trapframe_t *tf) {
             dump_stack();
             while(1) asm volatile("wfe");
             break;
-        /* TODO: Implement syscalls later on */
-        case 0x15: return; break;
+
+        case 0x15: {
+            u64 syscall_num = tf->x[8];
+            
+            u64 ret = syscall_handler(
+                syscall_num,
+                tf->x[0], tf->x[1], tf->x[2], 
+                tf->x[3], tf->x[4], tf->x[5]
+            );
+
+            tf->x[0] = ret;
+
+            // Advances PC past the SVC instruction (4 bytes)
+            tf->elr += 4; 
+            break;
+        }
+        
         default:
             kprintf("\n[PANIC] SYNC EXCEPTION\n");
             kprintf("  ESR: 0x%llx (EC: 0x%x)\n", esr, ec);

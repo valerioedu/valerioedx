@@ -7,6 +7,7 @@
 #define FS_DIRECTORY   0x02
 #define FS_CHARDEVICE  0x03
 #define FS_BLOCKDEVICE 0x04
+#define FS_TEMPORARY   0x80
 
 struct vfs_node;
 
@@ -73,6 +74,7 @@ typedef struct vfs_node {
     u64 id;
     inode_ops *ops;
     void *ptr;             // Private driver data
+    i32 ref_count;
     struct vfs_node *mount_point;
 } inode_t;
 
