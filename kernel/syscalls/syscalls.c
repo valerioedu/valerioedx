@@ -1,0 +1,50 @@
+#include <syscalls.h>
+#include <file.h>
+#include <tty.h>
+#include <sched.h>
+#include <kio.h>
+
+#define MAX_SYSCALLS 128
+#define SYS_READ 0
+#define SYS_WRITE 1
+
+extern task_t *current_task;
+
+typedef i64 (*syscalls_fn_t)(i64, i64, i64, i64, i64, i64);
+
+i64 sys_write(u32 fd, const char *buf, size_t count) {
+    file_t *f = fd_get(fd);
+    if (!f) return -1;
+
+    u64 bytes_written = vfs_write(f->inode, f->offset, (u64)count, (u8*)buf);
+    f->offset += bytes_written;
+    return bytes_written;
+}
+
+i64 sys_read(u32 fd, char *buf, size_t count) {
+    file_t *f = fd_get(fd);
+    if (!f) return -1;
+
+    u64 bytes_read = vfs_read(f->inode, f->offset, count, (u8*)buf);
+    f->offset += bytes_read;
+    return bytes_read;
+}
+
+i64 sys_not_implemented() {
+    kprintf("System call not implemented\n");
+}
+
+static syscalls_fn_t syscall_table[MAX_SYSCALLS] = {
+    [0 ... MAX_SYSCALLS - 1] = (syscalls_fn_t)sys_not_implemented,
+    [SYS_READ]               = (syscalls_fn_t)sys_read,
+    [SYS_WRITE]              = (syscalls_fn_t)sys_write,
+};
+
+i64 syscall_handler(u64 syscall_num, u64 arg0, u64 arg1, u64 arg2, u64 arg3, u64 arg4, u64 arg5) {
+    if (syscall_num >= MAX_SYSCALLS) {
+        return -1; // -ENOSYS
+    }
+    
+    syscalls_fn_t func = syscall_table[syscall_num];
+    return func(arg0, arg1, arg2, arg3, arg4, arg5);
+}

@@ -7,6 +7,7 @@
 #define FS_DIRECTORY   0x02
 #define FS_CHARDEVICE  0x03
 #define FS_BLOCKDEVICE 0x04
+#define FS_TEMPORARY   0x80
 
 struct vfs_node;
 
@@ -22,6 +23,7 @@ typedef struct {
     int (*unlink)(struct vfs_node*, const char*);                // Delete file
     int (*rmdir)(struct vfs_node*, const char*);                 // Delete directory
     struct vfs_node* (*symlink)(struct vfs_node*, const char*, const char*);  // Create symlink
+    int (*readdir)(struct vfs_node*, int, char *namebuf, int buflen, int *isdir);
 } inode_ops;
 
 /*
@@ -72,6 +74,7 @@ typedef struct vfs_node {
     u64 id;
     inode_ops *ops;
     void *ptr;             // Private driver data
+    i32 ref_count;
     struct vfs_node *mount_point;
 } inode_t;
 
@@ -84,10 +87,12 @@ void vfs_open(inode_t* node);
 void vfs_close(inode_t* node);
 
 void vfs_mount_root(inode_t *node);
+int vfs_mount(inode_t* mountpoint, inode_t* fs_root);
 inode_t *vfs_lookup(const char *path);
 
 inode_t* devfs_fetch_device(const char* name);
 void devfs_mount_device(char* name, inode_ops* ops);
 void devfs_init();
+inode_t *devfs_get_root();
 
 #endif

@@ -5,6 +5,7 @@
 #include <uart.h>
 #include <virtio.h>
 #include <vmm.h>
+#include <syscalls.h>
 
 void dump_stack() {
     uint64_t fp;
@@ -28,11 +29,9 @@ void dump_stack() {
     kprintf("-------------------\n");
 }
 
-void el1_sync_handler() {
+void el1_sync_handler(trapframe_t *tf) {
     u64 esr, elr, far;
     asm volatile("mrs %0, esr_el1" : "=r"(esr));
-    asm volatile("mrs %0, elr_el1" : "=r"(elr));
-    asm volatile("mrs %0, far_el1" : "=r"(far));
 
     u32 ec = (esr >> 26) & 0x3F;
     u64 iss = esr & 0x1FFFFFF;
@@ -63,8 +62,23 @@ void el1_sync_handler() {
             dump_stack();
             while(1) asm volatile("wfe");
             break;
-        /* TODO: Implement syscalls later on */
-        case 0x15: return; break;
+
+        case 0x15: {
+            u64 syscall_num = tf->x[8];
+            
+            u64 ret = syscall_handler(
+                syscall_num,
+                tf->x[0], tf->x[1], tf->x[2], 
+                tf->x[3], tf->x[4], tf->x[5]
+            );
+
+            tf->x[0] = ret;
+
+            // Advances PC past the SVC instruction (4 bytes)
+            tf->elr += 4; 
+            return;
+        }
+
         default:
             kprintf("\n[PANIC] SYNC EXCEPTION\n");
             kprintf("  ESR: 0x%llx (EC: 0x%x)\n", esr, ec);

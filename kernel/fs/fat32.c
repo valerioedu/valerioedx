@@ -3,6 +3,9 @@
 #include <heap.h>
 #include <string.h>
 
+//TODO: Implement a robust mutex implementation
+//TODO: Implement a close to free all of the temporary nodes
+
 static inode_ops fat32_ops;
 
 typedef struct {
@@ -163,8 +166,6 @@ static u32 find_free_cluster(fat32_fs_t* fs) {
 
 // Allocate a new cluster and linking it to prev_cluster if provided
 static u32 allocate_cluster(fat32_fs_t* fs, u32 prev_cluster) {
-    mutex_acquire(&fs->lock);
-
     u32 new_cluster = find_free_cluster(fs);
     if (new_cluster == 0) return 0;
     
@@ -174,11 +175,16 @@ static u32 allocate_cluster(fat32_fs_t* fs, u32 prev_cluster) {
     // Link previous cluster to new one
     if (prev_cluster >= 2)
         set_cluster_value(fs, prev_cluster, new_cluster);
-
-    mutex_release(&fs->lock);
     
     // Zero out the new cluster
     u8* zero_buf = kmalloc(fs->bytes_per_cluster);
+
+    if (!zero_buf) {
+        kprintf("[FAT32] [Error] allocate_cluster: kmalloc failed\n");
+        set_cluster_value(fs, new_cluster, 0); 
+        return 0;
+    }
+    
     memset(zero_buf, 0, fs->bytes_per_cluster);
     write_cluster(fs, new_cluster, zero_buf);
     kfree(zero_buf);
@@ -265,8 +271,6 @@ u64 fat32_write_file(inode_t* node, u64 offset, u64 size, u8* buffer) {
     u64 written = 0;
     u8* cl_buf = kmalloc(cluster_size);
     if (!cl_buf) return 0;
-
-    mutex_acquire(&fs->lock);
     
     while (written < size) {
         // Read existing cluster data (for partial writes)
@@ -313,8 +317,6 @@ u64 fat32_write_file(inode_t* node, u64 offset, u64 size, u8* buffer) {
             kfree(dir_buf);
         }
     }
-
-    mutex_release(&fs->lock);
     
     return written;
 }
@@ -393,7 +395,7 @@ inode_t* fat32_finddir(inode_t* node, const char* name) {
                 memset(result, 0, sizeof(inode_t));
                 strncpy(result->name, entry_name, sizeof(result->name) - 1);
                 
-                result->flags = (entry->attr & FAT_ATTR_DIRECTORY) ? FS_DIRECTORY : FS_FILE;
+                result->flags = ((entry->attr & FAT_ATTR_DIRECTORY) ? FS_DIRECTORY : FS_FILE) | FS_TEMPORARY;
                 result->size = entry->file_size;
                 result->ops = &fat32_ops;
 
@@ -406,6 +408,7 @@ inode_t* fat32_finddir(inode_t* node, const char* name) {
                 file_data->dir_entry_offset = i * sizeof(fat_dir_entry_t);
                 
                 result->ptr = file_data;
+                result->id = (entry->fst_clus_hi << 16) | entry->fst_clus_lo;
                 goto done;
             }
         }
@@ -644,8 +647,6 @@ static int write_dir_entries(fat32_fs_t* fs, u32 start_cluster, u32 start_offset
     int entry_idx = start_offset / sizeof(fat_dir_entry_t);
     int written = 0;
 
-    mutex_acquire(&fs->lock);
-    
     while (written < count && cluster < FAT_EOC) {
         read_cluster(fs, cluster, buf);
         fat_dir_entry_t* dir_entries = (fat_dir_entry_t*)buf;
@@ -664,7 +665,6 @@ static int write_dir_entries(fat32_fs_t* fs, u32 start_cluster, u32 start_offset
         }
     }
     
-    mutex_release(&fs->lock);
     kfree(buf);
     return written == count;
 }
@@ -694,13 +694,13 @@ static inode_t* fat32_create_entry(inode_t* parent, const char* name, u8 attr) {
                                 &entry_cluster, &entry_offset)) {
         return NULL;
     }
-
-    mutex_acquire(&fs->lock);
     
     u32 new_cluster = 0;
     if (attr & FAT_ATTR_DIRECTORY) {
         new_cluster = allocate_cluster(fs, 0);
-        if (new_cluster == 0) return NULL;
+        if (new_cluster == 0) {
+            return NULL;
+        }
     }
     
     // Builds directory entries
@@ -732,6 +732,12 @@ static inode_t* fat32_create_entry(inode_t* parent, const char* name, u8 attr) {
     // If creating directory, initialize with . and .. entries
     if (attr & FAT_ATTR_DIRECTORY) {
         u8* dir_buf = kmalloc(fs->bytes_per_cluster);
+
+        if (!dir_buf) {
+            kprintf("[ [RFAT32 [W] Allocation fail: dir_buf\n");
+            return NULL;
+        }
+
         memset(dir_buf, 0, fs->bytes_per_cluster);
         
         fat_dir_entry_t* dot = (fat_dir_entry_t*)dir_buf;
@@ -746,8 +752,14 @@ static inode_t* fat32_create_entry(inode_t* parent, const char* name, u8 attr) {
         dotdot->name[0] = '.';
         dotdot->name[1] = '.';
         dotdot->attr = FAT_ATTR_DIRECTORY;
-        dotdot->fst_clus_hi = (parent_info->first_cluster >> 16) & 0xFFFF;
-        dotdot->fst_clus_lo = parent_info->first_cluster & 0xFFFF;
+
+        u32 parent_clus = parent_info->first_cluster;
+        if (parent_clus == fs->root_cluster) {
+            parent_clus = 0;
+        }
+
+        dotdot->fst_clus_hi = (parent_clus >> 16) & 0xFFFF;
+        dotdot->fst_clus_lo = parent_clus & 0xFFFF;
         
         write_cluster(fs, new_cluster, dir_buf);
         kfree(dir_buf);
@@ -755,21 +767,36 @@ static inode_t* fat32_create_entry(inode_t* parent, const char* name, u8 attr) {
     
     // Create and return inode
     inode_t* node = kmalloc(sizeof(inode_t));
+
+    if (!node) {
+        kfree(node);
+        kfree(entries);
+        kprintf("[ [RFAT32 [W] Allocation fail: node\n");
+        return NULL;
+    }
+
     memset(node, 0, sizeof(inode_t));
     strncpy(node->name, name, sizeof(node->name) - 1);
-    node->flags = (attr & FAT_ATTR_DIRECTORY) ? FS_DIRECTORY : FS_FILE;
+    node->flags = ((attr & FAT_ATTR_DIRECTORY) ? FS_DIRECTORY : FS_FILE) | FS_TEMPORARY;
     node->size = 0;
     node->ops = &fat32_ops;
     
     fat32_file_t* file_data = kmalloc(sizeof(fat32_file_t));
+
+    if (!file_data) {
+        kfree(node);
+        kfree(entries);
+        kfree(file_data);
+        kprintf("[ [RFAT32 [W] Allocation fail: node\n");
+        return NULL;
+    }
+
     file_data->fs = fs;
     file_data->first_cluster = new_cluster;
     file_data->parent_cluster = parent_info->first_cluster;
     file_data->dir_entry_cluster = entry_cluster;
     file_data->dir_entry_offset = entry_offset + (lfn_count * sizeof(fat_dir_entry_t));
     node->ptr = file_data;
-
-    mutex_release(&fs->lock);
     
     return node;
 }
@@ -783,15 +810,11 @@ inode_t* fat32_mkdir(inode_t* parent, const char* name) {
 }
 
 static void free_cluster_chain(fat32_fs_t* fs, u32 cluster) {
-    mutex_acquire(&fs->lock);
-
     while (cluster >= 2 && cluster < FAT_EOC) {
         u32 next = get_next_cluster(fs, cluster);
         set_cluster_value(fs, cluster, 0);  // Mark as free
         cluster = next;
     }
-
-    mutex_release(&fs->lock);
 }
 
 // Checks if directory is empty (only . and ..)
@@ -848,8 +871,6 @@ static int delete_dir_entries(fat32_fs_t* fs, u32 dir_cluster, const char* name)
     // Track LFN entries to delete
     u32 lfn_start_cluster = 0;
     u32 lfn_start_idx = 0;
-
-    mutex_acquire(&fs->lock);
     
     while (cluster < FAT_EOC) {
         read_cluster(fs, cluster, buf);
@@ -942,7 +963,6 @@ static int delete_dir_entries(fat32_fs_t* fs, u32 dir_cluster, const char* name)
     
 done:
     kfree(buf);
-    mutex_release(&fs->lock);
     return 0;
 }
 
@@ -993,6 +1013,77 @@ int fat32_rmdir(inode_t* parent, const char* name) {
     kfree(target);
     
     return delete_dir_entries(fs, parent_info->first_cluster, name) ? 0 : -1;
+}
+
+
+int fat32_readdir(inode_t* node, int index, char* namebuf, int buflen, int* is_dir) {
+    fat32_file_t* dir_info = (fat32_file_t*)node->ptr;
+    fat32_fs_t* fs = dir_info->fs;
+
+    u32 cluster = dir_info->first_cluster;
+    u32 cluster_size = fs->bytes_per_cluster;
+    u8* buf = kmalloc(cluster_size);
+
+    int entry_idx = 0;
+    char lfn_buffer[256];
+    u8 lfn_checksum_expected = 0;
+    int lfn_valid = 0;
+
+    while (cluster < FAT_EOC) {
+        read_cluster(fs, cluster, buf);
+        fat_dir_entry_t* entries = (fat_dir_entry_t*)buf;
+        int entries_per_cluster = cluster_size / sizeof(fat_dir_entry_t);
+
+        for (int i = 0; i < entries_per_cluster; i++) {
+            fat_dir_entry_t* entry = &entries[i];
+
+            if (entry->name[0] == 0x00) goto done;  // End of directory
+            if (entry->name[0] == 0xE5) { lfn_valid = 0; continue; }
+            if (entry->attr == FAT_ATTR_LFN) {
+                fat_lfn_entry_t* lfn = (fat_lfn_entry_t*)entry;
+                if (lfn->order & 0x40) {
+                    memset(lfn_buffer, 0, sizeof(lfn_buffer));
+                    lfn_checksum_expected = lfn->checksum;
+                    lfn_valid = 1;
+                }
+                if (lfn_valid && lfn->checksum == lfn_checksum_expected) {
+                    int order = lfn->order & 0x3F;
+                    int pos = (order - 1) * 13;
+                    lfn_extract_chars(lfn, lfn_buffer, &pos);
+                }
+                continue;
+            }
+
+            if (entry_idx == index) {
+                char entry_name[256];
+                if (lfn_valid && lfn_checksum(entry->name) == lfn_checksum_expected) {
+                    strncpy(entry_name, lfn_buffer, buflen - 1);
+                } else {
+                    fat_get_short_name(entry_name, entry->name);
+                }
+                entry_name[buflen - 1] = '\0';
+                strncpy(namebuf, entry_name, buflen - 1);
+                namebuf[buflen - 1] = '\0';
+                if (is_dir) *is_dir = (entry->attr & FAT_ATTR_DIRECTORY) ? 1 : 0;
+                kfree(buf);
+                return 1;
+            }
+            lfn_valid = 0;
+            entry_idx++;
+        }
+        cluster = get_next_cluster(fs, cluster);
+    }
+done:
+    kfree(buf);
+    return 0;
+}
+
+// Simply frees the inode
+void fat32_close(inode_t *inode) {
+    if (inode->ptr) {
+        kfree(inode->ptr);
+        inode->ptr = NULL;
+    }
 }
 
 inode_t* fat32_mount(inode_t* device) {
@@ -1090,7 +1181,7 @@ inode_t* fat32_mount(inode_t* device) {
     fat32_ops.write = fat32_write_file;
     // Open and Close are not supported on FAT32
     fat32_ops.open = NULL;
-    fat32_ops.close = NULL;
+    fat32_ops.close = fat32_close;
     fat32_ops.finddir = fat32_finddir;
     fat32_ops.create = fat32_create;
     fat32_ops.mkdir = fat32_mkdir;
@@ -1098,6 +1189,7 @@ inode_t* fat32_mount(inode_t* device) {
     fat32_ops.rmdir = fat32_rmdir;
     // FAT32 doesn't support symlink natively
     fat32_ops.symlink = NULL;
+    fat32_ops.readdir = fat32_readdir;
 
     return root;
 }

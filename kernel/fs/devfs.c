@@ -2,36 +2,139 @@
 #include <string.h>
 #include <kio.h>
 #include <tty.h>
+#include <heap.h>
 
 #ifdef ARM
 #include <uart.h>
 #include <virtio.h>
 #endif
 
+typedef struct device_driver {
+    char name[32];
+    inode_ops *ops;
+    struct device_driver *next;
+} device_driver_t;
+
+static device_driver_t *device_head = NULL;
 static int dev_count = 0;
-inode_t device_list[10];
+
+static inode_t *create_device_inode(device_driver_t *device) {
+    if (!device) goto done;
+
+    inode_t *node = (inode_t*)kmalloc(sizeof(inode_t));
+    if (!node) goto done;
+
+    memset(node, 0, sizeof(inode_t));
+    strncpy(node->name, device->name, 31);
+
+    node->flags = FS_CHARDEVICE | FS_TEMPORARY;
+    node->ops = device->ops;
+
+    //TODO: Implement the creation of a unique id
+    node->id = 0;
+    node->size = 0;
+    
+    node->ptr = NULL; 
+
+    return node;
+
+
+done:
+    kprintf("[ [RDEVFS [W] Failed to create device node");
+    return NULL;
+}
+
+inode_t *defvs_finddir(inode_t *node, const char *name) {
+    return devfs_fetch_device(name);
+}
+
+int devfs_readdir(inode_t* node, int index, char* namebuf, int buflen, int* is_dir) {
+    if (index < 0) return 0;
+
+    if (index == 0) {
+        strncpy(namebuf, ".", buflen);
+        if (is_dir) *is_dir = 1;
+
+        return 1;
+    }
+
+    if (index == 1) {
+        strncpy(namebuf, "..", buflen);
+        if (is_dir) *is_dir = 1;
+
+        return 1;
+    }
+
+    int target_idx = index - 2;
+    device_driver_t *current = device_head;
+    int current_idx = 0;
+
+    while (current) {
+        if (current_idx == target_idx) {
+            strncpy(namebuf, current->name, buflen);
+            if (is_dir) *is_dir = 0;
+
+            return 1;
+        }
+
+        current = current->next;
+        current_idx++;
+    }
+
+    return 0;
+}
+
+static inode_ops devfs_root_ops = {
+    .finddir = defvs_finddir,
+    .readdir = devfs_readdir
+};
+
+static inode_t devfs_root_node = {
+    .name = "devfs",
+    .flags = FS_DIRECTORY,
+    .ops = &devfs_root_ops,
+    .id = 0,
+    .size = 0,
+    .mount_point = NULL
+};
+
+inode_t *devfs_get_root() {
+    return &devfs_root_node;
+}
 
 void devfs_mount_device(char* name, inode_ops* ops) {
-    if (dev_count >= 10) return;
+    device_driver_t *drv = kmalloc(sizeof(device_driver_t));
 
-    inode_t* node = &device_list[dev_count++];
-    strcpy(node->name, name);
-    node->flags = FS_CHARDEVICE;
-    node->ops = ops;
-    
-    kprintf("[ [CDevFS [W] Mounted /dev/%s\n", name);
+    if (!drv) {
+        kprintf("[DevFS] Failed to allocate driver for %s\n", name);
+        return;
+    }
+
+    strncpy(drv->name, name, 31);
+    drv->ops = ops;
+    drv->next = device_head;
+    device_head = drv;
+    dev_count++;
+
+    kprintf("[ [CDevFS [W] Registered device: %s\n", name);
 }
 
 inode_t *devfs_fetch_device(const char* name) {
-    for (int i = 0; i < dev_count; i++) {
-        if (strcmp(device_list[i].name, name) == 0) {
-            return &device_list[i];
-        }
+    device_driver_t *current = device_head;
+
+    while (current) {
+        if (strcmp(current->name, name) == 0)
+            return create_device_inode(current);
+
+        current = current->next;
     }
+
     return NULL;
 }
 
 void devfs_init() {
+    device_head = NULL;
+    dev_count = 0;
 #ifdef ARM
     devfs_mount_device("virtio-blk", &virtio_blk_ops);
     devfs_mount_device("uart", &uart_ops);
