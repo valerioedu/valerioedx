@@ -297,7 +297,7 @@ void schedule() {
 
         if (next_pt && next_pt != prev_pt) {
 #ifdef ARM
-            // Ensure we use physical address
+            // Physical address
             asm volatile("msr ttbr0_el1, %0" :: "r"(V2P(next_pt)));
             asm volatile("tlbi vmalle1is"); 
             asm volatile("dsb ish");
