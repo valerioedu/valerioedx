@@ -3,8 +3,8 @@
 #include <pmm.h>
 #include <string.h>
 #include <sync.h>
-
-// TODO: Implement VMA
+#include <vma.h>
+#include <sched.h>
 
 #define MT_DEVICE_nGnRnE 0
 #define MT_NORMAL        1
@@ -23,6 +23,8 @@ static u64* root_table;
 static bool paging_enabled = false;
 
 static mutex_t vmm_lock;
+
+extern task_t *current_task;
 
 static void* safe_P2V(u64 phys) {
     if (paging_enabled) {
@@ -67,7 +69,50 @@ static u64* get_next_table(u64* table, u64 idx) {
     return (u64*)new_table_virt;
 }
 
-// Gets the page table entry
+u64* vmm_get_pte_from_table(u64* page_table, uintptr_t virt) {
+    u64 l1_idx = (virt >> 30) & 0x1FF;
+    u64 l2_idx = (virt >> 21) & 0x1FF;
+    u64 l3_idx = (virt >> 12) & 0x1FF;
+
+    if (!page_table) return NULL;
+
+    if (!(page_table[l1_idx] & PT_VALID)) return NULL;
+    u64* l2_table = (u64*)P2V(page_table[l1_idx] & 0x0000FFFFFFFFF000ULL);
+
+    if (!(l2_table[l2_idx] & PT_VALID)) return NULL;
+    u64* l3_table = (u64*)P2V(l2_table[l2_idx] & 0x0000FFFFFFFFF000ULL);
+
+    return &l3_table[l3_idx];
+}
+
+u64* vmm_get_pte_from_table_alloc(u64* page_table, uintptr_t virt) {
+    u64 l1_idx = (virt >> 30) & 0x1FF;
+    u64 l2_idx = (virt >> 21) & 0x1FF;
+    u64 l3_idx = (virt >> 12) & 0x1FF;
+
+    if (!page_table) return NULL;
+
+    // Allocate L2 if needed
+    if (!(page_table[l1_idx] & PT_VALID)) {
+        u64 l2_phys = pmm_alloc_frame();
+        if (!l2_phys) return NULL;
+        memset(P2V(l2_phys), 0, PAGE_SIZE);
+        page_table[l1_idx] = l2_phys | PT_TABLE | PT_VALID;
+    }
+    u64* l2_table = (u64*)P2V(page_table[l1_idx] & 0x0000FFFFFFFFF000ULL);
+
+    // Allocate L3 if needed
+    if (!(l2_table[l2_idx] & PT_VALID)) {
+        u64 l3_phys = pmm_alloc_frame();
+        if (!l3_phys) return NULL;
+        memset(P2V(l3_phys), 0, PAGE_SIZE);
+        l2_table[l2_idx] = l3_phys | PT_TABLE | PT_VALID;
+    }
+    u64* l3_table = (u64*)P2V(l2_table[l2_idx] & 0x0000FFFFFFFFF000ULL);
+
+    return &l3_table[l3_idx];
+}
+
 static u64* vmm_get_pte(uintptr_t virt, bool allocate) {
     u64 l1_idx = (virt >> 30) & 0x1FF;
     u64 l2_idx = (virt >> 21) & 0x1FF;
@@ -100,7 +145,7 @@ void dcache_clean_poc(void *addr, size_t size) {
 #endif
 }
 
-// Maps a single 4KB page
+// Maps a single 4KB page in kernel space
 void vmm_map_page(uintptr_t virt, uintptr_t phys, u64 flags) {
     mutex_acquire(&vmm_lock);
 #ifdef ARM
@@ -248,22 +293,34 @@ void init_vmm() {
         : : "r"(PHYS_OFFSET) : "x0", "x1", "memory"
     );
 #endif
-    mutex_acquire(&vmm_lock);
+    mutex_init(&vmm_lock);
 }
 
 #ifdef ARM
 // Returns 0 on success, -1 on unrecoverable error (If in userland kill the process)
 int vmm_handle_page_fault(uintptr_t virt, bool is_write) {
+    // Check if fault is in user space
+    if (virt < USER_SPACE_END) {
+        // User space fault - use VMA system
+        if (!current_task || !current_task->proc || !current_task->proc->mm) {
+            kprintf("[VMM] User space fault but no MM struct\n");
+            return -1;
+        }
+        
+        return vma_page_fault(current_task->proc->mm, virt, is_write);
+    }
+    
+    // Kernel space fault - use old mechanism
     u64* pte = vmm_get_pte(virt, false);
-    if (!pte) return -1; // Tables missing, fatal for now (to implement large range demand paging)
+
+    //TODO: Implement large range demand paging
+    if (!pte) return -1; // Tables missing, fatal for now
 
     u64 entry = *pte;
 
     // Case 1: demand paging
     // Page is not valid (Bit 0 is 0)
     if (!(entry & PT_VALID)) {
-        // TODO: check VMA structures here.
-        
         u64 new_frame = pmm_alloc_frame();
         if (!new_frame) {
             kprintf("[VMM] OOM during demand paging\n");
@@ -272,11 +329,10 @@ int vmm_handle_page_fault(uintptr_t virt, bool is_write) {
 
         memset((void*)P2V(new_frame), 0, PAGE_SIZE);
 
-        // Later check VMA  permissions
         u64 new_entry = new_frame | PT_PAGE | PT_VALID | PT_AF | PT_SH_INNER;
         new_entry |= (MT_NORMAL << 2);  // Normal memory
-        new_entry |= PT_AP_RW_EL0;      // User read/write
-        new_entry |= PT_UXN;            // No user execute (data page)
+        new_entry |= PT_AP_RW_EL1;      // Kernel read/write
+        new_entry |= PT_UXN | PT_PXN;   // No execute
         
         *pte = new_entry;
         
@@ -288,28 +344,25 @@ int vmm_handle_page_fault(uintptr_t virt, bool is_write) {
         return 0;
     }
 
-    // Case 2: copy and write
-    // Page is Valid, Write Access attempted, and SW_COW bit is set
+    // Case 2: copy and write (COW)
     if ((entry & PT_VALID) && is_write && (entry & PT_SW_COW)) {
         u64 old_phys = entry & 0x0000FFFFFFFFF000ULL;
         
-        // Allocate new frame
         u64 new_phys = pmm_alloc_frame();
         if (!new_phys) return -1;
 
         memcpy((void*)P2V(new_phys), (void*)P2V(old_phys), PAGE_SIZE);
 
         u64 new_entry = entry;
-        new_entry &= ~0x0000FFFFFFFFF000ULL; // Clear old address
-        new_entry |= new_phys;               // Set new address
-        new_entry &= ~PT_SW_COW;             // Clear COW flag
+        new_entry &= ~0x0000FFFFFFFFF000ULL;
+        new_entry |= new_phys;
+        new_entry &= ~PT_SW_COW;
         new_entry &= ~(1ULL << 7);           // Clear AP[2] (ReadOnly bit) to make it RW
 
         *pte = new_entry;
 
         pmm_free_frame(old_phys); 
 
-        // Flush TLB
         asm volatile("tlbi vaale1is, %0" :: "r"(virt >> 12));
         asm volatile("dsb ish");
         asm volatile("isb");
