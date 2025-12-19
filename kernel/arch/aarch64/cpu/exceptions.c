@@ -55,7 +55,7 @@ void el1_sync_handler(trapframe_t *tf) {
             }
 
             // TODO: if in userland kill the process
-            kprintf("\n[PANIC] UNHANDLED SYNC EXCEPTION\n");
+            kprintf("\n[ [RPANIC [W] UNHANDLED SYNC EXCEPTION\n");
             kprintf("  Type: %s Abort\n", (ec & 0x1) ? "Data" : "Instruction");
             kprintf("  ESR: 0x%llx (FSC: 0x%x, Write: %d)\n", esr, fsc, is_write);
             kprintf("  FAR: 0x%llx\n", far);
@@ -80,7 +80,7 @@ void el1_sync_handler(trapframe_t *tf) {
         }
 
         default:
-            kprintf("\n[PANIC] SYNC EXCEPTION\n");
+            kprintf("\n[ [RPANIC [W] SYNC EXCEPTION\n");
             kprintf("  ESR: 0x%llx (EC: 0x%x)\n", esr, ec);
             kprintf("  ELR: 0x%llx (PC)\n", elr);
             kprintf("  FAR: 0x%llx (Addr)\n", far);
