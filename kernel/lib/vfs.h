@@ -17,7 +17,7 @@ typedef struct {
     u64 (*write)(struct vfs_node* file, u64 format, u64 size, u8* buffer);
     void (*open) (struct vfs_node* file);
     void (*close)(struct vfs_node* file);
-    struct vfs_node* (*finddir)(struct vfs_node* file, const char *name);
+    struct vfs_node* (*lookup)(struct vfs_node* file, const char *name);
     struct vfs_node* (*create)(struct vfs_node*, const char*);      // Create file
     struct vfs_node* (*mkdir)(struct vfs_node*, const char*);       // Create directory
     int (*unlink)(struct vfs_node*, const char*);                // Delete file

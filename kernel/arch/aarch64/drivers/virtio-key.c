@@ -60,5 +60,5 @@ inode_ops virtio_kb_ops = {
     .write = NULL,
     .open = NULL,
     .close = NULL,
-    .finddir = NULL,
+    .lookup = NULL,
 };

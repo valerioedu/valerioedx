@@ -321,7 +321,7 @@ u64 fat32_write_file(inode_t* node, u64 offset, u64 size, u8* buffer) {
     return written;
 }
 
-inode_t* fat32_finddir(inode_t* node, const char* name) {
+inode_t* fat32_lookup(inode_t* node, const char* name) {
     fat32_file_t* dir_info = (fat32_file_t*)node->ptr;
     fat32_fs_t* fs = dir_info->fs;
 
@@ -674,7 +674,7 @@ static inode_t* fat32_create_entry(inode_t* parent, const char* name, u8 attr) {
     fat32_fs_t* fs = parent_info->fs;
 
     // Checks if entry already exists
-    inode_t* existing = fat32_finddir(parent, name);
+    inode_t* existing = fat32_lookup(parent, name);
     if (existing) {
         kfree(existing->ptr);
         kfree(existing);
@@ -971,7 +971,7 @@ int fat32_unlink(inode_t* parent, const char* name) {
     fat32_fs_t* fs = parent_info->fs;
     
     // Finds the file first to make sure it exists and is not a directory
-    inode_t* target = fat32_finddir(parent, name);
+    inode_t* target = fat32_lookup(parent, name);
     if (!target) return -1;  // Not found
     
     if (target->flags & FS_DIRECTORY) {
@@ -991,7 +991,7 @@ int fat32_rmdir(inode_t* parent, const char* name) {
     fat32_fs_t* fs = parent_info->fs;
     
     // Finds the directory
-    inode_t* target = fat32_finddir(parent, name);
+    inode_t* target = fat32_lookup(parent, name);
     if (!target) return -1;
     
     if (!(target->flags & FS_DIRECTORY)) {
@@ -1182,7 +1182,7 @@ inode_t* fat32_mount(inode_t* device) {
     // Open and Close are not supported on FAT32
     fat32_ops.open = NULL;
     fat32_ops.close = fat32_close;
-    fat32_ops.finddir = fat32_finddir;
+    fat32_ops.lookup = fat32_lookup;
     fat32_ops.create = fat32_create;
     fat32_ops.mkdir = fat32_mkdir;
     fat32_ops.unlink = fat32_unlink;

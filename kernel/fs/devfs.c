@@ -44,7 +44,7 @@ done:
     return NULL;
 }
 
-inode_t *defvs_finddir(inode_t *node, const char *name) {
+inode_t *defvs_lookup(inode_t *node, const char *name) {
     return devfs_fetch_device(name);
 }
 
@@ -85,7 +85,7 @@ int devfs_readdir(inode_t* node, int index, char* namebuf, int buflen, int* is_d
 }
 
 static inode_ops devfs_root_ops = {
-    .finddir = defvs_finddir,
+    .lookup = defvs_lookup,
     .readdir = devfs_readdir
 };
 

@@ -81,16 +81,17 @@ inode_t* vfs_lookup(const char* path) {
     char* path_copy = kmalloc(strlen(path) + 1);
     strcpy(path_copy, path);
     
-    char* token = strtok(path_copy, "/");
+    char *saveptr;
+    char* token = strtok_r(path_copy, "/", &saveptr);
     
     while (token != NULL) {
-        if (!current->ops || !current->ops->finddir) {
+        if (!current->ops || !current->ops->lookup) {
             vfs_close(current);
             kfree(path_copy);
             return NULL;
         }
 
-        inode_t* next = current->ops->finddir(current, token);
+        inode_t* next = current->ops->lookup(current, token);
 
         vfs_close(current);
         
@@ -111,7 +112,7 @@ inode_t* vfs_lookup(const char* path) {
         }
     }
 
-        token = strtok(NULL, "/");
+        token = strtok_r(NULL, "/", &saveptr);
     }
     
     kfree(path_copy);
