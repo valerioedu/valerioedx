@@ -7,6 +7,9 @@
 
 #define MAX_FD 1024
 
+// Forward declaration
+struct mm_struct;
+
 typedef enum task_priority {
     IDLE = 0,
     LOW,
@@ -61,7 +64,7 @@ typedef struct task {
     task_state state;
     task_priority priority;
     struct task* next;          // Linked list pointer
-    struct task* next_wait;     // Pointer to 
+    struct task* next_wait;     // Pointer to wait queue
     void* stack_page;           // Pointer to the allocated stack memory
     struct process *proc;
 } task_t;
@@ -69,7 +72,7 @@ typedef struct task {
 // Process
 typedef struct process {
     u64 pid;
-    u64 *page_table;
+    struct mm_struct *mm;       // Memory management struct
     struct file *fd_table[MAX_FD];
     char name[64];
 } process_t;
@@ -83,5 +86,6 @@ void task_exit();
 void cpu_switch_to(struct task* prev, struct task* next);
 void sleep_on(wait_queue_t* queue, spinlock_t* release_lock);
 void wake_up(wait_queue_t* queue);
+process_t *process_create(const char *name, void (*entry_point)(), task_priority priority);
 
 #endif

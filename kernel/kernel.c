@@ -6,6 +6,9 @@
 #include <heap.h>
 #include <fat32.h>
 #include <tty.h>
+#include <vma.h>
+
+extern task_t *current_task;
 
 void kmain() {
     tty_init();
@@ -43,12 +46,12 @@ void kmain() {
                 char buf[64];
                 u64 bytes = vfs_read(text_file, 0, 63, (u8*)buf);
                 buf[bytes] = 0;
-                kprintf("[ [CKMAIN [W]Content of TEST.TXT: %s\n", buf);
+                kprintf("[ [CKMAIN [W] Content of TEST.TXT: %s\n", buf);
             } else {
-                kprintf("TEST.TXT not found (ensure disk is FAT32 formatted)\n");
+                kprintf("[ [RKMAIN [W] TEST.TXT not found\n");
             }
         } else {
-            kprintf("Failed to mount FAT32.\n");
+            kprintf("[ [RKMAIN [W] Failed to mount FAT32\n");
         }
     }
 

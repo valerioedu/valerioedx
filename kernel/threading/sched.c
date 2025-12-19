@@ -5,6 +5,7 @@
 #include <spinlock.h>
 #include <sync.h>
 #include <vmm.h>
+#include <vma.h>
 
 extern void ret_from_fork();
 extern void cpu_switch_to(struct task* prev, struct task* next);
@@ -57,7 +58,7 @@ void reaper_thread() {
         while (zombies_to_free) {
             task_t *next = zombies_to_free->next;
             
-            kprintf("[ [CReaper [W] Cleaning up PID %d\n", zombies_to_free->id);
+            kprintf("[ [CReaper [W] Cleaning up TID %d\n", zombies_to_free->id);
             kfree(zombies_to_free->stack_page);
             kfree(zombies_to_free);
             
@@ -86,7 +87,7 @@ void sched_init() {
 process_t *process_create(const char *name, void (*entry_point)(), task_priority priority) {
     process_t *proc = (process_t*)kmalloc(sizeof(process_t));
     if (!proc) {
-        kprintf("[ [CSCHED [W] [RFailed to allocate memory for new process[W");
+        kprintf("[ [RSCHED [W] Failed to allocate memory for new process\n");
         return NULL;
     }
     
@@ -95,11 +96,18 @@ process_t *process_create(const char *name, void (*entry_point)(), task_priority
     proc->pid = pid_counter++;
     strncpy(proc->name, name, 63);
 
-    //TODO: implement vmm for user space
-    proc->page_table = NULL;
+    // Create address space
+    proc->mm = mm_create();
+    if (!proc->mm) {
+        kfree(proc);
+        kprintf("[ [RSCHED [W] Failed to create address space\n");
+        return NULL;
+    }
 
     task_create(entry_point, priority, proc);
     kprintf("[ [CSCHED[W ] Created Process:\tPID: %d\tName: %s\n", proc->pid, proc->name);
+    
+    return proc;
 }
 
 void task_create(void (*entry_point)(), task_priority priority, struct process *proc) {
@@ -112,7 +120,7 @@ void task_create(void (*entry_point)(), task_priority priority, struct process *
     // 4 KB stack as of now
     t->stack_page = kmalloc(4096);
     if (!t->stack_page) {
-        kprintf("[ [CSCHED[W ] [RFailed to allocate stack![W\n");
+        kprintf("[ [RSCHED[W ] Failed to allocate stack!\n");
         kfree(t);
         return;
     }
@@ -142,7 +150,9 @@ void task_create(void (*entry_point)(), task_priority priority, struct process *
     }
 
     spinlock_release_irqrestore(&sched_lock, flags);
-    kprintf("[ [CSCHED[W ] Created Kernel Thread:\tID: %d\tPriority: %d\n", t->id, priority);
+    
+    const char *type = proc ? "User Thread" : "Kernel Thread";
+    kprintf("[ [CSCHED[W ] Created %s:\tID: %d\tPriority: %d\n", type, t->id, priority);
 }
 
 void sleep_on(wait_queue_t* queue, spinlock_t* release_lock) {
@@ -292,13 +302,21 @@ void schedule() {
             current_task->state = TASK_RUNNING;
         }
 
-        u64 *next_pt = (next_task->proc) ? next_task->proc->page_table : NULL;
-        u64 *prev_pt = (prev_task->proc) ? prev_task->proc->page_table : NULL;
+        mm_struct_t *next_mm = (next_task->proc) ? next_task->proc->mm : NULL;
+        mm_struct_t *prev_mm = (prev_task->proc) ? prev_task->proc->mm : NULL;
 
-        if (next_pt && next_pt != prev_pt) {
+        if (next_mm && next_mm != prev_mm) {
 #ifdef ARM
-            // Physical address
-            asm volatile("msr ttbr0_el1, %0" :: "r"(V2P(next_pt)));
+            // Switch to user page table (physical address)
+            asm volatile("msr ttbr0_el1, %0" :: "r"((u64)next_mm->page_table));
+            asm volatile("tlbi vmalle1is"); 
+            asm volatile("dsb ish");
+            asm volatile("isb");
+#endif
+        } else if (!next_mm && prev_mm) {
+#ifdef ARM
+            // Switching to kernel thread - clear TTBR0
+            asm volatile("msr ttbr0_el1, %0" :: "r"(0ULL));
             asm volatile("tlbi vmalle1is"); 
             asm volatile("dsb ish");
             asm volatile("isb");
