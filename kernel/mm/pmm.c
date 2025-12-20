@@ -129,7 +129,7 @@ void pmm_free_frame(uintptr_t addr) {
         ref_counts[idx]--;
         
         if (ref_counts[idx] == 0) {
-            frame_stack[stack_top++] == idx;
+            frame_stack[stack_top++] = idx;
             used_frames--;
         }
 
