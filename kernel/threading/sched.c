@@ -10,14 +10,14 @@
 extern void ret_from_fork();
 extern void cpu_switch_to(struct task* prev, struct task* next);
 
-static task_t *runqueues[COUNT];
-static task_t *runqueues_tail[COUNT];
+task_t *runqueues[COUNT];
+task_t *runqueues_tail[COUNT];
 
 task_t *current_task = NULL;
-static u64 pid_counter = 1;
-static u64 tid_counter = 1;
+u64 pid_counter = 1;
+u64 tid_counter = 1;
 
-static spinlock_t sched_lock = 0;
+spinlock_t sched_lock = 0;
 
 static task_t *zombie_head = NULL;
 static wait_queue_t reaper_wq = NULL;

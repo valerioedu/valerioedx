@@ -413,3 +413,72 @@ int vma_expand_stack(mm_struct_t* mm, uintptr_t addr) {
     kprintf("[ [CMM [W] Stack expanded to 0x%llx\n", new_start);
     return 0;
 }
+
+mm_struct_t* mm_duplicate(mm_struct_t* old_mm) {
+    if (!old_mm) return NULL;
+
+    mm_struct_t* new_mm = (mm_struct_t*)kmalloc(sizeof(mm_struct_t));
+    if (!new_mm) return NULL;
+    memset(new_mm, 0, sizeof(mm_struct_t));
+
+    u64 pt_phys = pmm_alloc_frame();
+    if (!pt_phys) {
+        kfree(new_mm);
+        return NULL;
+    }
+
+    memset(P2V(pt_phys), 0, PAGE_SIZE);
+
+    new_mm->page_table = (u64*)pt_phys;
+    new_mm->heap_start = old_mm->heap_start;
+    new_mm->heap_end   = old_mm->heap_end;
+    new_mm->stack_start = old_mm->stack_start;
+    new_mm->mmap_base  = old_mm->mmap_base;
+
+    // Iterates through parent's VMAs and clone them
+    vma_t* old_vma = old_mm->vma_list;
+    while (old_vma) {
+        vma_t* new_vma = vma_create(old_vma->vm_start, old_vma->vm_end, old_vma->vm_flags, old_vma->vm_type);
+        if (!new_vma) {
+            // TODO: clean everything up
+            return NULL; 
+        }
+
+        // Clone metadata
+        new_vma->vm_file = old_vma->vm_file;
+        new_vma->vm_pgoff = old_vma->vm_pgoff;
+        
+        vma_insert(new_mm, new_vma);
+
+        for (uintptr_t addr = old_vma->vm_start; addr < old_vma->vm_end; addr += PAGE_SIZE) {
+            u64* old_pte = vmm_get_pte_from_table((u64*)P2V((uintptr_t)old_mm->page_table), addr);
+
+            if (old_pte && (*old_pte & PT_VALID)) {
+                u64* new_pte = vmm_get_pte_from_table_alloc((u64*)P2V((uintptr_t)new_mm->page_table), addr);
+                if (!new_pte) continue;
+
+                if (!(old_vma->vm_flags & VMA_SHARED) && 
+                   ((*old_pte & PT_AP_RW_EL0) || (*old_pte & PT_AP_RW_EL1))) {
+                    
+                    // Set Read-Only and COW flag in parent
+                    *old_pte &= ~(3ULL << 6); // Clear AP bits
+                    *old_pte |= PT_AP_RO_EL0; // Set to User Read-Only
+                    *old_pte |= PT_SW_COW;    // Set our software COW marker
+                }
+
+                *new_pte = *old_pte;
+                
+                /* TODO: Incremement physical frame reference count here.
+                 * Without ref counting, pmm_free_frame() will break the other process.
+                 */
+            }
+        }
+        old_vma = old_vma->vm_next;
+    }
+
+    asm volatile("tlbi vmalle1is"); 
+    asm volatile("dsb ish");
+    asm volatile("isb");
+
+    return new_mm;
+}

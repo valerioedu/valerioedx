@@ -56,5 +56,6 @@ int vma_unmap(mm_struct_t* mm, uintptr_t start, uintptr_t end);
 uintptr_t vma_allocate(mm_struct_t* mm, uintptr_t addr, size_t length, u32 flags);
 int vma_page_fault(mm_struct_t* mm, uintptr_t addr, bool is_write);
 int vma_expand_stack(mm_struct_t* mm, uintptr_t addr);
+mm_struct_t* mm_duplicate(mm_struct_t* old_mm);
 
 #endif

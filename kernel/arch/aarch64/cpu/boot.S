@@ -64,6 +64,9 @@ hang:
     stp x28, x29, [sp, #16 * 14]
     str x30, [sp, #16 * 15] 
     
+    mrs x0, sp_el0
+    str x0, [sp, #248]
+
     mrs x0, elr_el1
     mrs x1, spsr_el1
     stp x0, x1, [sp, #16 * 16]
@@ -73,6 +76,9 @@ hang:
     ldp x0, x1, [sp, #16 * 16]
     msr elr_el1, x0
     msr spsr_el1, x1
+
+    ldr x0, [sp, #248]
+    msr sp_el0, x0
 
     ldp x0, x1, [sp, #16 * 0]
     ldp x2, x3, [sp, #16 * 1]
