@@ -75,6 +75,7 @@ typedef struct process {
     struct mm_struct *mm;       // Memory management struct
     struct file *fd_table[MAX_FD];
     char name[64];
+    inode_t *cwd;
     struct process *parent;     // Pointer to parent process
     struct process *child;      // Head of the children processes
     struct process *sibling;    // Next sibling

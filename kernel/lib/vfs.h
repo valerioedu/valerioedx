@@ -9,6 +9,8 @@
 #define FS_BLOCKDEVICE 0x04
 #define FS_TEMPORARY   0x80
 
+#define vfs_lookup(path) namei(path)    // For legacy compatibility
+
 struct vfs_node;
 
 // Drivers implement these specific functions.
@@ -76,6 +78,7 @@ typedef struct vfs_node {
     void *ptr;             // Private driver data
     i32 ref_count;
     struct vfs_node *mount_point;
+    struct vfs_node *parent;
 } inode_t;
 
 extern inode_t *vfs_root;
@@ -94,5 +97,6 @@ inode_t* devfs_fetch_device(const char* name);
 void devfs_mount_device(char* name, inode_ops* ops);
 void devfs_init();
 inode_t *devfs_get_root();
+inode_t *namei(const char *path);
 
 #endif
