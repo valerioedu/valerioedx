@@ -88,3 +88,16 @@ i64 sys_fork() {
     
     return child->pid;
 }
+
+i64 sys_getpid() {
+    if (!current_task->proc) return -1;
+
+    return current_task->proc->pid;
+}
+
+i64 sys_getppid() {
+    if (!current_task->proc || !current_task->proc->parent)
+        return -1;
+
+    return current_task->proc->parent->pid;
+}

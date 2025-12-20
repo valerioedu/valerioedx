@@ -8,11 +8,15 @@
 #define SYS_READ     3
 #define SYS_WRITE    4
 #define SYS_FORK     2
+#define SYS_GETPID   20
+#define SYS_GETPPID  39
 
 extern task_t *current_task;
 extern i64 sys_write(u32 fd, const char *buf, size_t count);
 extern i64 sys_read(u32 fd, char *buf, size_t count);
 extern i64 sys_fork();
+extern i64 sys_getpid();
+extern i64 sys_getppid();
 
 typedef i64 (*syscalls_fn_t)(i64, i64, i64, i64, i64, i64);
 
@@ -30,6 +34,8 @@ static syscalls_fn_t syscall_table[MAX_SYSCALLS] = {
     [SYS_FORK]               = (syscalls_fn_t)sys_fork,
     [SYS_READ]               = (syscalls_fn_t)sys_read,
     [SYS_WRITE]              = (syscalls_fn_t)sys_write,
+    [SYS_GETPID]             = (syscalls_fn_t)sys_getpid,
+    [SYS_GETPPID]            = (syscalls_fn_t)sys_getppid
 };
 
 i64 syscall_handler(u64 syscall_num, u64 arg0, u64 arg1, u64 arg2, u64 arg3, u64 arg4, u64 arg5) {

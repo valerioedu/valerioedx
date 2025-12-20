@@ -104,9 +104,8 @@ inode_t* vfs_lookup(const char* path) {
 
         for (int i = 0; i < MAX_MOUNTS; i++) {
         if (mount_table[i].target != NULL && mount_table[i].host_id == current->id) {
-            // We found a mount! Switch current to the mounted root
             inode_t* mounted_root = mount_table[i].target;
-            // Optionally: free(current) if you want to avoid leaks of the transient node
+            kfree(current);
             current = mounted_root;
             break;
         }
