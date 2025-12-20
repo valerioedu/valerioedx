@@ -16,5 +16,6 @@ void pmm_init(uintptr_t kernel_end, u64 ram_size);
 uintptr_t pmm_alloc_frame();
 void pmm_free_frame(uintptr_t addr);
 void pmm_mark_used_region(uintptr_t base, size_t size);
+void pmm_inc_ref(uintptr_t phys);
 
 #endif

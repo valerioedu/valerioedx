@@ -457,6 +457,8 @@ mm_struct_t* mm_duplicate(mm_struct_t* old_mm) {
                 u64* new_pte = vmm_get_pte_from_table_alloc((u64*)P2V((uintptr_t)new_mm->page_table), addr);
                 if (!new_pte) continue;
 
+                u64 phys = *old_pte & 0x0000FFFFFFFFF000ULL;
+
                 if (!(old_vma->vm_flags & VMA_SHARED) && 
                    ((*old_pte & PT_AP_RW_EL0) || (*old_pte & PT_AP_RW_EL1))) {
                     
@@ -468,9 +470,7 @@ mm_struct_t* mm_duplicate(mm_struct_t* old_mm) {
 
                 *new_pte = *old_pte;
                 
-                /* TODO: Incremement physical frame reference count here.
-                 * Without ref counting, pmm_free_frame() will break the other process.
-                 */
+                pmm_inc_ref(phys);
             }
         }
         old_vma = old_vma->vm_next;

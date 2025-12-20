@@ -115,6 +115,11 @@ uintptr_t pmm_alloc_frame() {
     return index_to_phys(idx);
 }
 
+void pmm_inc_ref(uintptr_t phys) {
+    int idx = phys_to_index(phys);
+    ref_counts[idx]++;
+}
+
 void pmm_free_frame(uintptr_t addr) {
     u32 flags = spinlock_acquire_irqsave(&pmm_lock);
 
@@ -125,11 +130,17 @@ void pmm_free_frame(uintptr_t addr) {
         return;
     }
 
-    if (ref_counts[idx] > 0) ref_counts[idx]--;
     if (ref_counts[idx] > 0) {
+        ref_counts[idx]--;
+        
+        if (ref_counts[idx] == 0) {
+            frame_stack[stack_top++] == idx;
+            used_frames--;
+        }
+        
         spinlock_release_irqrestore(&pmm_lock, flags);
         return;
-    }   \
+    }
 
     // Safety check to not overflow the stack
     if (stack_top >= stack_capacity) {
