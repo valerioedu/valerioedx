@@ -26,10 +26,12 @@ typedef i64 (*syscalls_fn_t)(i64, i64, i64, i64, i64, i64);
 
 i64 sys_not_implemented() {
     kprintf("System call not implemented\n");
+    return 0;
 }
 
 i64 sys_0() {
     asm volatile("nop");
+    return 0;
 }
 
 static syscalls_fn_t syscall_table[MAX_SYSCALLS] = {
