@@ -28,6 +28,12 @@ typedef enum task_state {
     TASK_BLOCKED = 3
 } task_state;
 
+typedef enum process_state {
+    PROCESS_ACTIVE = 0,
+    PROCESS_ZOMBIE = 1,
+    PROCESS_KILLED = 2
+} process_state;
+
 // Architecture-specific context (Callee-saved registers for AArch64)
 // These are the registers that a function must preserve.
 struct cpu_context {
@@ -69,6 +75,8 @@ typedef struct task {
     struct process *proc;
 } task_t;
 
+typedef task_t* wait_queue_t;
+
 // Process
 typedef struct process {
     u64 pid;
@@ -79,9 +87,10 @@ typedef struct process {
     struct process *parent;     // Pointer to parent process
     struct process *child;      // Head of the children processes
     struct process *sibling;    // Next sibling
+    process_state state;
+    int exit_code;
+    wait_queue_t wait_queue;
 } process_t;
-
-typedef task_t* wait_queue_t;
 
 void sched_init();
 void task_create(void (*entry_point)(), task_priority priority, struct process *proc);
