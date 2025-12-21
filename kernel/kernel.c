@@ -7,9 +7,25 @@
 #include <fat32.h>
 #include <tty.h>
 #include <vma.h>
+#include <elf.h>
 
 extern task_t *current_task;
 process_t *init_process = NULL;
+
+void ls(const char* path) {
+    inode_t* dir = vfs_lookup(path);
+    if (!dir) return;
+
+    char name[32];
+    int is_dir;
+    int index = 0;
+
+    // Loop until readdir returns 0
+    while (dir->ops->readdir(dir, index, name, 32, &is_dir)) {
+        kprintf("%s%s\n", name, is_dir ? "/" : "");
+        index++;
+    }
+}
 
 void kmain() {
     tty_init();
@@ -57,6 +73,10 @@ void kmain() {
     }
 
     heap_debug();
+
+    ls("/");
+
+    elf_load("/hello.bin");
 
     init_process = process_create("init", NULL, HIGH);
     while (true) asm volatile("wfi");

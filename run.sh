@@ -237,6 +237,7 @@ case $MACHINE in
             /usr/sbin/mkfs.fat -F 32 -I disk.img
             echo "Hello from the Host OS!" > TEST.TXT
             mcopy -i disk.img TEST.TXT ::TEST.TXT
+            mcopy -i disk.img hello.bin ::hello.bin
             cd build
         fi
 
