@@ -9,6 +9,7 @@
 #include <vma.h>
 
 extern task_t *current_task;
+process_t *init_process = NULL;
 
 void kmain() {
     tty_init();
@@ -56,5 +57,7 @@ void kmain() {
     }
 
     heap_debug();
+
+    init_process = process_create("init", NULL, HIGH);
     while (true) asm volatile("wfi");
 }
