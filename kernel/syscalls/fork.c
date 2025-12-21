@@ -89,6 +89,75 @@ i64 sys_fork() {
     return child->pid;
 }
 
+void sys_exit(int code) {
+    u32 flags = spinlock_acquire_irqsave(&sched_lock);
+
+    process_t *proc = current_task->proc;
+    process_t *parent = proc->parent;
+
+    proc->exit_code = code;
+    proc->state = PROCESS_ZOMBIE;
+
+    extern process_t *init_process;
+    process_t *child = proc->child;
+    while (child) {
+        child->parent = init_process;
+        child = child->sibling;
+    }
+
+    if (parent) {
+        //TODO: Implement signals and send SIGCHILD
+        wake_up(&parent->wait_queue);
+    }
+
+    if (proc->mm) {
+        mm_destroy(proc->mm);
+        proc->mm = NULL;
+    }
+
+    spinlock_release_irqrestore(&sched_lock, flags);
+    task_exit();
+}
+
+i64 sys_wait(int *status) {
+    while (true) {
+        u32 flags = spinlock_acquire_irqsave(&sched_lock);
+
+        process_t *proc = current_task->proc;
+        process_t *child = proc->child;
+        process_t *prev = NULL;
+        bool has_children = false;
+
+        while (child) {
+            has_children = true;
+
+            if (child->state == PROCESS_ZOMBIE) {
+                if (status) *status = child->exit_code;
+
+                u64 zombie_pid = child->pid;
+
+                if (prev) prev->sibling = child->sibling;
+                else proc->child = child->sibling;
+
+                kfree(child);
+                spinlock_release_irqrestore(&sched_lock, flags);
+                
+                return zombie_pid;
+            }
+
+            prev = child;
+            child = child->sibling;
+        }
+
+        if (!has_children) {
+            spinlock_release_irqrestore(&sched_lock, flags);
+            return -1;  //ECHILD
+        }
+        
+        sleep_on(&proc->wait_queue, &sched_lock);
+    }
+}
+
 i64 sys_getpid() {
     if (!current_task->proc) return -1;
 
