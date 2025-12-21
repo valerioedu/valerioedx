@@ -54,8 +54,8 @@ void pmm_init(uintptr_t kernel_end, u64 ram_size) {
 
     uintptr_t pmm_reserved_end = stack_start + stack_size_bytes + ref_size_bytes;
 
-    kprintf("[PMM] Initializing Page Stack Allocator...\n");
-    kprintf("[PMM] Stack at 0x%x, Size: %d KB\n", frame_stack, stack_size_bytes / 1024);
+    kprintf("[ [CPMM [W] Initializing Page Stack Allocator...\n");
+    kprintf("[ [CPMM [W] Stack at 0x%x, Size: %d KB\n", frame_stack, stack_size_bytes / 1024);
 
     for (u32 i = 0; i < total_frames; i++) {
         uintptr_t addr = index_to_phys(i);
@@ -71,7 +71,7 @@ void pmm_init(uintptr_t kernel_end, u64 ram_size) {
         }
     }
 
-    kprintf("[PMM] Initialization complete. Free frames: %d\n", stack_top);
+    kprintf("[ [CPMM [W] Initialization complete. Free frames: %d\n", stack_top);
 }
 
 void pmm_mark_used_region(uintptr_t base, size_t size) {
@@ -98,7 +98,7 @@ uintptr_t pmm_alloc_frame() {
 
     // O(1) with a stack
     if (stack_top == 0) {
-        kprintf("[PMM] CRITICAL: Out of Memory!\n");
+        kprintf("[ [CPMM [W] CRITICAL: Out of Memory!\n");
         
         spinlock_release_irqrestore(&pmm_lock, flags);
         return 0;
@@ -139,7 +139,7 @@ void pmm_free_frame(uintptr_t addr) {
 
     // Safety check to not overflow the stack
     if (stack_top >= stack_capacity) {
-        kprintf("[PMM] Error: Stack overflow on free!\n");
+        kprintf("[ [CPMM [W] Error: Stack overflow on free!\n");
         spinlock_release_irqrestore(&pmm_lock, flags);
         return;
     }

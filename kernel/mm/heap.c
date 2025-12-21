@@ -59,7 +59,7 @@ void heap_init(uintptr_t start, size_t size) {
     size_t adjustment = aligned_start - start;
     
     if (size < adjustment + sizeof(heap_block_t) + MIN_ALLOC) {
-        kprintf("[HEAP] Error: Heap too small\n");
+        kprintf("[ [CHEAP [W] Error: Heap too small\n");
         return;
     }
     size -= adjustment;
@@ -71,7 +71,7 @@ void heap_init(uintptr_t start, size_t size) {
     heap_head->prev = NULL;
     heap_head->magic = HEAP_MAGIC;
 
-    kprintf("[HEAP] Initialized: 0x%llx - 0x%llx (%d MB)\n", 
+    kprintf("[ [CHEAP [W] Initialized: 0x%llx - 0x%llx (%d MB)\n", 
             aligned_start, aligned_start + size, size / 1024 / 1024);
 }
 
@@ -85,7 +85,7 @@ void* kmalloc(size_t size) {
     heap_block_t* curr = heap_head;
     while (curr) {
         if (curr->magic != HEAP_MAGIC) {
-            kprintf("[HEAP] Corruption detected at 0x%llx!\n", curr);
+            kprintf("[ [CHEAP [W] Corruption detected at 0x%llx!\n", curr);
 
             spinlock_release_irqrestore(&heap_lock, flags);
             return NULL;
@@ -127,7 +127,7 @@ void* kmalloc(size_t size) {
 
     spinlock_release_irqrestore(&heap_lock, flags);
     
-    kprintf("[HEAP] Out of Memory (Requested %d bytes)\n", size);
+    kprintf("[ [CHEAP [W] Out of Memory (Requested %d bytes)\n", size);
     return NULL;
 }
 
@@ -139,7 +139,7 @@ void kfree(void* ptr) {
     heap_block_t* block = (heap_block_t*)((uintptr_t)ptr - sizeof(heap_block_t));
 
     if (block->magic != HEAP_MAGIC) {
-        kprintf("[HEAP] Double free or corruption at 0x%llx\n", block);
+        kprintf("[ [CHEAP [W] Double free or corruption at 0x%llx\n", block);
         
         spinlock_release_irqrestore(&heap_lock, flags);
         return;

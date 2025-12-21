@@ -71,9 +71,29 @@ void main() {
     u64 memory_size = dtb_get_memory_size();
     kprintf("MEMORY SIZE: %lluB\n             %lluMB\n             %lluGB\n",
          memory_size, memory_size / 1024 / 1024, memory_size / 1024 / 1024 / 1024);
+    
+    kprintf("Now switching to the graphical interface...\n");
+
+    fw_cfg_init((u64)fwcfg);
+    ramfb_init();
+    set_stdio(RAMFB);
 
     pmm_init((uintptr_t)&_kernel_end, memory_size);
     init_vmm();
+
+    // Switch execution to Higher Half now
+    // otherwise the jump to main would bring the instructions
+    // back to low mapped addresses
+    asm volatile(
+        "mov x0, %0         \n"     // Loads PHYS_OFFSET into x0
+        "add sp, sp, x0     \n"     // Adds the offset to the SP
+        "add x29, x29, x0   \n"     // then to the frame pointer
+        "adr x1, 1f         \n"
+        "add x1, x1, x0     \n"     // Calculates high address
+        "br x1              \n"     // Jump to high address 
+        "1:                 \n"
+        : : "r"(PHYS_OFFSET) : "x0", "x1", "memory"
+    );
 
     int level = -1;
 
@@ -82,7 +102,7 @@ void main() {
                  "lsr %0, %0, #2"
                  : "=r" (level) : :);
     level &= 0b11;
-    kprintf("Exception Level: %d\n", level);
+    kprintf("[ [CMAIN [W] Exception Level: %d\n", level);
 
     heap_init(PHYS_OFFSET + 0x50000000, 8 * 1024 * 1024);
 
@@ -91,19 +111,13 @@ void main() {
     fwcfg = (u64*)dtb_get_reg("fw-cfg");
     virtio = (u64*)dtb_get_reg("mmio");
     
-    fw_cfg_init((u64)fwcfg);
 
-    kprintf("Hardware Discovery:\n");
-    kprintf("  UART PL011 Found at: 0x%llx\n", uart);
-    kprintf("  GIC Found at:        0x%llx\n", gic);
-    kprintf("  FWCFG Found at:      0x%llx\n", fwcfg);
-    kprintf("  VIRTIO Found at:     0x%llx\n", virtio);
+    kprintf("[ [CMAIN [W] Hardware Discovery:\n");
+    kprintf("             UART PL011 Found at: 0x%llx\n", uart);
+    kprintf("             GIC Found at:        0x%llx\n", gic);
+    kprintf("             FWCFG Found at:      0x%llx\n", fwcfg);
+    kprintf("             VIRTIO Found at:     0x%llx\n\n", virtio);
     
-    ramfb_init();
-
-    kprintf("Now switching to the graphical interface...\n");
-    set_stdio(RAMFB);
-
     sched_init();
 
     gic_init();

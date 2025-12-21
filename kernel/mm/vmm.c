@@ -160,14 +160,14 @@ void vmm_map_page(uintptr_t virt, uintptr_t phys, u64 flags) {
 
     u64* l2_table = get_next_table(root_table, l1_idx);
     if (!l2_table) {
-        kprintf("[VMM] Failed to allocate L2 table for 0x%llx\n", virt);
+        kprintf("[ [CVMM [W] Failed to allocate L2 table for 0x%llx\n", virt);
         return;
     }
 
     // Walk L2 -> L3
     u64* l3_table = get_next_table(l2_table, l2_idx);
     if (!l3_table) {
-        kprintf("[VMM] Failed to allocate L3 table for 0x%llx\n", virt);
+        kprintf("[ [CVMM [W] Failed to allocate L3 table for 0x%llx\n", virt);
         return;
     }
 
@@ -279,20 +279,8 @@ void init_vmm() {
     paging_enabled = true;
     
     root_table = (u64*)((uintptr_t)root_phys + PHYS_OFFSET);
-    kprintf("[VMM] Higher Half Kernel Initialized.\n");
-#ifdef ARM
-    // Switches execution to Higher Half
-    asm volatile(
-        "mov x0, %0         \n"     // Loads PHYS_OFFSET into x0
-        "add sp, sp, x0     \n"     // Adds the offset to the SP
-        "add x29, x29, x0   \n"     // then to the frame pointer
-        "adr x1, 1f         \n"
-        "add x1, x1, x0     \n"     // Calculates high address
-        "br x1              \n"     // Jump to high address 
-        "1:                 \n"
-        : : "r"(PHYS_OFFSET) : "x0", "x1", "memory"
-    );
-#endif
+    kprintf("[ [CVMM [W] Higher Half Kernel Initialized.\n");
+
     mutex_init(&vmm_lock);
 }
 
@@ -303,7 +291,7 @@ int vmm_handle_page_fault(uintptr_t virt, bool is_write) {
     if (virt < USER_SPACE_END) {
         // User space fault - use VMA system
         if (!current_task || !current_task->proc || !current_task->proc->mm) {
-            kprintf("[VMM] User space fault but no MM struct\n");
+            kprintf("[ [CVMM [W] User space fault but no MM struct\n");
             return -1;
         }
         
@@ -323,7 +311,7 @@ int vmm_handle_page_fault(uintptr_t virt, bool is_write) {
     if (!(entry & PT_VALID)) {
         u64 new_frame = pmm_alloc_frame();
         if (!new_frame) {
-            kprintf("[VMM] OOM during demand paging\n");
+            kprintf("[ [CVMM [W] OOM during demand paging\n");
             return -1;
         }
 
