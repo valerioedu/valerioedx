@@ -7,7 +7,7 @@
 #include <fat32.h>
 #include <tty.h>
 #include <vma.h>
-#include <elf.h>
+#include <syscalls.h>
 
 extern task_t *current_task;
 process_t *init_process = NULL;
@@ -24,6 +24,37 @@ void ls(const char* path) {
     while (dir->ops->readdir(dir, index, name, 32, &is_dir)) {
         kprintf("%s%s\n", name, is_dir ? "/" : "");
         index++;
+    }
+}
+
+void init_entry() {
+    kprintf("[ [CINIT [W] Init process started (PID 1)\n");
+
+    // Try to exec /bin/init or /init
+    if (exec_init("/bin/hello.elf") == 0) {
+        // Should not return
+        kprintf("[ [RINIT [W] exec_init returned unexpectedly\n");
+    }
+    
+    // Try alternative paths
+    if (exec_init("/init") == 0) {
+        kprintf("[ [RINIT [W] exec_init returned unexpectedly\n");
+    }
+    
+    if (exec_init("/sbin/init") == 0) {
+        kprintf("[ [RINIT [W] exec_init returned unexpectedly\n");
+    }
+
+    // No init found - fall back to a simple shell loop
+    kprintf("[ [RINIT [W] No init binary found, entering fallback loop\n");
+    
+    // Stay alive as init process
+    while (true) {
+#ifdef ARM
+        asm volatile("wfi");
+#else
+        asm volatile("hlt");
+#endif
     }
 }
 
@@ -57,6 +88,12 @@ void kmain() {
             } else {
                 kprintf("[ [RKMAIN [W] Failed to find or create /dev directory\n");
             }
+
+            inode_t* bin_dir = vfs_lookup("/bin");
+            if (!bin_dir) {
+                if (root_fs->ops && root_fs->ops->mkdir)
+                    bin_dir = root_fs->ops->mkdir(root_fs, "bin");
+            }
             
             inode_t* text_file = vfs_lookup("/TEST.TXT");
             if (text_file) {
@@ -73,8 +110,16 @@ void kmain() {
     }
 
     heap_debug();
-
     ls("/");
-    init_process = process_create("init", NULL, HIGH);
+    ls("/bin");
+
+    init_process = process_create("init", init_entry, HIGH);
+
+    if (!init_process) {
+        kprintf("[ [RKMAIN [W] Failed to create init process!\n");
+    } else {
+        kprintf("[ [CKMAIN [W] Init process created with PID %d\n", init_process->pid);
+    }
+
     while (true) asm volatile("wfi");
 }

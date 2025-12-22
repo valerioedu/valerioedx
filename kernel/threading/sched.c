@@ -305,21 +305,37 @@ void schedule() {
         mm_struct_t *next_mm = (next_task->proc) ? next_task->proc->mm : NULL;
         mm_struct_t *prev_mm = (prev_task->proc) ? prev_task->proc->mm : NULL;
 
-        if (next_mm && next_mm != prev_mm) {
+        // Only switch TTBR0 if we're switching between different address spaces
+        // Kernel threads (proc == NULL) don't need their own TTBR0
+        if (next_mm != prev_mm) {
 #ifdef ARM
-            // Switch to user page table (physical address)
-            asm volatile("msr ttbr0_el1, %0" :: "r"((u64)next_mm->page_table));
-            asm volatile("tlbi vmalle1is"); 
-            asm volatile("dsb ish");
-            asm volatile("isb");
-#endif
-        } else if (!next_mm && prev_mm) {
-#ifdef ARM
-            // Switching to kernel thread - clear TTBR0
-            asm volatile("msr ttbr0_el1, %0" :: "r"(0ULL));
-            asm volatile("tlbi vmalle1is"); 
-            asm volatile("dsb ish");
-            asm volatile("isb");
+            if (next_mm) {
+                // Switch to user process page table
+                // The physical address of the page table root is stored in mm->page_table
+                asm volatile(
+                    "msr ttbr0_el1, %0\n"
+                    "isb\n"
+                    "tlbi vmalle1is\n"
+                    "dsb ish\n"
+                    "isb\n"
+                    :: "r"((u64)next_mm->page_table)
+                    : "memory"
+                );
+            } else {
+                // Switching to kernel thread - disable user-space access
+                // Set TTBR0 to an invalid/empty table or just leave it
+                // Since kernel code runs in higher half (TTBR1), TTBR0 isn't used
+                // We can set it to 0 to ensure any user-space access faults
+                asm volatile(
+                    "msr ttbr0_el1, %0\n"
+                    "isb\n"
+                    "tlbi vmalle1is\n"
+                    "dsb ish\n"
+                    "isb\n"
+                    :: "r"(0ULL)
+                    : "memory"
+                );
+            }
 #endif
         }
 
