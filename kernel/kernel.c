@@ -41,6 +41,13 @@ void kmain() {
             } else {
                 kprintf("[ [RKMAIN [W] Failed to find or create /dev directory\n");
             }
+
+            inode_t* bin_dir = vfs_lookup("/bin");
+            if (!bin_dir) {
+                if (root_fs->ops && root_fs->ops->mkdir)
+                    bin_dir = root_fs->ops->mkdir(root_fs, "bin");
+                 
+            }
             
             inode_t* text_file = vfs_lookup("/TEST.TXT");
             if (text_file) {
