@@ -75,9 +75,6 @@ void kmain() {
     heap_debug();
 
     ls("/");
-
-    elf_load("/hello.bin");
-
     init_process = process_create("init", NULL, HIGH);
     while (true) asm volatile("wfi");
 }
