@@ -162,7 +162,7 @@ static u64 setup_user_stack(mm_struct_t* mm, const char* argv[], const char* env
     return sp;
 }
 
-// Execute a new program
+// Execute a new program (replaces current process)
 i64 sys_execve(const char* path, const char* argv[], const char* envp[]) {
     if (!path) return -1;
 
@@ -215,9 +215,6 @@ i64 sys_execve(const char* path, const char* argv[], const char* envp[]) {
         return -1;
     }
 
-    // Close files marked close-on-exec (FD_CLOEXEC)
-    // For now, keep all FDs open
-
     // Switch to new address space
     mm_struct_t* old_mm = proc->mm;
     proc->mm = new_mm;
@@ -244,8 +241,8 @@ i64 sys_execve(const char* path, const char* argv[], const char* envp[]) {
     kprintf("[ [CEXEC [W] Jumping to user mode: entry=0x%llx sp=0x%llx\n",
             elf_result.entry_point, user_sp);
 
-    // Jump to user mode
-    // This never returns - we modify the exception frame to return to user mode
+    // Jump to user mode using eret
+    // This is for syscall context where we can modify the trapframe
 #ifdef ARM
     asm volatile(
         "msr sp_el0, %0\n"          // Set user stack pointer
@@ -263,9 +260,12 @@ i64 sys_execve(const char* path, const char* argv[], const char* envp[]) {
     return 0;
 }
 
-// Kernel function to start init process
+// Assembly helper to enter user mode (defined in switch.S)
+extern void enter_usermode(u64 entry, u64 sp);
+
+// Kernel function to start init process - called from kernel thread
 int exec_init(const char* path) {
-    kprintf("[ [CINIT [W] Starting init process: %s\n", path);
+    kprintf("[ [CINIT [W] Loading init: %s\n", path);
 
     // Look up the file
     inode_t* file = namei(path);
@@ -302,29 +302,27 @@ int exec_init(const char* path) {
         return -1;
     }
 
+    kprintf("[ [CINIT [W] Switching to user page table: 0x%llx\n", (u64)proc->mm->page_table);
+
 #ifdef ARM
     // Switch to user page table
-    asm volatile("msr ttbr0_el1, %0" :: "r"((u64)proc->mm->page_table));
-    asm volatile("tlbi vmalle1is");
-    asm volatile("dsb ish");
-    asm volatile("isb");
+    asm volatile(
+        "msr ttbr0_el1, %0\n"
+        "isb\n"
+        "tlbi vmalle1is\n"
+        "dsb ish\n"
+        "isb\n"
+        :: "r"((u64)proc->mm->page_table)
+        : "memory"
+    );
 #endif
 
     kprintf("[ [CINIT [W] Entering user mode: entry=0x%llx sp=0x%llx\n",
             elf_result.entry_point, user_sp);
 
 #ifdef ARM
-    // Enter user mode
-    asm volatile(
-        "msr sp_el0, %0\n"          // Set user stack pointer
-        "msr elr_el1, %1\n"         // Set return address (entry point)
-        "mov x0, #0\n"              // argc in x0 (will be on stack)
-        "msr spsr_el1, xzr\n"       // SPSR = 0 (EL0, interrupts enabled, AARCH64)
-        "eret\n"                     // Return to EL0
-        :
-        : "r"(user_sp), "r"(elf_result.entry_point)
-        : "x0", "memory"
-    );
+    // Enter user mode using assembly function
+    enter_usermode(elf_result.entry_point, user_sp);
 #endif
 
     // Never reached

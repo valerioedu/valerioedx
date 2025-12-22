@@ -22,6 +22,9 @@ spinlock_t sched_lock = 0;
 static task_t *zombie_head = NULL;
 static wait_queue_t reaper_wq = NULL;
 
+// Store the kernel's root page table for TTBR1
+static u64 kernel_ttbr1 = 0;
+
 void sched_unlock_release() {
     spinlock_release_irqrestore(&sched_lock, 0); 
 #ifdef ARM
@@ -31,7 +34,11 @@ void sched_unlock_release() {
 
 void idle() {
     while (true) {
+#ifdef ARM
         asm volatile("wfi");
+#else
+        asm volatile("hlt");
+#endif
         schedule();
     }
 }
@@ -73,6 +80,11 @@ void sched_init() {
         runqueues[i] = NULL;
         runqueues_tail[i] = NULL;
     }
+
+#ifdef ARM
+    // Store the kernel's TTBR1 value
+    asm volatile("mrs %0, ttbr1_el1" : "=r"(kernel_ttbr1));
+#endif
 
     task_create(idle, IDLE, NULL);
 
