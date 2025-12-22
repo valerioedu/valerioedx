@@ -31,7 +31,7 @@ void init_entry() {
     kprintf("[ [CINIT [W] Init process started (PID 1)\n");
 
     // Try to exec /bin/init or /init
-    if (exec_init("/bin/hello.elf") == 0) {
+    if (exec_init("HELLO.ELF") == 0) {
         // Should not return
         kprintf("[ [RINIT [W] exec_init returned unexpectedly\n");
     }
@@ -109,7 +109,6 @@ void kmain() {
         }
     }
 
-    heap_debug();
     ls("/");
     ls("/bin");
 

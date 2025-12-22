@@ -312,6 +312,7 @@ int virtio_blk_op(u64 sector, u8* buffer, int write) {
     mmio_write32(virtio_blk_base + VIRTIO_MMIO_QUEUE_NOTIFY, 0); 
     
     // Wait for completion
+    kprintf("ok\n");
     while (last_used_idx == virtq_used_base->idx) {
         if (virtio_async) {
             sleep_on(&blk_wait_queue, NULL);
@@ -319,6 +320,8 @@ int virtio_blk_op(u64 sector, u8* buffer, int write) {
             asm volatile("wfi");
         }
     }
+
+    kprintf("qui\n");
     
     last_used_idx++;
     

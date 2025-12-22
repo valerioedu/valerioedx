@@ -8,8 +8,44 @@
 #include <kio.h>
 #include <pmm.h>
 #include <vmm.h>
+#include <file.h>
 
 extern task_t *current_task;
+
+static inline u64 get_phys_from_pte(u64 *pte) {
+    return (*pte) & 0x0000FFFFFFFFF000ULL;
+}
+
+static int ensure_user_page(mm_struct_t* mm, u64 va) {
+    u64 page_base = va & ~(PAGE_SIZE - 1);
+    u64 *pte = vmm_get_pte_from_table_alloc((u64*)P2V((uintptr_t)mm->page_table), page_base);
+    if (!pte) return -1;
+    if (!(*pte & PT_VALID)) {
+        u64 phys = pmm_alloc_frame();
+        if (!phys) return -1;
+        memset(P2V(phys), 0, PAGE_SIZE);
+        u64 entry = phys | PT_VALID | PT_AF | PT_PAGE | PT_SH_INNER;
+        entry |= (MT_NORMAL << 2);
+        entry |= PT_AP_RW_EL0;
+        entry |= PT_UXN;
+        *pte = entry;
+    }
+    return 0;
+}
+
+static u64 copy_string_to_user(mm_struct_t* mm, const char* src, u64 dest) {
+    u64 len = strlen(src) + 1;
+    for (u64 i = 0; i < len; i++) {
+        u64 addr = dest + i;
+        if (ensure_user_page(mm, addr) != 0) return 0; /* allocation failed */
+        u64 *pte = vmm_get_pte_from_table((u64*)P2V((uintptr_t)mm->page_table), addr & ~(PAGE_SIZE - 1));
+        if (!pte || !(*pte & PT_VALID)) return 0;
+        u64 phys = get_phys_from_pte(pte);
+        u64 offset = addr & (PAGE_SIZE - 1);
+        *((u8*)P2V(phys) + offset) = ((const u8*)src)[i];
+    }
+    return dest;
+}
 
 // Set up user stack with arguments and auxiliary vector
 static u64 setup_user_stack(mm_struct_t* mm, const char* argv[], const char* envp[], 
@@ -88,6 +124,7 @@ static u64 setup_user_stack(mm_struct_t* mm, const char* argv[], const char* env
             u64 addr = dest + i; \
             u64* pte = vmm_get_pte_from_table((u64*)P2V((uintptr_t)mm->page_table), addr & ~(PAGE_SIZE-1)); \
             if (pte && (*pte & PT_VALID)) { \
+    kprintf("ok"); \
                 u64 phys = *pte & 0x0000FFFFFFFFF000ULL; \
                 u64 offset = addr & (PAGE_SIZE - 1); \
                 *((u8*)P2V(phys) + offset) = str[i]; \
@@ -98,12 +135,22 @@ static u64 setup_user_stack(mm_struct_t* mm, const char* argv[], const char* env
 
     // Copy argv strings
     for (int i = 0; i < argc && i < 32; i++) {
-        argv_ptrs[i] = COPY_STRING(argv[i]);
+        argv_ptrs[i] = copy_string_to_user(mm, argv[i], string_ptr);
+        if (!argv_ptrs[i]) {
+            kprintf("[ [REXEC [W] Failed to copy argv string\n");
+            return 0;
+        }
+        string_ptr += strlen(argv[i]) + 1;
     }
 
     // Copy envp strings
     for (int i = 0; i < envc && i < 32; i++) {
-        envp_ptrs[i] = COPY_STRING(envp[i]);
+        envp_ptrs[i] = copy_string_to_user(mm, envp[i], string_ptr);
+        if (!envp_ptrs[i]) {
+            kprintf("[ [REXEC [W] Failed to copy envp string\n");
+            return 0;
+        }
+        string_ptr += strlen(envp[i]) + 1;
     }
 
     // Align string pointer
@@ -160,6 +207,44 @@ static u64 setup_user_stack(mm_struct_t* mm, const char* argv[], const char* env
     STACK_PUSH(argc);
 
     return sp;
+}
+
+// Set up standard file descriptors for a process
+static int setup_standard_fds(process_t* proc) {
+    // stdin (fd 0) - console input
+    inode_t* stdin_node = devfs_fetch_device("stdin");
+    if (stdin_node) {
+        file_t* stdin_file = file_new(stdin_node, 0);  // Read-only
+        if (stdin_file) {
+            proc->fd_table[0] = stdin_file;
+        }
+    }
+
+    // stdout (fd 1) - console output
+    inode_t* stdout_node = devfs_fetch_device("stdout");
+    if (stdout_node) {
+        file_t* stdout_file = file_new(stdout_node, 1);  // Write-only
+        if (stdout_file) {
+            proc->fd_table[1] = stdout_file;
+        }
+    }
+
+    // stderr (fd 2) - console output (same as stdout for now)
+    inode_t* stderr_node = devfs_fetch_device("stderr");
+    if (stderr_node) {
+        file_t* stderr_file = file_new(stderr_node, 1);  // Write-only
+        if (stderr_file) {
+            proc->fd_table[2] = stderr_file;
+        }
+    }
+
+    if (!proc->fd_table[0] || !proc->fd_table[1] || !proc->fd_table[2]) {
+        kprintf("[ [REXEC [W] Warning: Failed to set up some standard fds\n");
+        kprintf("             stdin=%p stdout=%p stderr=%p\n", 
+                proc->fd_table[0], proc->fd_table[1], proc->fd_table[2]);
+    }
+
+    return 0;
 }
 
 // Execute a new program (replaces current process)
@@ -269,10 +354,11 @@ int exec_init(const char* path) {
 
     // Look up the file
     inode_t* file = namei(path);
+    kprintf("OK\n");
     if (!file) {
         kprintf("[ [RINIT [W] Init not found: %s\n", path);
         return -1;
-    }
+    } else kprintf("OK\n");
 
     // Get current process
     process_t* proc = current_task->proc;
@@ -280,7 +366,11 @@ int exec_init(const char* path) {
         vfs_close(file);
         kprintf("[ [RINIT [W] No process or mm context\n");
         return -1;
-    }
+    } else kprintf("OK\n");
+
+    // Set up standard file descriptors BEFORE loading ELF
+    kprintf("[ [CINIT [W] Setting up standard file descriptors\n");
+    setup_standard_fds(proc);
 
     // Load ELF
     elf_load_result_t elf_result;
@@ -290,6 +380,7 @@ int exec_init(const char* path) {
         return -1;
     }
 
+
     vfs_close(file);
 
     // Set up user stack
@@ -297,6 +388,7 @@ int exec_init(const char* path) {
     const char* envp[] = { "PATH=/bin", "HOME=/", NULL };
 
     u64 user_sp = setup_user_stack(proc->mm, argv, envp, &elf_result);
+    
     if (user_sp == 0) {
         kprintf("[ [RINIT [W] Failed to setup user stack\n");
         return -1;
@@ -320,7 +412,71 @@ int exec_init(const char* path) {
     kprintf("[ [CINIT [W] Entering user mode: entry=0x%llx sp=0x%llx\n",
             elf_result.entry_point, user_sp);
 
+    // Debug: verify the entry point page is mapped and executable
 #ifdef ARM
+    {
+        u64* l1_table = (u64*)P2V((uintptr_t)proc->mm->page_table);
+        kprintf("[ [CINIT [W] L1 table at phys=0x%llx virt=0x%llx\n", 
+                (u64)proc->mm->page_table, (u64)l1_table);
+        
+        // Calculate indices for entry point
+        u64 entry = elf_result.entry_point;
+        u64 l1_idx = (entry >> 30) & 0x1FF;
+        u64 l2_idx = (entry >> 21) & 0x1FF;
+        u64 l3_idx = (entry >> 12) & 0x1FF;
+        
+        kprintf("[ [CINIT [W] Entry 0x%llx: L1[%llu] L2[%llu] L3[%llu]\n",
+                entry, l1_idx, l2_idx, l3_idx);
+        
+        // Check L1
+        u64 l1_entry = l1_table[l1_idx];
+        kprintf("[ [CINIT [W] L1[%llu] = 0x%llx (valid=%d, table=%d)\n",
+                l1_idx, l1_entry, 
+                (l1_entry & 1) ? 1 : 0,
+                (l1_entry & 2) ? 1 : 0);
+        
+        if (l1_entry & 1) {
+            u64* l2_table = (u64*)P2V(l1_entry & 0x0000FFFFFFFFF000ULL);
+            u64 l2_entry = l2_table[l2_idx];
+            kprintf("[ [CINIT [W] L2[%llu] = 0x%llx (valid=%d, table=%d)\n",
+                    l2_idx, l2_entry,
+                    (l2_entry & 1) ? 1 : 0,
+                    (l2_entry & 2) ? 1 : 0);
+            
+            if (l2_entry & 1) {
+                u64* l3_table = (u64*)P2V(l2_entry & 0x0000FFFFFFFFF000ULL);
+                u64 l3_entry = l3_table[l3_idx];
+                kprintf("[ [CINIT [W] L3[%llu] = 0x%llx\n", l3_idx, l3_entry);
+                kprintf("[ [CINIT [W]   Valid=%d AF=%d SH=%llu AP=%llu UXN=%d PXN=%d\n",
+                        (l3_entry & (1ULL << 0)) ? 1 : 0,
+                        (l3_entry & (1ULL << 10)) ? 1 : 0,
+                        (l3_entry >> 8) & 3,
+                        (l3_entry >> 6) & 3,
+                        (l3_entry & (1ULL << 54)) ? 1 : 0,
+                        (l3_entry & (1ULL << 53)) ? 1 : 0);
+                
+                // Read a few bytes from the mapped page to verify content
+                u64 phys = l3_entry & 0x0000FFFFFFFFF000ULL;
+                u8* code = (u8*)P2V(phys);
+                kprintf("[ [CINIT [W] First bytes at entry: %x %x %x %x\n",
+                        code[0], code[1], code[2], code[3]);
+            }
+        }
+        
+        // Also check stack
+        u64 sp_page = user_sp & ~(PAGE_SIZE - 1);
+        u64* stack_pte = vmm_get_pte_from_table(l1_table, sp_page);
+        if (stack_pte) {
+            kprintf("[ [CINIT [W] Stack PTE at 0x%llx: 0x%llx (valid=%d)\n",
+                    sp_page, *stack_pte, (*stack_pte & 1) ? 1 : 0);
+        } else {
+            kprintf("[ [RINIT [W] Stack PTE is NULL!\n");
+        }
+        
+        kprintf("[ [CINIT [W] TTBR0 will be set to: 0x%llx\n", (u64)proc->mm->page_table);
+        kprintf("[ [CINIT [W] About to call enter_usermode...\n");
+    }
+    
     // Enter user mode using assembly function
     enter_usermode(elf_result.entry_point, user_sp);
 #endif

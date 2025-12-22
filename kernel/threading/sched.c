@@ -6,6 +6,7 @@
 #include <sync.h>
 #include <vmm.h>
 #include <vma.h>
+#include <file.h>
 
 extern void ret_from_fork();
 extern void cpu_switch_to(struct task* prev, struct task* next);
@@ -107,6 +108,20 @@ process_t *process_create(const char *name, void (*entry_point)(), task_priority
 
     proc->pid = pid_counter++;
     strncpy(proc->name, name, 63);
+
+    inode_t *node;
+
+    // FD 0: stdin
+    node = vfs_lookup("/dev/tty0"); 
+    if (node) proc->fd_table[0] = file_new(node, 0); // 0 = O_RDONLY
+
+    // FD 1: stdout
+    node = vfs_lookup("/dev/tty0");
+    if (node) proc->fd_table[1] = file_new(node, 1); // 1 = O_WRONLY
+
+    // FD 2: stderr
+    node = vfs_lookup("/dev/tty0");
+    if (node) proc->fd_table[2] = file_new(node, 1); // 1 = O_WRONLY
 
     // Create address space
     proc->mm = mm_create();
@@ -319,7 +334,7 @@ void schedule() {
 
         // Only switch TTBR0 if we're switching between different address spaces
         // Kernel threads (proc == NULL) don't need their own TTBR0
-        if (next_mm != prev_mm) {
+        /*if (next_mm != prev_mm) {
 #ifdef ARM
             if (next_mm) {
                 // Switch to user process page table
@@ -349,7 +364,7 @@ void schedule() {
                 );
             }
 #endif
-        }
+        }*/
 
         cpu_switch_to(prev_task, next_task);
     }
