@@ -124,7 +124,6 @@ static u64 setup_user_stack(mm_struct_t* mm, const char* argv[], const char* env
             u64 addr = dest + i; \
             u64* pte = vmm_get_pte_from_table((u64*)P2V((uintptr_t)mm->page_table), addr & ~(PAGE_SIZE-1)); \
             if (pte && (*pte & PT_VALID)) { \
-    kprintf("ok"); \
                 u64 phys = *pte & 0x0000FFFFFFFFF000ULL; \
                 u64 offset = addr & (PAGE_SIZE - 1); \
                 *((u8*)P2V(phys) + offset) = str[i]; \
@@ -354,11 +353,10 @@ int exec_init(const char* path) {
 
     // Look up the file
     inode_t* file = namei(path);
-    kprintf("OK\n");
     if (!file) {
         kprintf("[ [RINIT [W] Init not found: %s\n", path);
         return -1;
-    } else kprintf("OK\n");
+    }
 
     // Get current process
     process_t* proc = current_task->proc;
@@ -366,8 +364,8 @@ int exec_init(const char* path) {
         vfs_close(file);
         kprintf("[ [RINIT [W] No process or mm context\n");
         return -1;
-    } else kprintf("OK\n");
-
+    }
+    
     // Set up standard file descriptors BEFORE loading ELF
     kprintf("[ [CINIT [W] Setting up standard file descriptors\n");
     setup_standard_fds(proc);
