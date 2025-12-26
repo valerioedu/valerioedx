@@ -58,6 +58,12 @@ static syscalls_fn_t syscall_table[MAX_SYSCALLS] = {
 i64 syscall_handler(u64 syscall_num, u64 arg0, u64 arg1, u64 arg2, u64 arg3, u64 arg4, u64 arg5) {
     if (syscall_num >= MAX_SYSCALLS)
         return -1; // -ENOSYS
+
+    if (syscall_num == 4) return sys_write((u32)arg0, (const char*)arg1, arg2);
+    if (syscall_num == 1) {
+        sys_exit(arg0);
+        return 0;
+    }
     
     syscalls_fn_t func = syscall_table[syscall_num];
     return func(arg0, arg1, arg2, arg3, arg4, arg5);

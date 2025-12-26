@@ -95,6 +95,12 @@ void main() {
         : : "r"(PHYS_OFFSET) : "x0", "x1", "memory"
     );
 
+    u64 vbar_low;
+    asm volatile("mrs %0, VBAR_EL1" : "=r"(vbar_low));
+    u64 vbar_high = vbar_low + PHYS_OFFSET;
+    asm volatile("msr VBAR_EL1, %0" :: "r"(vbar_high));
+    asm volatile("isb");
+
     int level = -1;
 
     /* Gets the exception level, should be 1*/

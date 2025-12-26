@@ -42,26 +42,10 @@ void tty_init();
 u64 tty_console_read(struct vfs_node *file, u64 format, u64 size, u8 *buffer);
 u64 tty_serial_read(struct vfs_node *file, u64 format, u64 size, u8 *buffer);
 
-static inode_ops tty_console_ops = {
-    .write = tty_console_write,
-    .read = tty_console_read
-};
-
-static inode_ops tty_serial_ops = {
-    .write = tty_serial_write,
-    .read = tty_serial_read
-};
-
-static inode_ops stdin_ops = {
-    .read = tty_console_read
-};
-
-static inode_ops stdout_ops = {
-    .write = tty_console_write
-};
-
-static inode_ops stderr_ops = {
-    .write = tty_console_write
-};
+extern inode_ops tty_console_ops;
+extern inode_ops tty_serial_ops;
+extern inode_ops stdin_ops;
+extern inode_ops stdout_ops;
+extern inode_ops stderr_ops;
 
 #endif

@@ -455,7 +455,8 @@ int exec_init(const char* path) {
                 
                 // Read a few bytes from the mapped page to verify content
                 u64 phys = l3_entry & 0x0000FFFFFFFFF000ULL;
-                u8* code = (u8*)P2V(phys);
+                u64 entry_offset = elf_result.entry_point & (PAGE_SIZE - 1);  // 0x78
+                u8* code = (u8*)P2V(phys) + entry_offset;
                 kprintf("[ [CINIT [W] First bytes at entry: %x %x %x %x\n",
                         code[0], code[1], code[2], code[3]);
             }
