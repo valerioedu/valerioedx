@@ -1,5 +1,7 @@
 # Valerioedx
 
+## Please know that the development is currently focusing just on Aarch64
+
 **Valerioedx** is a custom operating system kernel implementation designed to run on **x86_64** and **AArch64** (ARM64) architectures. This project demonstrates core OS concepts including memory management, virtual filesystems, device drivers, and userland process execution.
 
 ## Features
