@@ -204,12 +204,6 @@ int elf_load(mm_struct_t* mm, const u8* data, size_t size, elf_load_result_t* re
                 }
             }
         }
-
-        kprintf("[ [CELF [W] Loaded segment: 0x%llx - 0x%llx (flags: %s%s%s)\n",
-                vaddr_start, vaddr_end,
-                (vma_flags & VMA_READ) ? "R" : "-",
-                (vma_flags & VMA_WRITE) ? "W" : "-",
-                (vma_flags & VMA_EXEC) ? "X" : "-");
     }
 
     // Set up heap after the loaded segments
@@ -219,9 +213,6 @@ int elf_load(mm_struct_t* mm, const u8* data, size_t size, elf_load_result_t* re
 
     // Store program header info for auxiliary vector
     result->phdr_addr = min_addr;  // Approximate - would need to copy phdrs to user space
-
-    kprintf("[ [CELF [W] ELF loaded: entry=0x%llx, brk=0x%llx\n", 
-            result->entry_point, result->brk);
 
     return 0;
 }

@@ -28,25 +28,11 @@ void ls(const char* path) {
 }
 
 void init_entry() {
-    kprintf("[ [CINIT [W] Init process started (PID 1)\n");
-
     // Try to exec /bin/init or /init
     if (exec_init("BIN/INIT.ELF") == 0) {
         // Should not return
         kprintf("[ [RINIT [W] exec_init returned unexpectedly\n");
     }
-    
-    // Try alternative paths
-    if (exec_init("/init") == 0) {
-        kprintf("[ [RINIT [W] exec_init returned unexpectedly\n");
-    }
-    
-    if (exec_init("/sbin/init") == 0) {
-        kprintf("[ [RINIT [W] exec_init returned unexpectedly\n");
-    }
-
-    // No init found - fall back to a simple shell loop
-    kprintf("[ [RINIT [W] No init binary found, entering fallback loop\n");
     
     // Stay alive as init process
     while (true) {

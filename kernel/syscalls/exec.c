@@ -349,8 +349,6 @@ extern void enter_usermode(u64 entry, u64 sp);
 
 // Kernel function to start init process - called from kernel thread
 int exec_init(const char* path) {
-    kprintf("[ [CINIT [W] Loading init: %s\n", path);
-
     // Look up the file
     inode_t* file = namei(path);
     if (!file) {
@@ -366,8 +364,6 @@ int exec_init(const char* path) {
         return -1;
     }
     
-    // Set up standard file descriptors BEFORE loading ELF
-    kprintf("[ [CINIT [W] Setting up standard file descriptors\n");
     setup_standard_fds(proc);
 
     // Load ELF
@@ -392,8 +388,6 @@ int exec_init(const char* path) {
         return -1;
     }
 
-    kprintf("[ [CINIT [W] Switching to user page table: 0x%llx\n", (u64)proc->mm->page_table);
-
 #ifdef ARM
     // Switch to user page table
     asm volatile(
@@ -406,16 +400,10 @@ int exec_init(const char* path) {
         : "memory"
     );
 #endif
-
-    kprintf("[ [CINIT [W] Entering user mode: entry=0x%llx sp=0x%llx\n",
-            elf_result.entry_point, user_sp);
-
     // Debug: verify the entry point page is mapped and executable
 #ifdef ARM
     {
         u64* l1_table = (u64*)P2V((uintptr_t)proc->mm->page_table);
-        kprintf("[ [CINIT [W] L1 table at phys=0x%llx virt=0x%llx\n", 
-                (u64)proc->mm->page_table, (u64)l1_table);
         
         // Calculate indices for entry point
         u64 entry = elf_result.entry_point;
@@ -423,57 +411,30 @@ int exec_init(const char* path) {
         u64 l2_idx = (entry >> 21) & 0x1FF;
         u64 l3_idx = (entry >> 12) & 0x1FF;
         
-        kprintf("[ [CINIT [W] Entry 0x%llx: L1[%llu] L2[%llu] L3[%llu]\n",
-                entry, l1_idx, l2_idx, l3_idx);
-        
         // Check L1
         u64 l1_entry = l1_table[l1_idx];
-        kprintf("[ [CINIT [W] L1[%llu] = 0x%llx (valid=%d, table=%d)\n",
-                l1_idx, l1_entry, 
-                (l1_entry & 1) ? 1 : 0,
-                (l1_entry & 2) ? 1 : 0);
         
         if (l1_entry & 1) {
             u64* l2_table = (u64*)P2V(l1_entry & 0x0000FFFFFFFFF000ULL);
             u64 l2_entry = l2_table[l2_idx];
-            kprintf("[ [CINIT [W] L2[%llu] = 0x%llx (valid=%d, table=%d)\n",
-                    l2_idx, l2_entry,
-                    (l2_entry & 1) ? 1 : 0,
-                    (l2_entry & 2) ? 1 : 0);
             
             if (l2_entry & 1) {
                 u64* l3_table = (u64*)P2V(l2_entry & 0x0000FFFFFFFFF000ULL);
                 u64 l3_entry = l3_table[l3_idx];
-                kprintf("[ [CINIT [W] L3[%llu] = 0x%llx\n", l3_idx, l3_entry);
-                kprintf("[ [CINIT [W]   Valid=%d AF=%d SH=%llu AP=%llu UXN=%d PXN=%d\n",
-                        (l3_entry & (1ULL << 0)) ? 1 : 0,
-                        (l3_entry & (1ULL << 10)) ? 1 : 0,
-                        (l3_entry >> 8) & 3,
-                        (l3_entry >> 6) & 3,
-                        (l3_entry & (1ULL << 54)) ? 1 : 0,
-                        (l3_entry & (1ULL << 53)) ? 1 : 0);
                 
                 // Read a few bytes from the mapped page to verify content
                 u64 phys = l3_entry & 0x0000FFFFFFFFF000ULL;
                 u64 entry_offset = elf_result.entry_point & (PAGE_SIZE - 1);  // 0x78
                 u8* code = (u8*)P2V(phys) + entry_offset;
-                kprintf("[ [CINIT [W] First bytes at entry: %x %x %x %x\n",
-                        code[0], code[1], code[2], code[3]);
             }
         }
         
         // Also check stack
         u64 sp_page = user_sp & ~(PAGE_SIZE - 1);
         u64* stack_pte = vmm_get_pte_from_table(l1_table, sp_page);
-        if (stack_pte) {
-            kprintf("[ [CINIT [W] Stack PTE at 0x%llx: 0x%llx (valid=%d)\n",
-                    sp_page, *stack_pte, (*stack_pte & 1) ? 1 : 0);
-        } else {
+        if (!stack_pte) {
             kprintf("[ [RINIT [W] Stack PTE is NULL!\n");
         }
-        
-        kprintf("[ [CINIT [W] TTBR0 will be set to: 0x%llx\n", (u64)proc->mm->page_table);
-        kprintf("[ [CINIT [W] About to call enter_usermode...\n");
     }
     
     // Enter user mode using assembly function

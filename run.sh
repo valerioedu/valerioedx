@@ -260,5 +260,9 @@ case $MACHINE in
         fi
         cd ../
         rm -rf build
+        if [ -f init.elf ]; then
+            rm init.o
+            rm init.elf
+        fi
         ;;
 esac
