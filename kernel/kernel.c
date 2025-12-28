@@ -31,7 +31,7 @@ void init_entry() {
     kprintf("[ [CINIT [W] Init process started (PID 1)\n");
 
     // Try to exec /bin/init or /init
-    if (exec_init("BIN/HELLO.ELF") == 0) {
+    if (exec_init("BIN/INIT.ELF") == 0) {
         // Should not return
         kprintf("[ [RINIT [W] exec_init returned unexpectedly\n");
     }
@@ -87,22 +87,6 @@ void kmain() {
                 kprintf("[ [CKMAIN [W] Mounted devfs on /dev\n");
             } else {
                 kprintf("[ [RKMAIN [W] Failed to find or create /dev directory\n");
-            }
-
-            inode_t* bin_dir = vfs_lookup("/bin");
-            if (!bin_dir) {
-                if (root_fs->ops && root_fs->ops->mkdir)
-                    bin_dir = root_fs->ops->mkdir(root_fs, "bin");
-            }
-            
-            inode_t* text_file = vfs_lookup("/TEST.TXT");
-            if (text_file) {
-                char buf[64];
-                u64 bytes = vfs_read(text_file, 0, 63, (u8*)buf);
-                buf[bytes] = 0;
-                kprintf("[ [CKMAIN [W] Content of TEST.TXT: %s\n", buf);
-            } else {
-                kprintf("[ [RKMAIN [W] TEST.TXT not found\n");
             }
         } else {
             kprintf("[ [RKMAIN [W] Failed to mount FAT32\n");

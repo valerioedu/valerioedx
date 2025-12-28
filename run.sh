@@ -235,10 +235,18 @@ case $MACHINE in
             cd ..
             dd if=/dev/zero of=disk.img bs=1M count=128 status=none
             /usr/sbin/mkfs.fat -F 32 -I disk.img
-            echo "Hello from the Host OS!" > TEST.TXT
-            mcopy -i disk.img TEST.TXT ::TEST.TXT
             mmd -i disk.img ::/bin
-            mcopy -i disk.img hello.elf ::/bin/hello.elf
+            mmd -i disk.img ::/sbin
+            mmd -i disk.img ::/home
+            mmd -i disk.img ::/usr
+            mmd -i disk.img ::/usr/bin
+            mmd -i disk.img ::/usr/sbin
+            mmd -i disk.img ::/usr/include
+
+            #To implement in the cmake file
+            aarch64-linux-gnu-gcc -c ../../../user/init.c -o init.o
+            aarch64-linux-gnu-ld init.o -Ttext=0x400000 -o init.elf
+            mcopy -i disk.img init.elf ::/bin/init.elf
             cd build
         fi
 
