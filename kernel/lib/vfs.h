@@ -84,6 +84,7 @@ typedef struct vfs_node {
 extern inode_t *vfs_root;
 
 void vfs_init();
+void vfs_retain(inode_t *node);
 u64 vfs_read(inode_t* node, u64 offset, u64 size, u8* buffer);
 u64 vfs_write(inode_t* node, u64 offset, u64 size, u8* buffer);
 void vfs_open(inode_t* node);

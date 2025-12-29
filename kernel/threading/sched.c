@@ -124,6 +124,7 @@ process_t *process_create(const char *name, void (*entry_point)(), task_priority
     task_create(entry_point, priority, proc);
     kprintf("[ [CSCHED[W ] Created Process:\tPID: %d\tName: %s\n", proc->pid, proc->name);
     
+    proc->cwd = vfs_root;
     return proc;
 }
 

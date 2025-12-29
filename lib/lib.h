@@ -27,4 +27,6 @@ typedef uint64_t size_t;
 
 typedef u64 uintptr_t;
 
+typedef long mode_t;
+
 #endif

@@ -12,9 +12,11 @@
 #define SYS_OPEN     5
 #define SYS_CLOSE    6
 #define SYS_WAIT     7
-#define SYS_EXECVE   11
+#define SYS_CHDIR    12
+#define SYS_FCHDIR   13
 #define SYS_GETPID   20
 #define SYS_GETPPID  39
+#define SYS_EXECVE   59
 
 extern task_t *current_task;
 extern i64 sys_write(u32 fd, const char *buf, size_t count);
@@ -27,6 +29,8 @@ extern i64 sys_close(int fd);
 extern void sys_exit(int code);
 extern i64 sys_wait(int *status);
 extern i64 sys_execve(const char* path, const char* argv[], const char* envp[]);
+extern i64 sys_chdir(const char *path);
+extern i64 sys_fchdir(int fd);
 
 typedef i64 (*syscalls_fn_t)(i64, i64, i64, i64, i64, i64);
 
@@ -51,6 +55,8 @@ static syscalls_fn_t syscall_table[MAX_SYSCALLS] = {
     [SYS_CLOSE]              = (syscalls_fn_t)sys_close,
     [SYS_WAIT]               = (syscalls_fn_t)sys_wait,
     [SYS_EXECVE]             = (syscalls_fn_t)sys_execve,
+    [SYS_CHDIR]              = (syscalls_fn_t)sys_chdir,
+    [SYS_FCHDIR]             = (syscalls_fn_t)sys_fchdir,
     [SYS_GETPID]             = (syscalls_fn_t)sys_getpid,
     [SYS_GETPPID]            = (syscalls_fn_t)sys_getppid
 };
