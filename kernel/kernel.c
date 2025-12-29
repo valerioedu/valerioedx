@@ -12,36 +12,16 @@
 extern task_t *current_task;
 process_t *init_process = NULL;
 
-void ls(const char* path) {
-    inode_t* dir = vfs_lookup(path);
-    if (!dir) return;
-
-    char name[32];
-    int is_dir;
-    int index = 0;
-
-    // Loop until readdir returns 0
-    while (dir->ops->readdir(dir, index, name, 32, &is_dir)) {
-        kprintf("%s%s\n", name, is_dir ? "/" : "");
-        index++;
-    }
-}
-
 void init_entry() {
-    // Try to exec /bin/init or /init
-    if (exec_init("BIN/INIT.ELF") == 0) {
-        // Should not return
+    if (exec_init("BIN/INIT.ELF") == 0)
         kprintf("[ [RINIT [W] exec_init returned unexpectedly\n");
-    }
     
-    // Stay alive as init process
-    while (true) {
+    while (true)
 #ifdef ARM
         asm volatile("wfi");
 #else
         asm volatile("hlt");
 #endif
-    }
 }
 
 void kmain() {
@@ -78,9 +58,6 @@ void kmain() {
             kprintf("[ [RKMAIN [W] Failed to mount FAT32\n");
         }
     }
-
-    ls("/");
-    ls("/bin");
 
     init_process = process_create("init", init_entry, HIGH);
 
