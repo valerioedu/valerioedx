@@ -12,6 +12,7 @@
 #define SYS_OPEN     5
 #define SYS_CLOSE    6
 #define SYS_WAIT     7
+#define SYS_EXECVE   11
 #define SYS_GETPID   20
 #define SYS_GETPPID  39
 
@@ -25,6 +26,7 @@ extern i64 sys_open(const char *path, int flags);
 extern i64 sys_close(int fd);
 extern void sys_exit(int code);
 extern i64 sys_wait(int *status);
+extern i64 sys_execve(const char* path, const char* argv[], const char* envp[]);
 
 typedef i64 (*syscalls_fn_t)(i64, i64, i64, i64, i64, i64);
 
@@ -48,6 +50,7 @@ static syscalls_fn_t syscall_table[MAX_SYSCALLS] = {
     [SYS_OPEN]               = (syscalls_fn_t)sys_open,
     [SYS_CLOSE]              = (syscalls_fn_t)sys_close,
     [SYS_WAIT]               = (syscalls_fn_t)sys_wait,
+    [SYS_EXECVE]             = (syscalls_fn_t)sys_execve,
     [SYS_GETPID]             = (syscalls_fn_t)sys_getpid,
     [SYS_GETPPID]            = (syscalls_fn_t)sys_getppid
 };
@@ -55,6 +58,12 @@ static syscalls_fn_t syscall_table[MAX_SYSCALLS] = {
 i64 syscall_handler(u64 syscall_num, u64 arg0, u64 arg1, u64 arg2, u64 arg3, u64 arg4, u64 arg5) {
     if (syscall_num >= MAX_SYSCALLS)
         return -1; // -ENOSYS
+
+    if (syscall_num == 4) return sys_write((u32)arg0, (const char*)arg1, arg2);
+    if (syscall_num == 1) {
+        sys_exit(arg0);
+        return 0;
+    }
     
     syscalls_fn_t func = syscall_table[syscall_num];
     return func(arg0, arg1, arg2, arg3, arg4, arg5);

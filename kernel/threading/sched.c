@@ -6,6 +6,7 @@
 #include <sync.h>
 #include <vmm.h>
 #include <vma.h>
+#include <file.h>
 
 extern void ret_from_fork();
 extern void cpu_switch_to(struct task* prev, struct task* next);
@@ -22,6 +23,9 @@ spinlock_t sched_lock = 0;
 static task_t *zombie_head = NULL;
 static wait_queue_t reaper_wq = NULL;
 
+// Store the kernel's root page table for TTBR1
+static u64 kernel_ttbr1 = 0;
+
 void sched_unlock_release() {
     spinlock_release_irqrestore(&sched_lock, 0); 
 #ifdef ARM
@@ -31,7 +35,11 @@ void sched_unlock_release() {
 
 void idle() {
     while (true) {
+#ifdef ARM
         asm volatile("wfi");
+#else
+        asm volatile("hlt");
+#endif
         schedule();
     }
 }
@@ -74,6 +82,11 @@ void sched_init() {
         runqueues_tail[i] = NULL;
     }
 
+#ifdef ARM
+    // Store the kernel's TTBR1 value
+    asm volatile("mrs %0, ttbr1_el1" : "=r"(kernel_ttbr1));
+#endif
+
     task_create(idle, IDLE, NULL);
 
     current_task = runqueues[IDLE];
@@ -95,6 +108,10 @@ process_t *process_create(const char *name, void (*entry_point)(), task_priority
 
     proc->pid = pid_counter++;
     strncpy(proc->name, name, 63);
+
+    extern int setup_standard_fds(process_t* proc);
+
+    setup_standard_fds(proc);
 
     // Create address space
     proc->mm = mm_create();
@@ -304,24 +321,6 @@ void schedule() {
 
         mm_struct_t *next_mm = (next_task->proc) ? next_task->proc->mm : NULL;
         mm_struct_t *prev_mm = (prev_task->proc) ? prev_task->proc->mm : NULL;
-
-        if (next_mm && next_mm != prev_mm) {
-#ifdef ARM
-            // Switch to user page table (physical address)
-            asm volatile("msr ttbr0_el1, %0" :: "r"((u64)next_mm->page_table));
-            asm volatile("tlbi vmalle1is"); 
-            asm volatile("dsb ish");
-            asm volatile("isb");
-#endif
-        } else if (!next_mm && prev_mm) {
-#ifdef ARM
-            // Switching to kernel thread - clear TTBR0
-            asm volatile("msr ttbr0_el1, %0" :: "r"(0ULL));
-            asm volatile("tlbi vmalle1is"); 
-            asm volatile("dsb ish");
-            asm volatile("isb");
-#endif
-        }
 
         cpu_switch_to(prev_task, next_task);
     }

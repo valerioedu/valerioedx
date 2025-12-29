@@ -7,9 +7,22 @@
 #include <fat32.h>
 #include <tty.h>
 #include <vma.h>
+#include <syscalls.h>
 
 extern task_t *current_task;
 process_t *init_process = NULL;
+
+void init_entry() {
+    if (exec_init("BIN/INIT.ELF") == 0)
+        kprintf("[ [RINIT [W] exec_init returned unexpectedly\n");
+    
+    while (true)
+#ifdef ARM
+        asm volatile("wfi");
+#else
+        asm volatile("hlt");
+#endif
+}
 
 void kmain() {
     tty_init();
@@ -41,30 +54,18 @@ void kmain() {
             } else {
                 kprintf("[ [RKMAIN [W] Failed to find or create /dev directory\n");
             }
-
-            inode_t* bin_dir = vfs_lookup("/bin");
-            if (!bin_dir) {
-                if (root_fs->ops && root_fs->ops->mkdir)
-                    bin_dir = root_fs->ops->mkdir(root_fs, "bin");
-                 
-            }
-            
-            inode_t* text_file = vfs_lookup("/TEST.TXT");
-            if (text_file) {
-                char buf[64];
-                u64 bytes = vfs_read(text_file, 0, 63, (u8*)buf);
-                buf[bytes] = 0;
-                kprintf("[ [CKMAIN [W] Content of TEST.TXT: %s\n", buf);
-            } else {
-                kprintf("[ [RKMAIN [W] TEST.TXT not found\n");
-            }
         } else {
             kprintf("[ [RKMAIN [W] Failed to mount FAT32\n");
         }
     }
 
-    heap_debug();
+    init_process = process_create("init", init_entry, HIGH);
 
-    init_process = process_create("init", NULL, HIGH);
+    if (!init_process) {
+        kprintf("[ [RKMAIN [W] Failed to create init process!\n");
+    } else {
+        kprintf("[ [CKMAIN [W] Init process created with PID %d\n", init_process->pid);
+    }
+
     while (true) asm volatile("wfi");
 }

@@ -1,5 +1,6 @@
 .global cpu_switch_to
 .global ret_from_fork
+.global enter_usermode
 .extern sched_unlock_release
 
 # void cpu_switch_to(struct task* prev, struct task* next);
@@ -45,3 +46,70 @@ ret_from_fork:
     blr x19
     bl task_exit
     b .
+
+# void enter_usermode(u64 entry, u64 sp)
+# x0 = entry point address
+# x1 = user stack pointer
+#
+# This function properly transitions from kernel mode (EL1) to user mode (EL0)
+# It sets up the exception return registers and uses ERET to drop to EL0
+enter_usermode:
+    # Disable interrupts during transition
+    msr daifset, #2
+
+    # Set up SPSR_EL1 for return to EL0
+    # SPSR = 0 means:
+    #   - M[3:0] = 0b0000 = EL0t (EL0 with SP_EL0)
+    #   - DAIF = 0 (interrupts enabled in EL0)
+    #   - NZCV = 0
+    mov x2, #0
+    msr spsr_el1, x2
+
+    # Set up ELR_EL1 (return address = entry point)
+    msr elr_el1, x0
+
+    # Set up SP_EL0 (user stack pointer)
+    msr sp_el0, x1
+
+    # Clear all general-purpose registers for clean state
+    mov x0, #0
+    mov x1, #0
+    mov x2, #0
+    mov x3, #0
+    mov x4, #0
+    mov x5, #0
+    mov x6, #0
+    mov x7, #0
+    mov x8, #0
+    mov x9, #0
+    mov x10, #0
+    mov x11, #0
+    mov x12, #0
+    mov x13, #0
+    mov x14, #0
+    mov x15, #0
+    mov x16, #0
+    mov x17, #0
+    mov x18, #0
+    mov x19, #0
+    mov x20, #0
+    mov x21, #0
+    mov x22, #0
+    mov x23, #0
+    mov x24, #0
+    mov x25, #0
+    mov x26, #0
+    mov x27, #0
+    mov x28, #0
+    mov x29, #0
+    mov x30, #0
+
+    # Instruction synchronization barrier
+    isb
+
+    # Return to EL0
+    # ERET will:
+    #   - Set PC to ELR_EL1 (entry point)
+    #   - Set PSTATE from SPSR_EL1 (EL0 mode)
+    #   - Switch to using SP_EL0
+    eret

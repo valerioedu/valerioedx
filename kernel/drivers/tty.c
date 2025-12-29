@@ -6,6 +6,12 @@ tty_t tty_serial;
 spinlock_t console_lock;
 spinlock_t serial_lock;
 
+inode_ops tty_console_ops;
+inode_ops tty_serial_ops;
+inode_ops stdin_ops;
+inode_ops stdout_ops;
+inode_ops stderr_ops;
+
 void tty_init() {
     tty_console.id = 0;
     tty_serial.id = 0;
@@ -20,6 +26,17 @@ void tty_init() {
 
     tty_console.lock = console_lock;
     tty_serial.lock = serial_lock;
+
+    tty_console_ops.write = tty_console_write;
+    tty_console_ops.read = tty_console_read;
+    
+    tty_serial_ops.write = tty_serial_write;
+    tty_serial_ops.read = tty_serial_read;
+    
+    stdin_ops.read = tty_console_read;
+    stdout_ops.write = tty_console_write;
+    stderr_ops.write = tty_console_write;
+
 }
 
 u64 tty_console_write(struct vfs_node* file, u64 format, u64 size, u8* buffer) {

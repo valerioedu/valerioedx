@@ -32,6 +32,8 @@ void dump_stack() {
 void el1_sync_handler(trapframe_t *tf) {
     u64 esr, elr, far;
     asm volatile("mrs %0, esr_el1" : "=r"(esr));
+    asm volatile("mrs %0, elr_el1" : "=r"(elr));
+    asm volatile("mrs %0, far_el1" : "=r"(far));
 
     u32 ec = (esr >> 26) & 0x3F;
     u64 iss = esr & 0x1FFFFFF;
