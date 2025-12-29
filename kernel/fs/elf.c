@@ -7,7 +7,6 @@
 #include <string.h>
 #include <kio.h>
 
-// Validate ELF header
 int elf_validate(const u8* data, size_t size) {
     if (size < sizeof(elf64_ehdr_t)) {
         kprintf("[ [RELF [W] File too small for ELF header\n");
@@ -16,7 +15,6 @@ int elf_validate(const u8* data, size_t size) {
 
     elf64_ehdr_t* ehdr = (elf64_ehdr_t*)data;
 
-    // Check magic number
     if (*(u32*)ehdr->e_ident != ELF_MAGIC) {
         kprintf("[ [RELF [W] Invalid ELF magic: 0x%x\n", *(u32*)ehdr->e_ident);
         return -1;
@@ -60,9 +58,11 @@ int elf_validate(const u8* data, size_t size) {
 // Convert ELF flags to VMA flags
 static u32 elf_to_vma_flags(u32 p_flags) {
     u32 flags = 0;
+
     if (p_flags & PF_R) flags |= VMA_READ;
     if (p_flags & PF_W) flags |= VMA_WRITE;
     if (p_flags & PF_X) flags |= VMA_EXEC;
+
     return flags;
 }
 
@@ -82,7 +82,7 @@ int elf_load(mm_struct_t* mm, const u8* data, size_t size, elf_load_result_t* re
     u64 max_addr = 0;
     u64 min_addr = (u64)-1;
 
-    // First pass: calculate address range and validate
+    // Calculate address range and validate
     for (u16 i = 0; i < ehdr->e_phnum; i++) {
         elf64_phdr_t* phdr = &phdrs[i];
 
@@ -109,7 +109,7 @@ int elf_load(mm_struct_t* mm, const u8* data, size_t size, elf_load_result_t* re
 
     result->base_addr = min_addr;
 
-    // Second pass: load segments
+    // Load segments
     for (u16 i = 0; i < ehdr->e_phnum; i++) {
         elf64_phdr_t* phdr = &phdrs[i];
 
@@ -142,10 +142,8 @@ int elf_load(mm_struct_t* mm, const u8* data, size_t size, elf_load_result_t* re
                 return -1;
             }
 
-            // Clear the page first
             memset(P2V(phys), 0, PAGE_SIZE);
 
-            // Get PTE and map
             u64* pte = vmm_get_pte_from_table_alloc((u64*)P2V((uintptr_t)mm->page_table), addr);
             if (!pte) {
                 pmm_free_frame(phys);
@@ -157,9 +155,8 @@ int elf_load(mm_struct_t* mm, const u8* data, size_t size, elf_load_result_t* re
             entry |= (MT_NORMAL << 2);  // Normal memory
             entry |= PT_AP_RW_EL0;      // User accessible
 
-            if (!(vma_flags & VMA_EXEC)) {
+            if (!(vma_flags & VMA_EXEC))
                 entry |= PT_UXN;  // User execute never
-            }
 
             *pte = entry;
         }
@@ -175,9 +172,8 @@ int elf_load(mm_struct_t* mm, const u8* data, size_t size, elf_load_result_t* re
                 u64 page_offset = current_vaddr & (PAGE_SIZE - 1);
                 u64 bytes_this_page = PAGE_SIZE - page_offset;
 
-                if (bytes_copied + bytes_this_page > phdr->p_filesz) {
+                if (bytes_copied + bytes_this_page > phdr->p_filesz)
                     bytes_this_page = phdr->p_filesz - bytes_copied;
-                }
 
                 // Get physical address of this page
                 u64* pte = vmm_get_pte_from_table((u64*)P2V((uintptr_t)mm->page_table), page_vaddr);
@@ -194,10 +190,11 @@ int elf_load(mm_struct_t* mm, const u8* data, size_t size, elf_load_result_t* re
             }
         }
 
-        // Set proper protection (after writing data)
+        // Set proper protection
         if (!(vma_flags & VMA_WRITE)) {
             for (u64 addr = vaddr_start; addr < vaddr_end; addr += PAGE_SIZE) {
                 u64* pte = vmm_get_pte_from_table((u64*)P2V((uintptr_t)mm->page_table), addr);
+
                 if (pte && (*pte & PT_VALID)) {
                     *pte &= ~(3ULL << 6);  // Clear AP bits
                     *pte |= PT_AP_RO_EL0;   // Set read-only for user
@@ -211,40 +208,35 @@ int elf_load(mm_struct_t* mm, const u8* data, size_t size, elf_load_result_t* re
     mm->heap_start = result->brk;
     mm->heap_end = result->brk;
 
-    // Store program header info for auxiliary vector
-    result->phdr_addr = min_addr;  // Approximate - would need to copy phdrs to user space
-
+    // TODO: copy phdrs to user space
+    result->phdr_addr = min_addr;
     return 0;
 }
 
-// Load ELF from a file
 int elf_load_from_file(mm_struct_t* mm, inode_t* file, elf_load_result_t* result) {
     if (!mm || !file || !result) return -1;
 
-    // Read file size
     u64 file_size = file->size;
     if (file_size == 0 || file_size > 64 * 1024 * 1024) {  // Max 64MB
         kprintf("[ [RELF [W] Invalid file size: %llu\n", file_size);
         return -1;
     }
 
-    // Allocate buffer for file
     u8* buffer = (u8*)kmalloc(file_size);
     if (!buffer) {
         kprintf("[ [RELF [W] Failed to allocate buffer for ELF file\n");
         return -1;
     }
 
-    // Read file contents
     u64 bytes_read = vfs_read(file, 0, file_size, buffer);
     if (bytes_read != file_size) {
         kprintf("[ [RELF [W] Failed to read complete file: %llu/%llu\n", 
                 bytes_read, file_size);
+        
         kfree(buffer);
         return -1;
     }
 
-    // Load ELF
     int ret = elf_load(mm, buffer, file_size, result);
 
     kfree(buffer);

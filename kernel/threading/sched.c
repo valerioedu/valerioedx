@@ -109,19 +109,9 @@ process_t *process_create(const char *name, void (*entry_point)(), task_priority
     proc->pid = pid_counter++;
     strncpy(proc->name, name, 63);
 
-    inode_t *node;
+    extern int setup_standard_fds(process_t* proc);
 
-    // FD 0: stdin
-    node = vfs_lookup("/dev/tty0"); 
-    if (node) proc->fd_table[0] = file_new(node, 0); // 0 = O_RDONLY
-
-    // FD 1: stdout
-    node = vfs_lookup("/dev/tty0");
-    if (node) proc->fd_table[1] = file_new(node, 1); // 1 = O_WRONLY
-
-    // FD 2: stderr
-    node = vfs_lookup("/dev/tty0");
-    if (node) proc->fd_table[2] = file_new(node, 1); // 1 = O_WRONLY
+    setup_standard_fds(proc);
 
     // Create address space
     proc->mm = mm_create();
@@ -331,40 +321,6 @@ void schedule() {
 
         mm_struct_t *next_mm = (next_task->proc) ? next_task->proc->mm : NULL;
         mm_struct_t *prev_mm = (prev_task->proc) ? prev_task->proc->mm : NULL;
-
-        // Only switch TTBR0 if we're switching between different address spaces
-        // Kernel threads (proc == NULL) don't need their own TTBR0
-        /*if (next_mm != prev_mm) {
-#ifdef ARM
-            if (next_mm) {
-                // Switch to user process page table
-                // The physical address of the page table root is stored in mm->page_table
-                asm volatile(
-                    "msr ttbr0_el1, %0\n"
-                    "isb\n"
-                    "tlbi vmalle1is\n"
-                    "dsb ish\n"
-                    "isb\n"
-                    :: "r"((u64)next_mm->page_table)
-                    : "memory"
-                );
-            } else {
-                // Switching to kernel thread - disable user-space access
-                // Set TTBR0 to an invalid/empty table or just leave it
-                // Since kernel code runs in higher half (TTBR1), TTBR0 isn't used
-                // We can set it to 0 to ensure any user-space access faults
-                asm volatile(
-                    "msr ttbr0_el1, %0\n"
-                    "isb\n"
-                    "tlbi vmalle1is\n"
-                    "dsb ish\n"
-                    "isb\n"
-                    :: "r"(0ULL)
-                    : "memory"
-                );
-            }
-#endif
-        }*/
 
         cpu_switch_to(prev_task, next_task);
     }

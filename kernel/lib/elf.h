@@ -4,7 +4,6 @@
 #include <lib.h>
 #include <vma.h>
 
-// ELF Magic
 #define ELF_MAGIC 0x464C457F  // "\x7FELF" in little endian
 
 // ELF Class (32-bit or 64-bit)
@@ -126,7 +125,6 @@ typedef struct {
     u64 brk;            // Initial program break (heap start)
 } elf_load_result_t;
 
-// Function declarations
 int elf_validate(const u8* data, size_t size);
 int elf_load(mm_struct_t* mm, const u8* data, size_t size, elf_load_result_t* result);
 int elf_load_from_file(mm_struct_t* mm, struct vfs_node* file, elf_load_result_t* result);
