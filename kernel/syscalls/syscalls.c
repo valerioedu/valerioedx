@@ -14,10 +14,13 @@
 #define SYS_WAIT            7
 #define SYS_CHDIR           12
 #define SYS_FCHDIR          13
+#define SYS_LSEEK           19
 #define SYS_GETPID          20
 #define SYS_GETPPID         39
+#define SYS_DUP             41
 #define SYS_EXECVE          59
 #define SYS_GETCWD          76
+#define SYS_DUP2            90
 #define SYS_MKDIR           136
 #define SYS_RMDIR           137
 #define SYS_GETDIRENTRIES   196
@@ -32,10 +35,13 @@ extern i64 sys_open(const char *path, int flags);
 extern i64 sys_close(int fd);
 extern void sys_exit(int code);
 extern i64 sys_wait(int *status);
+extern i64 sys_dup(int oldfd);
 extern i64 sys_execve(const char* path, const char* argv[], const char* envp[]);
 extern i64 sys_chdir(const char *path);
 extern i64 sys_fchdir(int fd);
+extern i64 sys_lseek(int fd, i64 offset, int whence);
 extern i64 sys_getcwd(char *buf, size_t size);
+extern i64 sys_dup2(int oldfd, int newfd);
 extern i64 sys_mkdir(const char *path, mode_t mode);
 extern i64 sys_rmdir(const char *path);
 extern i64 sys_getdirentries(int fd, char *buf, size_t nbytes, i64 *basep);
@@ -64,10 +70,13 @@ static syscalls_fn_t syscall_table[MAX_SYSCALLS] = {
     [SYS_WAIT]               = (syscalls_fn_t)sys_wait,
     [SYS_CHDIR]              = (syscalls_fn_t)sys_chdir,
     [SYS_FCHDIR]             = (syscalls_fn_t)sys_fchdir,
+    [SYS_LSEEK]              = (syscalls_fn_t)sys_lseek,
     [SYS_GETPID]             = (syscalls_fn_t)sys_getpid,
     [SYS_GETPPID]            = (syscalls_fn_t)sys_getppid,
+    [SYS_DUP]                = (syscalls_fn_t)sys_dup,
     [SYS_EXECVE]             = (syscalls_fn_t)sys_execve,
     [SYS_GETCWD]             = (syscalls_fn_t)sys_getcwd,
+    [SYS_DUP2]               = (syscalls_fn_t)sys_dup2,
     [SYS_MKDIR]              = (syscalls_fn_t)sys_mkdir,
     [SYS_RMDIR]              = (syscalls_fn_t)sys_rmdir,
     [SYS_GETDIRENTRIES]      = (syscalls_fn_t)sys_getdirentries
