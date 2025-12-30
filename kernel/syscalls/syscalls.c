@@ -86,12 +86,27 @@ i64 syscall_handler(u64 syscall_num, u64 arg0, u64 arg1, u64 arg2, u64 arg3, u64
     if (syscall_num >= MAX_SYSCALLS)
         return -1; // -ENOSYS
 
-    if (syscall_num == 4) return sys_write((u32)arg0, (const char*)arg1, arg2);
-    if (syscall_num == 1) {
-        sys_exit(arg0);
-        return 0;
+    switch (syscall_num) {
+        case SYS_EXIT: sys_exit(arg0); return 0;
+        case SYS_FORK: return sys_fork(); break;
+        case SYS_READ: return sys_read((u32)arg0, (char*)arg1, (size_t)arg2); break;
+        case SYS_WRITE: return sys_write((u32)arg0, (const char*)arg1, (size_t)arg2); break;
+        case SYS_OPEN: return sys_open((const char*)arg0, (int)arg1); break;
+        case SYS_CLOSE: return sys_close((int)arg0); break;
+        case SYS_WAIT: return sys_wait((int*)arg0); break;
+        case SYS_CHDIR: return sys_chdir((const char*)arg0); break;
+        case SYS_FCHDIR: return sys_fchdir((int)arg0); break;
+        case SYS_LSEEK: return sys_lseek((int)arg0, (i64)arg1, (int)arg2); break;
+        case SYS_GETPID: return sys_getpid(); break;
+        case SYS_GETPPID: return sys_getppid(); break;
+        case SYS_DUP: return sys_dup((int)arg0); break;
+        case SYS_EXECVE: return sys_execve((const char*)arg0, (const char**)arg1, (const char**)arg2); break;
+        case SYS_GETCWD: return sys_getcwd((char*)arg0, (size_t)arg1); break;
+        case SYS_DUP2: return sys_dup2((int)arg0, (int)arg1); break;
+        case SYS_MKDIR: return sys_mkdir((const char*)arg0, (mode_t)arg1); break;
+        case SYS_RMDIR: return sys_rmdir((const char*)arg0); break;
+        case SYS_GETDIRENTRIES: return sys_getdirentries((int)arg0, (char*)arg1, (size_t)arg2, (i64*)arg3); break;
     }
-    
-    syscalls_fn_t func = syscall_table[syscall_num];
-    return func(arg0, arg1, arg2, arg3, arg4, arg5);
+
+    return -1;
 }
