@@ -4,6 +4,7 @@
 #include <lib.h>
 #include <spinlock.h>
 #include <vfs.h>
+#include <sched.h>
 
 #ifdef ARM
 #include <ramfb.h>
@@ -30,6 +31,7 @@ typedef struct tty {
 
     // Flags
     bool echo;
+    struct process_t *proc;
 } tty_t;
 
 extern tty_t tty_console;
