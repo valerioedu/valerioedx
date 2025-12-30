@@ -2,6 +2,7 @@
 #include <file.h>
 #include <sched.h>
 #include <string.h>
+#include <heap.h>
 
 extern task_t *current_task;
 
@@ -42,4 +43,93 @@ i64 sys_fchdir(int fd) {
     
     current_task->proc->cwd = fd_file->inode;
     return 0;
+}
+
+static int build_path_recursive(inode_t *node, char *buf, size_t size, size_t *pos) {
+    if (!node) return 0;
+
+    if (node->parent == NULL || node == vfs_root) {
+        if (*pos < size)
+            buf[(*pos)++] = '/';
+
+        return 0;
+    }
+
+    // Recurse to parent first
+    build_path_recursive(node->parent, buf, size, pos);
+
+    // Add this node's name
+    size_t name_len = strlen(node->name);
+    if (*pos + name_len + 1 < size) {
+        memcpy(buf + *pos, node->name, name_len);
+        *pos += name_len;
+        buf[(*pos)++] = '/';
+    }
+
+    return 0;
+}
+
+i64 sys_getcwd(char *buf, size_t size) {
+    if (!buf || size == 0) return 0;
+    if (!current_task || !current_task->proc) return 0;
+
+    inode_t *cwd = current_task->proc->cwd;
+    
+    // If no cwd set, use root
+    if (!cwd) cwd = vfs_root;
+
+    if (!cwd) return 0;
+
+    // Special case: at root
+    if (cwd == vfs_root || cwd->parent == NULL) {
+        if (size >= 2) {
+            buf[0] = '/';
+            buf[1] = '\0';
+
+            return (i64)buf;
+        }
+
+        return 0;
+    }
+
+    size_t total_len = 0;
+    int depth = 0;
+    inode_t *node = cwd;
+    
+    while (node && node != vfs_root && node->parent != NULL) {
+        total_len += strlen(node->name) + 1;  // +1 for '/'
+        depth++;
+        node = node->parent;
+    }
+
+    total_len++;  // For leading '/'
+
+    if (total_len >= size) return 0;
+
+    char **components = kmalloc(depth * sizeof(char*));
+    if (!components) return 0;
+
+    node = cwd;
+    int i = depth - 1;
+    while (node && node != vfs_root && node->parent != NULL && i >= 0) {
+        components[i] = node->name;
+        i--;
+        node = node->parent;
+    }
+
+    // Now build the path
+    size_t pos = 0;
+    buf[pos++] = '/';
+    
+    for (i = 0; i < depth; i++) {
+        size_t len = strlen(components[i]);
+        memcpy(buf + pos, components[i], len);
+        pos += len;
+        if (i < depth - 1)
+            buf[pos++] = '/';
+    }
+    buf[pos] = '\0';
+
+    kfree(components);
+    return (i64)buf;
 }

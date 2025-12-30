@@ -4,19 +4,23 @@
 #include <sched.h>
 #include <kio.h>
 
-#define MAX_SYSCALLS 128
-#define SYS_EXIT     1
-#define SYS_FORK     2
-#define SYS_READ     3
-#define SYS_WRITE    4
-#define SYS_OPEN     5
-#define SYS_CLOSE    6
-#define SYS_WAIT     7
-#define SYS_CHDIR    12
-#define SYS_FCHDIR   13
-#define SYS_GETPID   20
-#define SYS_GETPPID  39
-#define SYS_EXECVE   59
+#define MAX_SYSCALLS        256
+#define SYS_EXIT            1
+#define SYS_FORK            2
+#define SYS_READ            3
+#define SYS_WRITE           4
+#define SYS_OPEN            5
+#define SYS_CLOSE           6
+#define SYS_WAIT            7
+#define SYS_CHDIR           12
+#define SYS_FCHDIR          13
+#define SYS_GETPID          20
+#define SYS_GETPPID         39
+#define SYS_EXECVE          59
+#define SYS_GETCWD          76
+#define SYS_MKDIR           136
+#define SYS_RMDIR           137
+#define SYS_GETDIRENTRIES   196
 
 extern task_t *current_task;
 extern i64 sys_write(u32 fd, const char *buf, size_t count);
@@ -31,6 +35,10 @@ extern i64 sys_wait(int *status);
 extern i64 sys_execve(const char* path, const char* argv[], const char* envp[]);
 extern i64 sys_chdir(const char *path);
 extern i64 sys_fchdir(int fd);
+extern i64 sys_getcwd(char *buf, size_t size);
+extern i64 sys_mkdir(const char *path, mode_t mode);
+extern i64 sys_rmdir(const char *path);
+extern i64 sys_getdirentries(int fd, char *buf, size_t nbytes, i64 *basep);
 
 typedef i64 (*syscalls_fn_t)(i64, i64, i64, i64, i64, i64);
 
@@ -54,11 +62,15 @@ static syscalls_fn_t syscall_table[MAX_SYSCALLS] = {
     [SYS_OPEN]               = (syscalls_fn_t)sys_open,
     [SYS_CLOSE]              = (syscalls_fn_t)sys_close,
     [SYS_WAIT]               = (syscalls_fn_t)sys_wait,
-    [SYS_EXECVE]             = (syscalls_fn_t)sys_execve,
     [SYS_CHDIR]              = (syscalls_fn_t)sys_chdir,
     [SYS_FCHDIR]             = (syscalls_fn_t)sys_fchdir,
     [SYS_GETPID]             = (syscalls_fn_t)sys_getpid,
-    [SYS_GETPPID]            = (syscalls_fn_t)sys_getppid
+    [SYS_GETPPID]            = (syscalls_fn_t)sys_getppid,
+    [SYS_EXECVE]             = (syscalls_fn_t)sys_execve,
+    [SYS_GETCWD]             = (syscalls_fn_t)sys_getcwd,
+    [SYS_MKDIR]              = (syscalls_fn_t)sys_mkdir,
+    [SYS_RMDIR]              = (syscalls_fn_t)sys_rmdir,
+    [SYS_GETDIRENTRIES]      = (syscalls_fn_t)sys_getdirentries
 };
 
 i64 syscall_handler(u64 syscall_num, u64 arg0, u64 arg1, u64 arg2, u64 arg3, u64 arg4, u64 arg5) {
