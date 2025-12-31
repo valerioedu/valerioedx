@@ -14,7 +14,7 @@ int main() {
 
         asm volatile(
             "mov x8, #3\n"
-            "mov x0, #1\n"
+            "mov x0, #0\n"
             "mov x1, %x[in]\n"
             "mov x2, #32\n"
             "svc #0\n"
