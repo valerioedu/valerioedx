@@ -21,8 +21,11 @@ void tty_init() {
     tty_serial.putc = uart_putc;
 #endif
 
-    tty_console.echo = true;
-    tty_serial.echo = true;
+    tty_console.echo = false;
+    tty_serial.echo = false;
+
+    tty_console.queue = NULL;
+    tty_serial.queue = NULL;
 
     tty_console.lock = console_lock;
     tty_serial.lock = serial_lock;
@@ -48,15 +51,12 @@ u64 tty_serial_write(struct vfs_node* file, u64 format, u64 size, u8* buffer) {
 }
 
 u64 tty_console_read(struct vfs_node *file, u64 format, u64 size, u8 *buffer) {
+    tty_console.echo = true;
     u64 read_count = 0;
 
     while (read_count < size) {
         while (tty_console.read_head == tty_console.read_tail) {
-#ifdef ARM
-            asm volatile("wfi");
-#else
-            asm volatile("hlt");
-#endif
+            sleep_on(&tty_console.queue, NULL);  // CHANGED: proper sleep
         }
 
         u32 flags = spinlock_acquire_irqsave(&tty_console.lock);
@@ -70,10 +70,12 @@ u64 tty_console_read(struct vfs_node *file, u64 format, u64 size, u8 *buffer) {
         spinlock_release_irqrestore(&tty_console.lock, flags);
     }
 
+    tty_console.echo = false;
     return read_count;
 }
 
 u64 tty_serial_read(struct vfs_node *file, u64 format, u64 size, u8 *buffer) {
+    tty_serial.echo = true;
     u64 read_count = 0;
 
     while (read_count < size) {
@@ -96,6 +98,7 @@ u64 tty_serial_read(struct vfs_node *file, u64 format, u64 size, u8 *buffer) {
         spinlock_release_irqrestore(&tty_serial.lock, flags);
     }
 
+    tty_serial.echo = false;
     return read_count;
 }
 
@@ -103,10 +106,11 @@ void tty_push_char(char c, tty_t *tty) {
     u32 flags = spinlock_acquire_irqsave(&tty->lock);
 
     tty->read_buffer[tty->read_head] = c;
-    tty->read_head = (tty->read_head + 1) % 1024;
-
-    // Don't echo for now, until a graphical interface implementation
-    //if (tty->echo && tty->putc) tty->putc(c);
+    
+    if (tty->echo && tty->putc) tty->putc(c);
+    tty->read_head = (tty->read_head + 1) % BUF_SIZE;
 
     spinlock_release_irqrestore(&tty->lock, flags);
+    
+    wake_up(&tty->queue);  // ADD THIS: wake up waiting readers
 }

@@ -1,9 +1,10 @@
 #include <gic.h>
 #include <kio.h>
 #include <io.h>
+#include <vmm.h>
 
-#define GIC_DIST_BASE   (u64)gic
-#define GIC_CPU_BASE    GIC_DIST_BASE + 0x10000
+#define GIC_DIST_BASE   (u64)gic + PHYS_OFFSET
+#define GIC_CPU_BASE    GIC_DIST_BASE + 0x10000ULL
 
 #define GICD_CTLR       (GIC_DIST_BASE + 0x000)
 #define GICD_ISENABLER  (GIC_DIST_BASE + 0x100)

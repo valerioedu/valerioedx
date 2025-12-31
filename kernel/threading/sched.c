@@ -321,9 +321,20 @@ void schedule() {
         }
 
         mm_struct_t *next_mm = (next_task->proc) ? next_task->proc->mm : NULL;
-        mm_struct_t *prev_mm = (prev_task->proc) ? prev_task->proc->mm : NULL;
 
         cpu_switch_to(prev_task, next_task);
+
+        if (next_mm) {
+            asm volatile(
+                "msr ttbr0_el1, %0\n"
+                "isb\n"
+                "tlbi vmalle1is\n"
+                "dsb ish\n"
+                "isb\n"
+                :: "r"((u64)next_mm->page_table)
+                : "memory"
+            );
+        }
     }
 
     spinlock_release_irqrestore(&sched_lock, flags);

@@ -28,10 +28,11 @@ typedef struct tty {
     void (*putc)(u8 c);   // Output function
 
     spinlock_t lock;
+    wait_queue_t queue;
+    struct process_t *proc;
 
     // Flags
     bool echo;
-    struct process_t *proc;
 } tty_t;
 
 extern tty_t tty_console;

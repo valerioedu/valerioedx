@@ -1,5 +1,3 @@
-#define true 1
-
 int main() {
     const char *msg = "Hello, Userland!\n";
     asm volatile(
@@ -13,6 +11,6 @@ int main() {
         : "x0","x1","x2","x8","memory"
     );
 
-    while (true) asm volatile("wfi");
+    while (1) asm volatile("wfi");
     return 0;
 }
