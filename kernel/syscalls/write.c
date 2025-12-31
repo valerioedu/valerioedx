@@ -65,7 +65,6 @@ i64 sys_write(u32 fd, const char *buf, size_t count) {
     f->offset += bytes_written;
     
     kfree(kbuf);
-    kprintf("MM: %llx\n", current_task->proc->mm->mmap_base);
     return bytes_written;
 }
 
@@ -99,16 +98,12 @@ i64 sys_read(u32 fd, char *buf, size_t count) {
     file_t *f = fd_get(fd);
     if (!f) return -1;
 
-    // Allocate kernel buffer
     char *kbuf = kmalloc(count);
     if (!kbuf) return -1;
-    kprintf("MM: %llx\n", current_task->proc->mm->mmap_base);
 
-    // Read into kernel buffer
     u64 bytes_read = vfs_read(f->inode, f->offset, count, (u8*)kbuf);
     f->offset += bytes_read;
 
-    // Copy to user space
     if (bytes_read > 0) {
         if (copy_to_user(buf, kbuf, bytes_read) != 0) {
             kfree(kbuf);

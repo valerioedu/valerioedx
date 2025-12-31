@@ -24,6 +24,9 @@ void tty_init() {
     tty_console.echo = false;
     tty_serial.echo = false;
 
+    tty_console.queue = NULL;
+    tty_serial.queue = NULL;
+
     tty_console.lock = console_lock;
     tty_serial.lock = serial_lock;
 
@@ -53,11 +56,7 @@ u64 tty_console_read(struct vfs_node *file, u64 format, u64 size, u8 *buffer) {
 
     while (read_count < size) {
         while (tty_console.read_head == tty_console.read_tail) {
-#ifdef ARM
-            asm volatile("wfi");
-#else
-            asm volatile("hlt");
-#endif
+            sleep_on(&tty_console.queue, NULL);  // CHANGED: proper sleep
         }
 
         u32 flags = spinlock_acquire_irqsave(&tty_console.lock);
@@ -112,4 +111,6 @@ void tty_push_char(char c, tty_t *tty) {
     tty->read_head = (tty->read_head + 1) % BUF_SIZE;
 
     spinlock_release_irqrestore(&tty->lock, flags);
+    
+    wake_up(&tty->queue);  // ADD THIS: wake up waiting readers
 }

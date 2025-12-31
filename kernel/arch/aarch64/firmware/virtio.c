@@ -243,7 +243,7 @@ void virtio_init() {
     kprintf("[ [CVirtIO [W] Scanning...\n");
 
     for (int i = 0; i < 32; i++) {
-        u64 addr = 0x0a000000 + (i * 0x200);
+        u64 addr = 0x0a000000 + PHYS_OFFSET+ (i * 0x200);
         if (mmio_read32(addr + VIRTIO_MMIO_MAGIC_VALUE) != VIRTIO_MAGIC) 
             continue;
 
