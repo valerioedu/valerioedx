@@ -8,12 +8,44 @@
 
 extern task_t *current_task;
 
+int copy_string_from_user(char *kernel_dst, const char *user_src, size_t max_len) {
+    if (!current_task || !current_task->proc || !current_task->proc->mm)
+        return -1;
+    
+    mm_struct_t *mm = current_task->proc->mm;
+    
+    for (size_t i = 0; i < max_len; i++) {
+        u64 addr = (u64)user_src + i;
+        u64 page_addr = addr & ~(PAGE_SIZE - 1);
+        u64 offset = addr & (PAGE_SIZE - 1);
+        
+        u64 *pte = vmm_get_pte_from_table((u64 *)P2V((uintptr_t)mm->page_table), page_addr);
+        if (!pte || !(*pte & PT_VALID))
+            return -1;
+        
+        u64 phys = (*pte & 0x0000FFFFFFFFF000ULL) + offset;
+        char c = *(char *)P2V(phys);
+        kernel_dst[i] = c;
+        
+        if (c == '\0')
+            return 0;  // Success - found null terminator
+    }
+    
+    // String too long - null terminate and return error
+    kernel_dst[max_len - 1] = '\0';
+    return -1;
+}
+
 //TODO: Implement return failure for EACCESS
 //TODO: Implement chmod
 i64 sys_chdir(const char *path) {
     if (!path || !current_task->proc) return -1;
+
+    char kpath[256];
+    if (copy_string_from_user(kpath, path, 256) != 0)
+        return -1;
     
-    inode_t *node = namei(path);
+    inode_t *node = namei(kpath);
     if (!node) return -1;
     
     if (!(node->flags & FS_DIRECTORY)) {
