@@ -25,7 +25,7 @@ int copy_from_user(void *kernel_dst, const void *user_src, size_t size) {
     
     u64 *pte = vmm_get_pte_from_table((u64 *)P2V((uintptr_t)mm->page_table), page_addr);
     
-    if (!pte) return -1;    
+    if (!pte) return -1;
     
     if (!(*pte & PT_VALID)) return -1;
     

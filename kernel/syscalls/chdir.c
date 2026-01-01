@@ -3,6 +3,8 @@
 #include <sched.h>
 #include <string.h>
 #include <heap.h>
+#include <vma.h>
+#include <vmm.h>
 
 extern task_t *current_task;
 
@@ -80,15 +82,25 @@ i64 sys_getcwd(char *buf, size_t size) {
 
     if (!cwd) return 0;
 
+    char *kbuf = kmalloc(size);
+    if (!kbuf) return 0;
+
     // Special case: at root
     if (cwd == vfs_root || cwd->parent == NULL) {
         if (size >= 2) {
-            buf[0] = '/';
-            buf[1] = '\0';
-
+            kbuf[0] = '/';
+            kbuf[1] = '\0';
+            
+            if (copy_to_user(buf, kbuf, 2) != 0) {
+                kfree(kbuf);
+                return 0;
+            }
+            
+            kfree(kbuf);
             return (i64)buf;
         }
 
+        kfree(kbuf);
         return 0;
     }
 
@@ -104,10 +116,16 @@ i64 sys_getcwd(char *buf, size_t size) {
 
     total_len++;  // For leading '/'
 
-    if (total_len >= size) return 0;
+    if (total_len >= size) {
+        kfree(kbuf);
+        return 0;
+    }
 
     char **components = kmalloc(depth * sizeof(char*));
-    if (!components) return 0;
+    if (!components) {
+        kfree(kbuf);
+        return 0;
+    }
 
     node = cwd;
     int i = depth - 1;
@@ -119,17 +137,24 @@ i64 sys_getcwd(char *buf, size_t size) {
 
     // Now build the path
     size_t pos = 0;
-    buf[pos++] = '/';
+    kbuf[pos++] = '/';
     
     for (i = 0; i < depth; i++) {
         size_t len = strlen(components[i]);
-        memcpy(buf + pos, components[i], len);
+        memcpy(kbuf + pos, components[i], len);
         pos += len;
         if (i < depth - 1)
-            buf[pos++] = '/';
+            kbuf[pos++] = '/';
     }
-    buf[pos] = '\0';
 
+    kbuf[pos] = '\0';
     kfree(components);
+
+    if (copy_to_user(buf, kbuf, pos + 1) != 0) {
+        kfree(kbuf);
+        return 0;
+    }
+
+    kfree(kbuf);
     return (i64)buf;
 }
