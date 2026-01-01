@@ -13,13 +13,12 @@ i64 sys_open(const char *path, int flags) {
     char *kpath = kmalloc(256);
     if (copy_from_user(kpath, path, 256) != 0)
         goto fail;
-    kprintf("OK\n");
 
     inode_t *inode = namei(kpath);
     if(!inode) goto fail;
 
     int fd = fd_alloc();
-    if (fd < 3) {
+    if (fd < 0) {
         vfs_close(inode);
         goto fail;
     }

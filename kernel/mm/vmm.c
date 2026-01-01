@@ -19,6 +19,10 @@
 
 static u64* root_table;
 
+u64* vmm_get_kernel_page_table(void) {
+    return root_table;
+}
+
 // Helper flag
 static bool paging_enabled = false;
 

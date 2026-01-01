@@ -41,7 +41,7 @@ void vmm_map_page(uintptr_t virt, uintptr_t phys, u64 flags);
 void vmm_map_region(uintptr_t virt, uintptr_t phys, size_t size, u64 flags);
 void dcache_clean_poc(void *addr, size_t size);
 int vmm_handle_page_fault(uintptr_t virt, bool is_write);
-
+u64* vmm_get_kernel_page_table(void);
 u64* vmm_get_pte_from_table(u64* page_table, uintptr_t virt);
 u64* vmm_get_pte_from_table_alloc(u64* page_table, uintptr_t virt);
 

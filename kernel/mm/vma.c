@@ -29,6 +29,22 @@ mm_struct_t* mm_create() {
     mm->stack_start = USER_STACK_TOP;
     mm->mmap_base = USER_MMAP_BASE;
     
+    // Copy kernel page table entries (L1 entries) to user page table
+    // This maps the kernel into every user address space with kernel-only permissions
+    extern u64* vmm_get_kernel_page_table(void);
+    u64* kernel_pt = vmm_get_kernel_page_table();
+    u64* user_pt = (u64*)P2V(pt_phys);
+    
+    if (kernel_pt) {
+        // Copy all L1 entries - kernel mappings are at high addresses
+        // and also need the low identity mappings for the transition period
+        for (int i = 0; i < 512; i++) {
+            if (kernel_pt[i] & PT_VALID) {
+                user_pt[i] = kernel_pt[i];
+            }
+        }
+    }
+    
     vma_t* stack = vma_create(
         USER_STACK_TOP - USER_STACK_SIZE,
         USER_STACK_TOP,
@@ -430,6 +446,20 @@ mm_struct_t* mm_duplicate(mm_struct_t* old_mm) {
     memset(P2V(pt_phys), 0, PAGE_SIZE);
 
     new_mm->page_table = (u64*)pt_phys;
+    
+    // Copy kernel mappings to new page table
+    extern u64* vmm_get_kernel_page_table(void);
+    u64* kernel_pt = vmm_get_kernel_page_table();
+    u64* user_pt = (u64*)P2V(pt_phys);
+    
+    if (kernel_pt) {
+        for (int i = 0; i < 512; i++) {
+            if (kernel_pt[i] & PT_VALID) {
+                user_pt[i] = kernel_pt[i];
+            }
+        }
+    }
+    
     new_mm->heap_start = old_mm->heap_start;
     new_mm->heap_end   = old_mm->heap_end;
     new_mm->stack_start = old_mm->stack_start;

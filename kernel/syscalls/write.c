@@ -95,20 +95,30 @@ int copy_to_user(void *user_dst, const void *kernel_src, size_t size) {
 
 
 i64 sys_read(u32 fd, char *buf, size_t count) {
+    kprintf("[sys_read] fd=%d buf=0x%llx count=%d\n", fd, (u64)buf, count);
+    
     file_t *f = fd_get(fd);
-    if (!f) return -1;
+    if (!f) {
+        kprintf("[sys_read] fd_get failed\n");
+        return -1;
+    }
 
     char *kbuf = kmalloc(count);
     if (!kbuf) return -1;
 
     u64 bytes_read = vfs_read(f->inode, f->offset, count, (u8*)kbuf);
+    kprintf("[sys_read] vfs_read returned %d\n", bytes_read);
+    
     f->offset += bytes_read;
 
     if (bytes_read > 0) {
+        kprintf("[sys_read] calling copy_to_user\n");
         if (copy_to_user(buf, kbuf, bytes_read) != 0) {
+            kprintf("[sys_read] copy_to_user failed\n");
             kfree(kbuf);
             return -1;
         }
+        kprintf("[sys_read] copy_to_user succeeded\n");
     }
 
     kfree(kbuf);

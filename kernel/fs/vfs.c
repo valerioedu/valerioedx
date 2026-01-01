@@ -83,16 +83,8 @@ void vfs_close(inode_t* node) {
     }
 }
 
-u64 pc() {
-    u64 pr;
-    asm volatile("adr %0, ." : "=r" (pr));
-    return pr;
-}
-
 inode_t *namei(const char *path) {
     if (!vfs_root || !path) return NULL;
-
-    kprintf("PC: %llx\n", pc());
 
     inode_t *current;
     
@@ -170,7 +162,6 @@ inode_t *namei(const char *path) {
         token = strtok_r(NULL, "/", &saveptr);
     }
 
-    kprintf("namei exited\n");
     kfree(copy);
     return current;
 }
