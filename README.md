@@ -47,7 +47,7 @@ Use the provided `run.sh` wrapper script to compile and run the kernel in QEMU.
 ### Basic Usage
 
 ```bash
-# Run the x86_64 kernel
+# Run the x86_64 kernel, currently not under development
 ./run.sh -machine x64
 
 # Run the AArch64 kernel
