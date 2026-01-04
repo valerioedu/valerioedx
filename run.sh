@@ -243,11 +243,14 @@ case $MACHINE in
             mmd -i disk.img ::/usr/sbin
             mmd -i disk.img ::/usr/include
 
-            #To implement in the cmake file
-            aarch64-linux-gnu-gcc -c ../../../user/init.c -o init.o
-            aarch64-linux-gnu-ld init.o -Ttext=0x400000 -o init.elf
-            mcopy -i disk.img init.elf ::/bin/init.elf
-            cd build
+            cd ../../../user
+            rm -rf build
+            mkdir build && cd build
+            cmake ..
+            make copy
+            cd ../
+            rm -rf build
+            cd ../kernel/arch/aarch64/build
         fi
 
         if $DEBUG; then
