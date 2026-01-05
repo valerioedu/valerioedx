@@ -1,11 +1,12 @@
 #include <unistd.h>
+#include <string.h>
 
 int main() {
     char buf[33];
     char dir[16];
     
     while (1) {
-        write(1, "valerioedx:", 13);
+        write(1, "valerioedx:", strlen("valerioedx:"));
         getcwd(dir, 2);
         int len = 0;
         while (dir[len] != '\0' && len < 16) len++;

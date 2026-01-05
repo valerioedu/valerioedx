@@ -1,8 +1,6 @@
 #ifndef STDINT_H
 #define STDINT_H
 
-//#include <stddef.h>
-
 typedef signed char     int8_t;
 typedef short           int16_t;
 typedef int             int32_t;
@@ -95,10 +93,10 @@ typedef unsigned long long uintmax_t;
 #define INTMAX_MAX   9223372036854775807LL
 #define UINTMAX_MAX  18446744073709551615ULL
 
-//#define PTRDIFF_MIN 
-//#define PTRDIFF_MAX
+#define PTRDIFF_MIN  (-9223372036854775807L - 1)
+#define PTRDIFF_MAX  9223372036854775807L
 
-//#define SIZE_MAX     ((size_t)-1)
+#define SIZE_MAX     ((unsigned long)-1)
 
 #define INT8_C(v)    (v)
 #define INT16_C(v)   (v)

@@ -1,0 +1,129 @@
+#include <string.h>
+
+void *memccpy(void *restrict s1, const void *restrict s2, int c, size_t n) {
+    unsigned char *d = (unsigned char *)s1;
+    const unsigned char *s = (const unsigned char *)s2;
+    unsigned char uc = (unsigned char)c;
+
+    for (size_t i = 0; i < n; ++i) {
+        d[i] = s[i];
+        
+        if (d[i] == uc)
+            return (void*)(d + i + 1);
+    }
+
+    return NULL;
+}
+
+void *memchr(const void *s, int c, size_t n) {
+    const unsigned char *a = (const unsigned char*)s;
+
+    for (size_t i = 0; i < n; i++) {
+        if (a[i] == (unsigned char)c)
+            return (void*)(a + i);
+    }
+
+    return NULL;
+}
+
+int memcmp(const void *s1, const void *s2, size_t n) {
+    const unsigned char *a1 = (const unsigned char*)s1;
+    const unsigned char *a2 = (const unsigned char*)s2;
+
+    for (; n > 0; --n, ++a1, ++a2) {
+        if (*a1 != *a2)
+            return (int)(*a1 - *a2);
+    }
+
+    return 0;
+}
+
+void *memcpy(void *restrict s1, const void *restrict s2, size_t n) {
+    unsigned char *d = (unsigned char*)s1;
+    const unsigned char *s = (const unsigned char*)s2;
+    
+    for (size_t i = 0; i < n; i++)
+        d[i] = s[i];
+
+    return s1;
+}
+
+void* memmove(void* s1, const void* s2, size_t n) {
+    unsigned char *d = (unsigned char*)s1;
+    const unsigned char *s = (const unsigned char*)s2;
+
+    if (d < s) {
+        while (n--)
+            *d++ = *s++;
+    } else {
+        d += n;
+        s += n;
+        while (n--)
+            *(--d) = *(--s);
+    }
+
+    return s1;
+}
+
+void *memset(void *s, int c, size_t n) {
+    unsigned char *a = (unsigned char*)s;
+
+    for (size_t i = 0; i < n; i++)
+        a[i] = (unsigned char)c;
+
+    return s;
+}
+
+char *stpcpy(char *restrict s1, const char *restrict s2) {
+    char *d = s1;
+    const char *s = s2;
+    
+    while ((*d++ = *s++) != '\0');
+
+    return d - 1;
+}
+
+char *stpncpy(char *restrict s1, const char *restrict s2, size_t n) {
+    char *d = s1;
+    const char *s = s2;
+    size_t i = 0;
+
+    for (; i < n && s[i] != '\0'; ++i) 
+        d[i] = s[i];
+
+    if (i < n) {
+        d[i] = '\0';
+
+        for (size_t j =  i + 1; j < n; ++j)
+            d[j] = '\0';
+    }
+
+    return &s1[n];
+}
+
+char *strcat(char *restrict s1, const char *restrict s2) {
+    char *d = s1;
+
+    while (*d) d++;
+    while ((*d++ = *s2++) != '\0');
+
+    return s1;
+}
+
+char *strchr(const char *s, int c) {
+    for (size_t i = 0;; ++i) {
+        if (s[i] == (char)c)
+            return (char*)&s[i];
+        
+        if (s[i] == '\0')
+            return NULL;
+    }
+}
+
+size_t strlen(const char *s) {
+    size_t ret = 0;
+
+    for (; s[ret] != '\0'; ret++);
+
+    return ret;
+}
