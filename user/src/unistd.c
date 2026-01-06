@@ -56,8 +56,16 @@ int close(int fildes) {
 
 _Noreturn void _exit(int status) {
     register int x0 asm("x0") = status;
-    register u64 x8 asm("x8") = 2;
+    register u64 x8 asm("x8") = 1;
     asm volatile("svc #0"
         :: "r"(x0), "r"(x8) : "memory");
+}
+
+pid_t getpid() {
+    register pid_t x0 asm("x0") = 0;
+    register u64 x8 asm("x8") = 20;
+    asm volatile("svc #0"
+        : "+r"(x0) : "r"(x8) : "memory");
+    return x0;
 }
 //#endif
