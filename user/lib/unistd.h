@@ -2,9 +2,11 @@
 #define UNISTD_H
 
 #include <stdint.h>
+#include <sys/types.h>
 
-uint64_t write(uint32_t fd, const char *buf, uint64_t size);
-uint64_t read(uint32_t fd, char *buf, uint64_t size);
-void getcwd(char *buf, uint64_t size);
+ssize_t write(int fildes, const char *buf, size_t nbytes);
+ssize_t read(int fildes, char *buf, size_t nbytes);
+char *getcwd(char *buf, uint64_t size);
+int close(int fildes);
 
 #endif
