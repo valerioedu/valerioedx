@@ -48,7 +48,7 @@ char *getcwd(char *buf, u64 size) {
 
 int close(int fildes) {
     register int x0 asm("x0") = fildes;
-    register u64 x8 asm("x8") = 2;
+    register u64 x8 asm("x8") = 6;
     asm volatile("svc #0"
         : "+r"(x0) : "r"(x8) : "memory");
     return x0;
