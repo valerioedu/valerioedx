@@ -73,9 +73,11 @@ u64 virtio_blk_fs_write(inode_t* node, u64 offset, u64 size, u8* buffer) {
     return written_len;
 }
 
-inode_ops virtio_blk_ops = {
-    .read = virtio_blk_fs_read,
-    .write = virtio_blk_fs_write,
-    .close = NULL,
-    .open = NULL
-};
+inode_ops virtio_blk_ops;
+
+void virtio_blk_ops_init() {
+    virtio_blk_ops.read = virtio_blk_fs_read;
+    virtio_blk_ops.write = virtio_blk_fs_write;
+    virtio_blk_ops.close = NULL;
+    virtio_blk_ops.open = NULL;
+}

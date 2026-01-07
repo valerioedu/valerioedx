@@ -109,6 +109,7 @@ void main() {
                  : "=r" (level) : :);
     level &= 0b11;
     kprintf("[ [CMAIN [W] Exception Level: %d\n", level);
+    virtio_blk_ops_init();
 
     heap_init(PHYS_OFFSET + 0x50000000, 8 * 1024 * 1024);
 
