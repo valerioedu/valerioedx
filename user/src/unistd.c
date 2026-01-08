@@ -61,6 +61,14 @@ _Noreturn void _exit(int status) {
         :: "r"(x0), "r"(x8) : "memory");
 }
 
+pid_t getppid() {
+    register pid_t x0 asm("x0") = 0;
+    register u64 x8 asm("x8") = 39;
+    asm volatile("svc #0"
+        : "+r"(x0) : "r"(x8) : "memory");
+    return x0;
+}
+
 pid_t getpid() {
     register pid_t x0 asm("x0") = 0;
     register u64 x8 asm("x8") = 20;
