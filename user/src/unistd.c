@@ -68,4 +68,20 @@ pid_t getpid() {
         : "+r"(x0) : "r"(x8) : "memory");
     return x0;
 }
+
+int chdir(const char *path) {
+    register const char *x0 asm("x0") = path;
+    register u64 x8 asm("x8") = 12;
+    asm volatile("svc #0"
+        : "+r"(x0) : "r"(x8) : "memory");
+    return (int)x0;
+}
+
+int fchdir(int fildes) {
+    register int x0 asm("x0") = fildes;
+    register u64 x8 asm("x8") = 13;
+    asm volatile("svc #0"
+        : "+r"(x0) : "r"(x8) : "memory");
+    return (int)x0;
+}
 //#endif

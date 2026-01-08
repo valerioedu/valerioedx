@@ -63,8 +63,6 @@ void kmain() {
 
     if (!init_process) {
         kprintf("[ [RKMAIN [W] Failed to create init process!\n");
-    } else {
-        kprintf("[ [CKMAIN [W] Init process created with PID %d\n", init_process->pid);
     }
 
     while (true) asm volatile("wfi");

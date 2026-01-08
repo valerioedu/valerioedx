@@ -13,6 +13,14 @@ extern task_t *current_task;
 i64 sys_chdir(const char *path) {
     if (!path || !current_task->proc) return -1;
     
+    char *kbuf = kmalloc(256);
+    if (!kbuf) return -1;
+    
+    if (copy_from_user(kbuf, path, 256) != 0) {
+        kfree(kbuf);
+        return -1;
+    }
+
     inode_t *node = namei(path);
     if (!node) return -1;
     
@@ -25,6 +33,8 @@ i64 sys_chdir(const char *path) {
         vfs_close(current_task->proc->cwd);
     
     current_task->proc->cwd = node;
+
+    kfree(kbuf);
     return 0;
 }
 
