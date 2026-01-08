@@ -11,6 +11,7 @@ int close(int fildes);
 _Noreturn void _exit(int status);
 pid_t getpid();
 pid_t getppid();
+pid_t fork();
 int chdir(const char *path);
 int fchdir(int fildes);
 

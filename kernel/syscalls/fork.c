@@ -62,10 +62,15 @@ task_t *task_clone(task_t *task, process_t *process) {
 i64 sys_fork() {
     process_t *parent = current_task->proc;
     process_t *child = (process_t*)kmalloc(sizeof(process_t));
-    if (!child) { /* TODO */}
+    if (!child) return -1;
 
     child->pid = pid_counter++;
     child->mm = mm_duplicate(parent->mm);
+    if (!child->mm) {
+        kfree(child);
+        return -1;
+    }
+    
     child->parent = current_task->proc;
     child->sibling = parent->child;
     parent->child = child;
@@ -79,11 +84,24 @@ i64 sys_fork() {
         }
     }
 
+    if (parent->cwd) {
+        child->cwd = parent->cwd;
+        vfs_retain(child->cwd);
+    }
+
     strncpy(child->name, parent->name, 64);
 
     task_t *child_task = task_clone(current_task, child);
+    if (!child_task) {
+        mm_destroy(child->mm);
+        kfree(child);
+        return -1;
+    }
 
-    trapframe_t *child_tf = (trapframe_t *)((u64)child_task->stack_page + 4096 - sizeof(trapframe_t));
+    extern void ret_from_fork_child();
+    child_task->context.lr = (u64)ret_from_fork_child;
+
+    trapframe_t *child_tf = (trapframe_t *)child_task->context.sp;
     child_tf->x[0] = 0;
     
     return child->pid;

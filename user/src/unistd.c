@@ -77,6 +77,14 @@ pid_t getpid() {
     return x0;
 }
 
+pid_t fork() {
+    register pid_t x0 asm("x0") = 0;
+    register u64 x8 asm("x8") = 2;
+    asm volatile("svc #0"
+        : "+r"(x0) : "r"(x8) : "memory");
+    return x0;
+}
+
 int chdir(const char *path) {
     register const char *x0 asm("x0") = path;
     register u64 x8 asm("x8") = 12;
