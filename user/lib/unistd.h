@@ -10,6 +10,7 @@ char *getcwd(char *buf, uint64_t size);
 int close(int fildes);
 _Noreturn void _exit(int status);
 pid_t getpid();
+pid_t getppid();
 int chdir(const char *path);
 int fchdir(int fildes);
 
