@@ -132,7 +132,7 @@ if [[ "$MACHINE" == "virt" ]]; then
             fi
             check_and_install "dtc" "dtc" "brew install dtc"
             check_and_install "cmake" "cmake" "brew install cmake"
-            check_and_install "dosfstools" "dosfstools" "brew install dosfstools"
+            check_and_install "mdir" "dosfstools" "brew install dosfstools"
             check_and_install "aarch64-elf-gcc" "aarch64-elf-gcc" "brew install aarch64-elf-gcc"
             check_and_install "qemu-system-aarch64" "qemu" "brew install qemu"
             ;;
@@ -234,14 +234,27 @@ case $MACHINE in
         if [ "$NEW" = true ] || [ ! -f ../disk.img ]; then
             cd ..
             dd if=/dev/zero of=disk.img bs=1M count=128 status=none
-            /usr/sbin/mkfs.fat -F 32 -I disk.img
-            mmd -i disk.img ::/bin
-            mmd -i disk.img ::/sbin
-            mmd -i disk.img ::/home
-            mmd -i disk.img ::/usr
-            mmd -i disk.img ::/usr/bin
-            mmd -i disk.img ::/usr/sbin
-            mmd -i disk.img ::/usr/include
+
+            OS="$(uname -s)"
+            if [[ "$OS" == "Darwin" ]]; then
+                /opt/homebrew/Cellar/dosfstools/4.2/sbin/mkfs.fat -F 32 -I disk.img
+                /opt/homebrew/bin/mmd -i disk.img ::/bin
+                /opt/homebrew/bin/mmd -i disk.img ::/sbin
+                /opt/homebrew/bin/mmd -i disk.img ::/home
+                /opt/homebrew/bin/mmd -i disk.img ::/usr
+                /opt/homebrew/bin/mmd -i disk.img ::/usr/bin
+                /opt/homebrew/bin/mmd -i disk.img ::/usr/sbin
+                /opt/homebrew/bin/mmd -i disk.img ::/usr/include
+            else 
+                /usr/sbin/mkfs.fat -F 32 -I disk.img
+                mmd -i disk.img ::/bin
+                mmd -i disk.img ::/sbin
+                mmd -i disk.img ::/home
+                mmd -i disk.img ::/usr
+                mmd -i disk.img ::/usr/bin
+                mmd -i disk.img ::/usr/sbin
+                mmd -i disk.img ::/usr/include
+            fi
 
             cd ../../../user
             rm -rf build

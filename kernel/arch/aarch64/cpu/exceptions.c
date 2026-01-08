@@ -67,7 +67,7 @@ void el1_sync_handler(trapframe_t *tf) {
 
         case 0x15: {
             u64 syscall_num = tf->x[8];
-            
+
             u64 ret = syscall_handler(
                 syscall_num,
                 tf->x[0], tf->x[1], tf->x[2], 
@@ -76,8 +76,6 @@ void el1_sync_handler(trapframe_t *tf) {
 
             tf->x[0] = ret;
 
-            // Advances PC past the SVC instruction (4 bytes)
-            tf->elr += 4; 
             return;
         }
 
