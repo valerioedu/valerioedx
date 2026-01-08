@@ -398,6 +398,7 @@ inode_t* fat32_lookup(inode_t* node, const char* name) {
                 result->flags = ((entry->attr & FAT_ATTR_DIRECTORY) ? FS_DIRECTORY : FS_FILE) | FS_TEMPORARY;
                 result->size = entry->file_size;
                 result->ops = &fat32_ops;
+                result->ref_count = 1;
 
                 // Setup private data
                 fat32_file_t* file_data = kmalloc(sizeof(fat32_file_t));
