@@ -101,6 +101,16 @@ void main() {
     asm volatile("msr VBAR_EL1, %0" :: "r"(vbar_high));
     asm volatile("isb");
 
+    extern u32 *frame_stack;
+    extern u8 *ref_counts;
+    extern u64* root_table;
+    extern u64 root_phys;
+
+    frame_stack = (u32*)((uintptr_t)frame_stack + PHYS_OFFSET);
+    ref_counts = (u8*)((uintptr_t)ref_counts + PHYS_OFFSET);
+
+    root_table = (u64*)((uintptr_t)root_phys + PHYS_OFFSET);
+
     int level = -1;
 
     /* Gets the exception level, should be 1*/

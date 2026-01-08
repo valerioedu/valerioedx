@@ -17,7 +17,8 @@
 #define PT_PXN          (1ULL << 53)    // Privileged Execute Never
 #define PT_UXN          (1ULL << 54)    // User Execute Never
 
-static u64* root_table;
+u64* root_table;
+u64 root_phys;
 
 // Helper flag
 static bool paging_enabled = false;
@@ -220,7 +221,7 @@ extern u64 *fwcfg;
 extern u64 *virtio;
 
 void init_vmm() {
-    u64 root_phys = pmm_alloc_frame();
+    root_phys = pmm_alloc_frame();
     memset((void*)root_phys, 0, PAGE_SIZE);
 
     root_table = (u64*)root_phys;

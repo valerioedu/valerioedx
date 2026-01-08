@@ -5,7 +5,7 @@
 
 //TODO: Implement a buddy allocator
 
-static u32 *frame_stack = NULL;
+u32 *frame_stack = NULL;
 static u32 stack_top = 0;      // Points to the next free slot (or count of free frames)
 static u32 stack_capacity = 0;
 static u32 used_frames = 0;
@@ -15,7 +15,7 @@ u64 phy_ram_size = 0;
 u64 phy_ram_end = 0;
 u32 total_frames = 0;
 
-static u8* ref_counts = NULL;
+u8* ref_counts = NULL;
 
 static inline u32 phys_to_index(uintptr_t addr) {
     if (addr < PHY_RAM_BASE || addr >= phy_ram_end) return (u32)-1;
