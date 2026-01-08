@@ -18,6 +18,7 @@ char    *stpcpy(char *restrict, const char *restrict);
 char    *stpncpy(char *restrict, const char *restrict, size_t);
 char    *strcat(char *restrict, const char *restrict);
 char    *strchr(const char *, int);
+int      strcmp(const char *s1, const char *s2);
 size_t   strlen(const char *);
 
 
