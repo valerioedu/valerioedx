@@ -98,9 +98,6 @@ i64 sys_fork() {
         return -1;
     }
 
-    extern void ret_from_fork_child();
-    child_task->context.lr = (u64)ret_from_fork_child;
-
     trapframe_t *child_tf = (trapframe_t *)child_task->context.sp;
     child_tf->x[0] = 0;
     
