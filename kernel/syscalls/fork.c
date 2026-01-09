@@ -22,37 +22,39 @@ static void fork_child_return(void) {
 
 task_t *task_clone(task_t *task, process_t *process) {
     task_t *new = (task_t*)kmalloc(sizeof(task_t));
-    if (!new) {
-        kprintf("[ [RSCHED [W] Error allocating memory for fork task\n");
-        return NULL;
-    }
+    if (!new) return NULL;
 
     memset(new, 0, sizeof(task_t));
     
     new->stack_page = kmalloc(4096);
     if (!new->stack_page) {
-        kprintf("[ [RSCHED[W ] Failed to allocate stack!\n");
         kfree(new);
         return NULL;
     }
 
+    // Copy the entire kernel stack (includes the trapframe from the syscall)
     memcpy(new->stack_page, task->stack_page, 4096);
 
     u32 flags = spinlock_acquire_irqsave(&sched_lock);
 
-    new->context = task->context;
-    new->context.x19 = (u64)fork_child_return;
-    new->state = task->state;
+    // Calculate where the trapframe is on the child's new stack
+    u64 stack_offset = (u64)task->context.sp - (u64)task->stack_page;
+    u64 child_sp = (u64)new->stack_page + stack_offset;
+    
+    new->state = TASK_READY;
     new->priority = task->priority;
     new->next = NULL;
-    new->next_wait = task->next_wait;
+    new->next_wait = NULL;
     new->id = tid_counter++;
-
-    u64 stack_offset = (u64)task->context.sp - (u64)task->stack_page;
-    new->context.sp = (u64)new->stack_page + stack_offset;
-
     new->proc = process;
 
+    // Set up context for ret_from_fork_child
+    new->context.sp = child_sp;
+    extern void ret_from_fork_child();
+    new->context.lr = (u64)ret_from_fork_child;
+    new->context.x19 = child_sp;  // Pass trapframe pointer in x19
+
+    // Add to runqueue
     if (runqueues[new->priority] == NULL) {
         runqueues[new->priority] = new;
         runqueues_tail[new->priority] = new;
