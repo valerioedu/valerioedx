@@ -328,6 +328,16 @@ i64 sys_execve(const char* path, const char* argv[], const char* envp[]) {
     asm volatile("isb");
 #endif
 
+    char *kargv_strings[32] = {0};
+    int argc = 0;
+    if (kargv) {
+        for (int i = 0; i < 31 && kargv[i]; i++) {
+            kargv_strings[i] = kmalloc(256);
+            copy_from_user(kargv_strings[i], kargv[i], 256);
+            argc++;
+        }
+    }
+
     if (old_mm) mm_destroy(old_mm);
 
     // Update process name
@@ -338,18 +348,8 @@ i64 sys_execve(const char* path, const char* argv[], const char* envp[]) {
     strncpy(proc->name, name, 63);
 
     // Jump to user mode using eret
-#ifdef ARM
-    asm volatile(
-        "msr sp_el0, %0\n"          // Set user stack pointer
-        "msr elr_el1, %1\n"         // Set return address (entry point)
-        "mov x0, #0\n"              // Clear x0 (return value)
-        "msr spsr_el1, xzr\n"       // SPSR = 0 (EL0, interrupts enabled)
-        "eret\n"                    // Return to EL0
-        :
-        : "r"(user_sp), "r"(elf_result.entry_point)
-        : "x0", "memory"
-    );
-#endif
+    extern void enter_usermode(u64 entry, u64 sp);
+    enter_usermode(elf_result.entry_point, user_sp);
 
     // Never reached
     return 0;
