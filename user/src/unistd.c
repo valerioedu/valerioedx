@@ -100,4 +100,16 @@ int fchdir(int fildes) {
         : "+r"(x0) : "r"(x8) : "memory");
     return (int)x0;
 }
+
+int execve(const char *path, char *const argv[], char *const envp[]) {
+    register const char *x0 asm("x0") = path;
+    register char *const *x1 asm("x1") = argv;
+    register char *const *x2 asm("x2") = envp;
+    register u64 x8 asm("x8") = 59;
+    asm volatile("svc #0"
+                 : "+r"(x0)
+                 : "r"(x1), "r"(x2), "r"(x8)
+                 : "memory");
+    return (int)x0;
+}
 //#endif
