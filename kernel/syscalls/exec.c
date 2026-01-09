@@ -248,7 +248,31 @@ int setup_standard_fds(process_t* proc) {
 i64 sys_execve(const char* path, const char* argv[], const char* envp[]) {
     if (!path) return -1;
 
-    inode_t* file = namei(path);
+    const char **kargv = kmalloc(2048);
+    if (!kargv) return -1;
+
+    if (copy_from_user(kargv, argv, 2048) != 0) {
+        kfree(kargv);
+        return -1;
+    }
+
+    const char **kenvp = kmalloc(2048);
+    if (!kenvp) return -1;
+
+    if (copy_from_user(kenvp, envp, 2048) != 0) {
+        kfree(kenvp);
+        return -1;
+    }
+
+    char *kpath = kmalloc(256);
+    if (!kpath) return -1;
+    
+    if (copy_from_user(kpath, path, 256) != 0) {
+        kfree(kpath);
+        return -1;
+    }
+
+    inode_t* file = namei(kpath);
     if (!file) {
         kprintf("[ [REXEC [W] File not found: %s\n", path);
         return -1;
@@ -283,8 +307,8 @@ i64 sys_execve(const char* path, const char* argv[], const char* envp[]) {
     const char* default_envp[] = { "PATH=/bin", NULL };
 
     u64 user_sp = setup_user_stack(new_mm, 
-                                    argv ? argv : default_argv,
-                                    envp ? envp : default_envp,
+                                    kargv ? kargv : default_argv,
+                                    kenvp ? kenvp : default_envp,
                                     &elf_result);
     if (user_sp == 0) {
         mm_destroy(new_mm);
@@ -304,6 +328,16 @@ i64 sys_execve(const char* path, const char* argv[], const char* envp[]) {
     asm volatile("isb");
 #endif
 
+    char *kargv_strings[32] = {0};
+    int argc = 0;
+    if (kargv) {
+        for (int i = 0; i < 31 && kargv[i]; i++) {
+            kargv_strings[i] = kmalloc(256);
+            copy_from_user(kargv_strings[i], kargv[i], 256);
+            argc++;
+        }
+    }
+
     if (old_mm) mm_destroy(old_mm);
 
     // Update process name
@@ -314,18 +348,8 @@ i64 sys_execve(const char* path, const char* argv[], const char* envp[]) {
     strncpy(proc->name, name, 63);
 
     // Jump to user mode using eret
-#ifdef ARM
-    asm volatile(
-        "msr sp_el0, %0\n"          // Set user stack pointer
-        "msr elr_el1, %1\n"         // Set return address (entry point)
-        "mov x0, #0\n"              // Clear x0 (return value)
-        "msr spsr_el1, xzr\n"       // SPSR = 0 (EL0, interrupts enabled)
-        "eret\n"                    // Return to EL0
-        :
-        : "r"(user_sp), "r"(elf_result.entry_point)
-        : "x0", "memory"
-    );
-#endif
+    extern void enter_usermode(u64 entry, u64 sp);
+    enter_usermode(elf_result.entry_point, user_sp);
 
     // Never reached
     return 0;
