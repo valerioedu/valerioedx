@@ -248,7 +248,31 @@ int setup_standard_fds(process_t* proc) {
 i64 sys_execve(const char* path, const char* argv[], const char* envp[]) {
     if (!path) return -1;
 
-    inode_t* file = namei(path);
+    const char **kargv = kmalloc(2048);
+    if (!kargv) return -1;
+
+    if (copy_from_user(kargv, argv, 2048) != 0) {
+        kfree(kargv);
+        return -1;
+    }
+
+    const char **kenvp = kmalloc(2048);
+    if (!kenvp) return -1;
+
+    if (copy_from_user(kenvp, envp, 2048) != 0) {
+        kfree(kenvp);
+        return -1;
+    }
+
+    char *kpath = kmalloc(256);
+    if (!kpath) return -1;
+    
+    if (copy_from_user(kpath, path, 256) != 0) {
+        kfree(kpath);
+        return -1;
+    }
+
+    inode_t* file = namei("/bin/echo.elf");
     if (!file) {
         kprintf("[ [REXEC [W] File not found: %s\n", path);
         return -1;
@@ -283,8 +307,8 @@ i64 sys_execve(const char* path, const char* argv[], const char* envp[]) {
     const char* default_envp[] = { "PATH=/bin", NULL };
 
     u64 user_sp = setup_user_stack(new_mm, 
-                                    argv ? argv : default_argv,
-                                    envp ? envp : default_envp,
+                                    kargv ? kargv : default_argv,
+                                    kenvp ? kenvp : default_envp,
                                     &elf_result);
     if (user_sp == 0) {
         mm_destroy(new_mm);

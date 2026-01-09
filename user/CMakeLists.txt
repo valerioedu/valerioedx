@@ -45,11 +45,16 @@ include_directories(
 
 file(GLOB_RECURSE INIT_SOURCES
     ${CMAKE_CURRENT_SOURCE_DIR}/init.c
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/*.c
+)
+
+file(GLOB_RECURSE COMMANDS_SOURCES
     ${CMAKE_CURRENT_SOURCE_DIR}/commands/*.c
     ${CMAKE_CURRENT_SOURCE_DIR}/src/*.c
 )
 
 add_executable(init.elf ${INIT_SOURCES})
+add_executable(echo.elf ${COMMANDS_SOURCES})
 
 option(VALERIOEDX_DEBUG "Enable DEBUG compile-time flag" OFF)
 
@@ -57,11 +62,17 @@ set_target_properties(init.elf PROPERTIES
     LINK_FLAGS " -Ttext=0x400000 -nostdlib"
 )
 
+set_target_properties(echo.elf PROPERTIES
+    LINK_FLAGS " -Ttext=0x400000 -nostdlib"
+)
+
 add_custom_target(copy
     DEPENDS init.elf
+    DEPENDS echo.elf
     COMMAND mcopy -i ../../kernel/arch/aarch64/disk.img ../lib/stdint.h ::/usr/include/stdint.h
     COMMAND mcopy -i ../../kernel/arch/aarch64/disk.img ../lib/stddef.h ::/usr/include/stddef.h
     COMMAND mcopy -i ../../kernel/arch/aarch64/disk.img ../lib/string.h ::/usr/include/string.h
     COMMAND mcopy -i ../../kernel/arch/aarch64/disk.img ../lib/unistd.h ::/usr/include/unistd.h
     COMMAND mcopy -i ../../kernel/arch/aarch64/disk.img init.elf ::/bin/init.elf
+    COMMAND mcopy -i ../../kernel/arch/aarch64/disk.img echo.elf ::/bin/echo.elf
 )
