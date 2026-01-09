@@ -272,7 +272,7 @@ i64 sys_execve(const char* path, const char* argv[], const char* envp[]) {
         return -1;
     }
 
-    inode_t* file = namei("/bin/echo.elf");
+    inode_t* file = namei(kpath);
     if (!file) {
         kprintf("[ [REXEC [W] File not found: %s\n", path);
         return -1;

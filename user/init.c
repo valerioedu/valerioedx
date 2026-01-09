@@ -8,7 +8,7 @@ int main() {
     char *argv[] = {"/usr/bin/echo.elf", "Hi", NULL};
     char *envp[] = {NULL};
     
-    execve("/usr/bin/echo.elf", argv, envp);
+    execve("/bin/echo.elf", argv, envp);
     
     // This code only runs if execve fails
     write(1, "execve failed\n", 14);
