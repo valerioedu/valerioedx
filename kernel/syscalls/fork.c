@@ -14,6 +14,12 @@ extern spinlock_t sched_lock;
 extern task_t *runqueues[COUNT];
 extern task_t *runqueues_tail[COUNT];
 
+static void fork_child_return(void) {
+    // Do nothing - just return
+    // ret_from_fork will then hit task_exit, which is wrong...
+    // This won't work properly, we need the asm fix
+}
+
 task_t *task_clone(task_t *task, process_t *process) {
     task_t *new = (task_t*)kmalloc(sizeof(task_t));
     if (!new) {
@@ -35,6 +41,7 @@ task_t *task_clone(task_t *task, process_t *process) {
     u32 flags = spinlock_acquire_irqsave(&sched_lock);
 
     new->context = task->context;
+    new->context.x19 = (u64)fork_child_return;
     new->state = task->state;
     new->priority = task->priority;
     new->next = NULL;
@@ -168,8 +175,9 @@ i64 sys_wait(int *status) {
             spinlock_release_irqrestore(&sched_lock, flags);
             return -1;  //ECHILD
         }
-        
-        sleep_on(&proc->wait_queue, &sched_lock);
+
+        spinlock_release_irqrestore(&sched_lock, flags);
+        sleep_on(&proc->wait_queue, NULL);
     }
 }
 

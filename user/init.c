@@ -18,7 +18,9 @@ int main() {
         _exit(1);
     } else {
         int status;
+        write(1, "waiting\n", strlen("waiting\n"));
         wait(&status);
+        write(1, "Wait complete\n", strlen("Wait complete\n"));
     }
 
     while (1) {

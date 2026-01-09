@@ -108,13 +108,16 @@ vma_t* vma_create(uintptr_t start, uintptr_t end, u32 flags, u8 type) {
 // Insert VMA into address space (sorted by start address)
 int vma_insert(mm_struct_t* mm, vma_t* new_vma) {
     if (!mm || !new_vma) return -1;
+    kprintf("[VMA] Inserting: 0x%llx - 0x%llx\n", new_vma->vm_start, new_vma->vm_end);
     
     u32 flags = spinlock_acquire_irqsave(&vma_lock);
     
     // Check for overlaps
     vma_t* vma = mm->vma_list;
     while (vma) {
+        kprintf("[VMA] Existing: 0x%llx - 0x%llx\n", vma->vm_start, vma->vm_end);
         if (!(new_vma->vm_end <= vma->vm_start || new_vma->vm_start >= vma->vm_end)) {
+            kprintf("[VMA] OVERLAP DETECTED!\n");
             spinlock_release_irqrestore(&vma_lock, flags);
             return -1;  // Overlap detected
         }

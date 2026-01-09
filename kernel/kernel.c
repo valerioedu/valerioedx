@@ -59,7 +59,7 @@ void kmain() {
         }
     }
     extern void ramfb_init();
-    ramfb_init();
+    //ramfb_init();
     init_process = process_create("init", init_entry, HIGH);
 
     if (!init_process) {

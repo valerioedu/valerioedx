@@ -91,7 +91,7 @@ void sched_init() {
 
     current_task = runqueues[IDLE];
 
-    task_create(reaper_thread, HIGH, NULL);
+    //task_create(reaper_thread, HIGH, NULL);
 
     kprintf("[ [CSCHED[W ] Multi-Queue Scheduler Initialized (%d Levels).\n", COUNT);
     kprintf("[ [CSCHED[W ] Reaper Thread started.\n");
