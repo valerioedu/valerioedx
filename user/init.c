@@ -1,17 +1,26 @@
 #include <unistd.h>
 #include <string.h>
+#include <sys/wait.h>
 
 int main() {
     char buf[33];
     char dir[16];
 
-    char *argv[] = {"/usr/bin/echo.elf", "Hi", NULL};
-    char *envp[] = {NULL};
+    pid_t pid = fork();
     
-    execve("/bin/echo.elf", argv, envp);
-    
-    // This code only runs if execve fails
-    write(1, "execve failed\n", 14);
+    if (pid == 0) {
+        // Child process*/
+        char *argv[] = {"/bin/echo.elf", "Hi", NULL};
+        char *envp[] = {NULL};
+        execve("/bin/echo.elf", argv, envp);
+        // Only reaches here if execve fails
+        write(1, "execve failed\n", 14);
+        _exit(1);
+    } else {
+        int status;
+        wait(&status);
+    }
+
     while (1) {
         write(1, "valerioedx:", strlen("valerioedx:"));
         getcwd(dir, 2);

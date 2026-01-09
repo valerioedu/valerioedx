@@ -58,7 +58,8 @@ void kmain() {
             kprintf("[ [RKMAIN [W] Failed to mount FAT32\n");
         }
     }
-
+    extern void ramfb_init();
+    ramfb_init();
     init_process = process_create("init", init_entry, HIGH);
 
     if (!init_process) {
