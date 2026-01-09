@@ -20,9 +20,6 @@ u64 tid_counter = 1;
 
 spinlock_t sched_lock = 0;
 
-static task_t *zombie_head = NULL;
-static wait_queue_t reaper_wq = NULL;
-
 // Store the kernel's root page table for TTBR1
 static u64 kernel_ttbr1 = 0;
 
@@ -44,37 +41,6 @@ void idle() {
     }
 }
 
-// The Reaper Thread cleans up zombie tasks
-void reaper_thread() {
-    while (true) {
-        u32 flags = spinlock_acquire_irqsave(&sched_lock);
-
-        // If no zombies, sleep until one arrives
-        if (zombie_head == NULL) {
-            spinlock_release_irqrestore(&sched_lock, flags);
-            sleep_on(&reaper_wq, NULL);
-            continue;
-        }
-
-        // Detach the list of zombies to process them without holding the lock
-        task_t *zombies_to_free = zombie_head;
-        zombie_head = NULL;
-
-        spinlock_release_irqrestore(&sched_lock, flags);
-
-        // Free resources
-        while (zombies_to_free) {
-            task_t *next = zombies_to_free->next;
-            
-            kprintf("[ [CReaper [W] Cleaning up TID %d\n", zombies_to_free->id);
-            kfree(zombies_to_free->stack_page);
-            kfree(zombies_to_free);
-            
-            zombies_to_free = next;
-        }
-    }
-}
-
 void sched_init() {
     // Clears all queues
     for (int i = 0; i < COUNT; i++) {
@@ -90,8 +56,6 @@ void sched_init() {
     task_create(idle, IDLE, NULL);
 
     current_task = runqueues[IDLE];
-
-    task_create(reaper_thread, HIGH, NULL);
 
     kprintf("[ [CSCHED[W ] Multi-Queue Scheduler Initialized (%d Levels).\n", COUNT);
     kprintf("[ [CSCHED[W ] Reaper Thread started.\n");
@@ -288,32 +252,6 @@ void schedule() {
     }
 
     if (next_task != prev_task) {
-        
-        if (prev_task->state == TASK_EXITED) {
-            // Add to zombie list
-            prev_task->next = zombie_head;
-            zombie_head = prev_task;
-
-            // Wake up Reaper if it is sleeping
-            if (reaper_wq) {
-                task_t *reaper = reaper_wq;
-                reaper_wq = reaper->next_wait;
-                
-                reaper->next_wait = NULL;
-                reaper->state = TASK_READY;
-                reaper->next = NULL;
-
-                task_priority p = reaper->priority;
-                if (runqueues[p] == NULL) {
-                    runqueues[p] = reaper;
-                    runqueues_tail[p] = reaper;
-                } else {
-                    runqueues_tail[p]->next = reaper;
-                    runqueues_tail[p] = reaper;
-                }
-            }
-        }
-        
         current_task = next_task;
 
         if (current_task->state == TASK_READY) {
