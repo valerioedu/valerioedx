@@ -78,6 +78,8 @@ void virtio_input_init(u64 base) {
 
     // Feature negotiation
     u32 features = mmio_read32(base + VIRTIO_MMIO_DEVICE_FEATURES);
+    // Mask VIRTIO_F_RING_EVENT_IDX feature, which suppresses irqs
+    features &= ~(1 << 29);
     mmio_write32(base + VIRTIO_MMIO_DRIVER_FEATURES, features);
     
     status |= VIRTIO_STATUS_FEAT_OK;
@@ -187,7 +189,7 @@ void virtio_input_handler() {
         input_last_used_idx++;
     }
     
-    mmio_write32(virtio_input_base + VIRTIO_MMIO_QUEUE_NOTIFY, 0); 
+    mmio_write32(virtio_input_base + VIRTIO_MMIO_QUEUE_NOTIFY, 0);
 }
 
 void virtio_blk_init(u64 base) {
