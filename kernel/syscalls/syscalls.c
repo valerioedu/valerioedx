@@ -28,7 +28,7 @@
 extern task_t *current_task;
 extern i64 sys_write(u32 fd, const char *buf, size_t count);
 extern i64 sys_read(u32 fd, char *buf, size_t count);
-extern i64 sys_fork();
+extern i64 sys_fork(trapframe_t *tf);
 extern i64 sys_getpid();
 extern i64 sys_getppid();
 extern i64 sys_open(const char *path, int flags);
@@ -82,13 +82,13 @@ static syscalls_fn_t syscall_table[MAX_SYSCALLS] = {
     [SYS_GETDIRENTRIES]      = (syscalls_fn_t)sys_getdirentries
 };
 
-i64 syscall_handler(u64 syscall_num, u64 arg0, u64 arg1, u64 arg2, u64 arg3, u64 arg4, u64 arg5) {
+i64 syscall_handler(trapframe_t *tf, u64 syscall_num, u64 arg0, u64 arg1, u64 arg2, u64 arg3, u64 arg4, u64 arg5) {
     if (syscall_num >= MAX_SYSCALLS)
         return -1; // -ENOSYS
 
     switch (syscall_num) {
         case SYS_EXIT: sys_exit(arg0); return 0;
-        case SYS_FORK: return sys_fork(); break;
+        case SYS_FORK: return sys_fork(tf); break;
         case SYS_READ: return sys_read((u32)arg0, (char*)arg1, (size_t)arg2); break;
         case SYS_WRITE: return sys_write((u32)arg0, (const char*)arg1, (size_t)arg2); break;
         case SYS_OPEN: return sys_open((const char*)arg0, (int)arg1); break;

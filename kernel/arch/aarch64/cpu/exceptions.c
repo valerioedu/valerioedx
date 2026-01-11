@@ -68,7 +68,7 @@ void el1_sync_handler(trapframe_t *tf) {
         case 0x15: {
             u64 syscall_num = tf->x[8];
 
-            u64 ret = syscall_handler(
+            u64 ret = syscall_handler(tf,
                 syscall_num,
                 tf->x[0], tf->x[1], tf->x[2], 
                 tf->x[3], tf->x[4], tf->x[5]

@@ -5,6 +5,7 @@
 #include <string.h>
 #include <kio.h>
 #include <spinlock.h>
+#include <file.h>
 #include <vma.h>
 
 extern task_t *current_task;
@@ -59,12 +60,13 @@ task_t *task_clone(task_t *task, process_t *process) {
     return new;
 }
 
-i64 sys_fork() {
+i64 sys_fork(trapframe_t *tf) {
     process_t *parent = current_task->proc;
     process_t *child = (process_t*)kmalloc(sizeof(process_t));
     if (!child) return -1;
 
     child->pid = pid_counter++;
+    child->state = PROCESS_ACTIVE;
     child->mm = mm_duplicate(parent->mm);
     if (!child->mm) {
         kfree(child);
@@ -98,9 +100,13 @@ i64 sys_fork() {
         return -1;
     }
 
-    trapframe_t *child_tf = (trapframe_t *)child_task->context.sp;
+    trapframe_t *child_tf = (trapframe_t*)((u64)child_task->stack_page + 4096 - sizeof(trapframe_t));
+    *child_tf = *tf;
     child_tf->x[0] = 0;
     
+    child_task->context.sp = (u64)child_tf;
+    child_task->context.x19 = 0;
+
     return child->pid;
 }
 
@@ -131,6 +137,19 @@ void sys_exit(int code) {
     }
 
     spinlock_release_irqrestore(&sched_lock, flags);
+
+    for (int i = 0; i < MAX_FD; i++) {
+        if (proc->fd_table[i]) {
+            proc->fd_table[i]->ref_count--;
+
+            if (proc->fd_table[i]->ref_count == 0)
+                fd_free(i);
+        }
+    }
+
+    if (proc->cwd)
+        vfs_close(proc->cwd);
+    
     task_exit();
 }
 
@@ -153,6 +172,18 @@ i64 sys_wait(int *status) {
 
                 if (prev) prev->sibling = child->sibling;
                 else proc->child = child->sibling;
+
+                for (int i = 0; i < MAX_FD; i++) {
+                    if (child->fd_table[i]) {
+                        child->fd_table[i]->ref_count--;
+
+                        if (child->fd_table[i]->ref_count == 0)
+                            fd_free(i);
+                    }
+                }
+
+                if (child->cwd)
+                    vfs_close(child->cwd);
 
                 kfree(child);
                 spinlock_release_irqrestore(&sched_lock, flags);
