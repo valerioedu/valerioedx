@@ -112,5 +112,5 @@ void tty_push_char(char c, tty_t *tty) {
 
     spinlock_release_irqrestore(&tty->lock, flags);
     
-    wake_up(&tty->queue);  // ADD THIS: wake up waiting readers
+    wake_up(&tty->queue);
 }

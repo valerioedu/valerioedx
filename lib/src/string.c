@@ -72,7 +72,6 @@ char* strncpy(char* dest, const char* src, size_t n) {
     return dest;
 }
 
-//TODO: Implement thread safety
 char* strtok(char *str, const char *delim) {
     static char *last = NULL;
     if (str == NULL) str = last;
