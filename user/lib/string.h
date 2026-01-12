@@ -18,8 +18,10 @@ char    *stpcpy(char *restrict, const char *restrict);
 char    *stpncpy(char *restrict, const char *restrict, size_t);
 char    *strcat(char *restrict, const char *restrict);
 char    *strchr(const char *, int);
-int      strcmp(const char *s1, const char *s2);
+int      strcmp(const char *, const char *);
+size_t   strcspn(const char *, const char *)
 size_t   strlen(const char *);
+char*    strtok_r(char *restrict, const char *restrict, char **restrict);
 
 
 #endif

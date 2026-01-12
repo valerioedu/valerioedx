@@ -128,8 +128,25 @@ int strcmp(const char *s1, const char *s2) {
         ++a;
         ++b;
     }
-    
+
     return (int)(*a - *b);
+}
+
+size_t strcspn(const char *str, const char *reject) {
+    const char *s = str;
+    while (*s) {
+        const char *r = reject;
+        while (*r) {
+            if (*s == *r)
+                return s - str;
+
+            r++;
+        }
+
+        s++;
+    }
+
+    return s - str;
 }
 
 size_t strlen(const char *s) {
@@ -138,4 +155,25 @@ size_t strlen(const char *s) {
     for (; s[ret] != '\0'; ret++);
 
     return ret;
+}
+
+char* strtok_r(char *restrict str, const char *restrict delim, char **restrict saveptr) {
+    if (str == NULL) str = *saveptr;
+    if (str == NULL) return NULL;
+    
+    while (*str && strchr(delim, *str))
+        str++;
+
+    if (*str == '\0') return NULL;
+    
+    char *start = str;
+    while (*str && !strchr(delim, *str))
+        str++;
+
+    if (*str)
+        *str++ = '\0';
+
+    *saveptr = str;
+    
+    return start;
 }
