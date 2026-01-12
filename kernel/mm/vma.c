@@ -261,7 +261,7 @@ int vma_unmap(mm_struct_t* mm, uintptr_t start, uintptr_t end) {
     return 0;
 }
 
-// mmap primitive
+// mmap primitives
 uintptr_t vma_allocate(mm_struct_t* mm, uintptr_t addr, size_t length, u32 flags) {
     if (!mm || length == 0) return 0;
     
@@ -306,6 +306,50 @@ uintptr_t vma_allocate(mm_struct_t* mm, uintptr_t addr, size_t length, u32 flags
     return addr;
 }
 
+uintptr_t vma_allocate_file(mm_struct_t* mm, uintptr_t addr, size_t length, u32 flags, void* file, u64 offset) {
+    if (!mm || length == 0) return 0;
+    
+    // Align length to page boundary
+    length = (length + PAGE_SIZE - 1) & ~(PAGE_SIZE - 1);
+    
+    u32 lock_flags = spinlock_acquire_irqsave(&vma_lock);
+    
+    if (addr == 0) {
+        addr = mm->mmap_base;
+        
+        vma_t* vma = mm->vma_list;
+        while (vma) {
+            if (addr + length <= vma->vm_start)
+                break;
+
+            if (addr < vma->vm_end)
+                addr = vma->vm_end;
+
+            vma = vma->vm_next;
+        }
+        
+        if (addr + length > USER_SPACE_END) {
+            spinlock_release_irqrestore(&vma_lock, lock_flags);
+            return 0;
+        }
+    }
+    
+    spinlock_release_irqrestore(&vma_lock, lock_flags);
+    
+    vma_t* new_vma = vma_create(addr, addr + length, flags, VMA_FILE);
+    if (!new_vma) return 0;
+    
+    new_vma->vm_file = file;
+    new_vma->vm_pgoff = offset;
+    
+    if (vma_insert(mm, new_vma) < 0) {
+        kfree(new_vma);
+        return 0;
+    }
+    
+    return addr;
+}
+
 // Handle page fault in user space
 int vma_page_fault(mm_struct_t* mm, uintptr_t addr, bool is_write) {
     if (!mm) return -1;
@@ -330,6 +374,13 @@ int vma_page_fault(mm_struct_t* mm, uintptr_t addr, bool is_write) {
         if (!phys) return -1;
         
         memset(P2V(phys), 0, PAGE_SIZE);
+        
+        // Handle file-backed mapping
+        if (vma->vm_type == VMA_FILE && vma->vm_file) {
+            u64 page_offset = (addr & ~(PAGE_SIZE - 1)) - vma->vm_start;
+            u64 file_offset = vma->vm_pgoff + page_offset;
+            vfs_read(vma->vm_file, file_offset, PAGE_SIZE, P2V(phys));
+        }
         
         u64 entry = phys | PT_VALID | PT_AF | PT_PAGE | PT_SH_INNER;
         entry |= (MT_NORMAL << 2);  // Normal memory
@@ -360,11 +411,11 @@ int vma_page_fault(mm_struct_t* mm, uintptr_t addr, bool is_write) {
         memcpy(P2V(new_phys), P2V(old_phys), PAGE_SIZE);
         
         u64 entry = new_phys | PT_VALID | PT_AF | PT_PAGE | PT_SH_INNER;
-        entry |= (MT_NORMAL << 2);  // Normal memory
-        entry |= PT_AP_RW_EL0;      // User accessible, writable
+        entry |= (MT_NORMAL << 2);
+        entry |= PT_AP_RW_EL0;
         
         if (!(vma->vm_flags & VMA_EXEC))
-            entry |= PT_UXN;  // User execute never
+            entry |= PT_UXN;
         
         *pte = entry;
         

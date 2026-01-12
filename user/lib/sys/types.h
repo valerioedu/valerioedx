@@ -11,5 +11,6 @@ typedef int clockid_t;
 typedef void* timer_t;
 typedef int pid_t;
 typedef long mode_t;
+typedef long off_t;
 
 #endif

@@ -19,11 +19,13 @@
 #define SYS_GETPPID         39
 #define SYS_DUP             41
 #define SYS_EXECVE          59
+#define SYS_MUNMAP          73
 #define SYS_GETCWD          76
 #define SYS_DUP2            90
 #define SYS_MKDIR           136
 #define SYS_RMDIR           137
 #define SYS_GETDIRENTRIES   196
+#define SYS_MMAP            197
 
 extern task_t *current_task;
 extern i64 sys_write(u32 fd, const char *buf, size_t count);
@@ -40,11 +42,13 @@ extern i64 sys_execve(const char* path, const char* argv[], const char* envp[]);
 extern i64 sys_chdir(const char *path);
 extern i64 sys_fchdir(int fd);
 extern i64 sys_lseek(int fd, i64 offset, int whence);
+extern i64 sys_munmap(void *addr, size_t length);
 extern i64 sys_getcwd(char *buf, size_t size);
 extern i64 sys_dup2(int oldfd, int newfd);
 extern i64 sys_mkdir(const char *path, mode_t mode);
 extern i64 sys_rmdir(const char *path);
 extern i64 sys_getdirentries(int fd, char *buf, size_t nbytes, i64 *basep);
+extern i64 sys_mmap(void *addr, size_t length, int prot, int flags, int fd, i64 offset);
 
 typedef i64 (*syscalls_fn_t)(i64, i64, i64, i64, i64, i64);
 
@@ -101,11 +105,13 @@ i64 syscall_handler(trapframe_t *tf, u64 syscall_num, u64 arg0, u64 arg1, u64 ar
         case SYS_GETPPID: return sys_getppid(); break;
         case SYS_DUP: return sys_dup((int)arg0); break;
         case SYS_EXECVE: return sys_execve((const char*)arg0, (const char**)arg1, (const char**)arg2); break;
+        case SYS_MUNMAP: return sys_munmap((void*)arg0, (size_t)arg1); break;
         case SYS_GETCWD: return sys_getcwd((char*)arg0, (size_t)arg1); break;
         case SYS_DUP2: return sys_dup2((int)arg0, (int)arg1); break;
         case SYS_MKDIR: return sys_mkdir((const char*)arg0, (mode_t)arg1); break;
         case SYS_RMDIR: return sys_rmdir((const char*)arg0); break;
         case SYS_GETDIRENTRIES: return sys_getdirentries((int)arg0, (char*)arg1, (size_t)arg2, (i64*)arg3); break;
+        case SYS_MMAP: return sys_mmap((void*)arg0, (size_t)arg1, (int)arg2, (int)arg3, (int)arg4, (i64)arg5); break;
     }
 
     return -1;
