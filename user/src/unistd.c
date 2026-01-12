@@ -112,4 +112,12 @@ int execve(const char *path, char *const argv[], char *const envp[]) {
                  : "memory");
     return (int)x0;
 }
+
+int rmdir(const char *path) {
+    register const char *x0 asm("x0") = path;
+    register uint64_t x8 asm("x8") = 137;
+    asm volatile("svc #0"
+        : "+r"(x0) : "r"(x8) : "memory");
+    return (int)x0;
+}
 //#endif

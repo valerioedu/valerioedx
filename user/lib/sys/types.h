@@ -10,5 +10,6 @@ typedef int64_t clock_t;
 typedef int clockid_t;
 typedef void* timer_t;
 typedef int pid_t;
+typedef long mode_t;
 
 #endif
