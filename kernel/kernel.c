@@ -28,6 +28,7 @@ void kmain() {
     tty_init();
     vfs_init();
     devfs_init();
+    sysctl_init();
 
     inode_t* blk_dev = devfs_fetch_device("virtio-blk");
 

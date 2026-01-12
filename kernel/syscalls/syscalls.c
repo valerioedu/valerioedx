@@ -26,6 +26,7 @@
 #define SYS_RMDIR           137
 #define SYS_GETDIRENTRIES   196
 #define SYS_MMAP            197
+#define SYS_SYSCTL          202
 
 extern task_t *current_task;
 extern i64 sys_write(u32 fd, const char *buf, size_t count);
@@ -49,6 +50,7 @@ extern i64 sys_mkdir(const char *path, mode_t mode);
 extern i64 sys_rmdir(const char *path);
 extern i64 sys_getdirentries(int fd, char *buf, size_t nbytes, i64 *basep);
 extern i64 sys_mmap(void *addr, size_t length, int prot, int flags, int fd, i64 offset);
+extern i64 sys_sysctl(int *name, u32 namelen, void *oldp, u64 *oldlenp, void *newp, u64 newlen);
 
 typedef i64 (*syscalls_fn_t)(i64, i64, i64, i64, i64, i64);
 
@@ -112,6 +114,7 @@ i64 syscall_handler(trapframe_t *tf, u64 syscall_num, u64 arg0, u64 arg1, u64 ar
         case SYS_RMDIR: return sys_rmdir((const char*)arg0); break;
         case SYS_GETDIRENTRIES: return sys_getdirentries((int)arg0, (char*)arg1, (size_t)arg2, (i64*)arg3); break;
         case SYS_MMAP: return sys_mmap((void*)arg0, (size_t)arg1, (int)arg2, (int)arg3, (int)arg4, (i64)arg5); break;
+        case SYS_SYSCTL: return sys_sysctl((int*)arg0, (u32)arg1, (void*)arg2, (u64*)arg3, (void*)arg4, (u64)arg5); break;
     }
 
     return -1;

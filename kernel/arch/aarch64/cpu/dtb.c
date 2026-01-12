@@ -204,3 +204,89 @@ u64 dtb_get_memory_size() {
     }
     return 0;
 }
+
+int dtb_get_model(char* buf, u32 buf_len) {
+    if (!dtb_base) return 0;
+
+    fdt_header_t* header = (fdt_header_t*)dtb_base;
+    u8* ptr = dtb_base + be2le32(header->off_dt_struct);
+
+    if (be2le32(*(u32*)ptr) != FDT_BEGIN_NODE)
+        return 0;
+    
+    ptr += 4;
+    ptr = skip_node_name(ptr);
+
+    u32 len = 0;
+    u8* data = find_prop_in_node(&ptr, "model", &len);
+    if (data && len > 0) {
+        u32 copy_len = (len < buf_len) ? len : buf_len - 1;
+        memcpy(buf, data, copy_len);
+        buf[copy_len] = '\0';
+        return copy_len;
+    }
+
+    return 0;
+}
+
+int dtb_get_compatible(char* buf, u32 buf_len) {
+    if (!dtb_base) return 0;
+
+    fdt_header_t* header = (fdt_header_t*)dtb_base;
+    u8* ptr = dtb_base + be2le32(header->off_dt_struct);
+
+    if (be2le32(*(u32*)ptr) != FDT_BEGIN_NODE)
+        return 0;
+    
+    ptr += 4;
+    ptr = skip_node_name(ptr);
+
+    u32 len = 0;
+    u8* data = find_prop_in_node(&ptr, "compatible", &len);
+    if (data && len > 0) {
+        u32 copy_len = (len < buf_len) ? len : buf_len - 1;
+        memcpy(buf, data, copy_len);
+        buf[copy_len] = '\0';
+        return copy_len;
+    }
+
+    return 0;
+}
+
+int dtb_get_cpu_count() {
+    if (!dtb_base) return 1;
+    
+    fdt_header_t* header = (fdt_header_t*)dtb_base;
+    u8* ptr = dtb_base + be2le32(header->off_dt_struct);
+    int count = 0;
+    
+    while (1) {
+        u32 token = be2le32(*(u32*)ptr);
+        ptr += 4;
+        
+        if (token == FDT_END) break;
+        
+        if (token == FDT_BEGIN_NODE) {
+            const char* name = (const char*)ptr;
+            ptr = skip_node_name(ptr);
+            
+            if (name[0] == 'c' && name[1] == 'p' && name[2] == 'u' && name[3] == '@')
+                count++;
+        }
+        else if (token == FDT_PROP) {
+            u32 len = be2le32(*(u32*)ptr);
+            ptr += 8 + len;
+            ptr = (u8*)(((uintptr_t)ptr + 3) & ~3);
+        }
+    }
+
+    return count ? count : 1;
+}
+
+u64 dtb_get_cpu_freq() {
+    u8 buffer[4];
+    if (dtb_get_property("cpu@", "clock-frequency", buffer, 4))
+        return be2le32(*(u32*)buffer);
+
+    return 0;
+}

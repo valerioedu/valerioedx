@@ -34,3 +34,9 @@ void timer_handler() {
 
     schedule();
 }
+
+u64 timer_get_frq() {
+    u64 frq;
+    asm volatile("mrs %0, cntfrq_el0" : "=r"(frq));
+    return frq;
+}

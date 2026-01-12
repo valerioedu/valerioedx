@@ -22,6 +22,8 @@ u64 *gic = (u64*)0x08000000;
 u64 *fwcfg = (u64*)0x09020000;
 u64 *virtio = (u64*)0x0A000000;
 
+u64 boot_time = 0;
+
 void signature() {
     u8 *buf = (u8*)kmalloc(512);
     if (!buf) {
@@ -59,6 +61,7 @@ void signature() {
 }
 
 void main() {
+    asm volatile("mrs %0, CNTPCT_EL0" : "=r"(boot_time));
     dtb_init(0x40000000);
 #ifndef DEBUG
     kprintf("\033[2J");

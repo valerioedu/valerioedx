@@ -12,5 +12,6 @@ typedef void* timer_t;
 typedef int pid_t;
 typedef long mode_t;
 typedef long off_t;
+typedef unsigned int u_int;
 
 #endif
