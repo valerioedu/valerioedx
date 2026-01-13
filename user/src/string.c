@@ -149,6 +149,12 @@ size_t strcspn(const char *str, const char *reject) {
     return s - str;
 }
 
+char* strcpy(char* restrict dest, const char* restrict src) {
+    char* d = dest;
+    while ((*d++ = *src++));
+    return dest;
+}
+
 size_t strlen(const char *s) {
     size_t ret = 0;
 
