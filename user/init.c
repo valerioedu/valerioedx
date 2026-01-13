@@ -10,6 +10,22 @@
 extern int cd(char *str);
 extern int pwd();
 
+// Temporary
+int rmdir_cmd(const char *path) {
+    if (path == NULL) {
+        printf("rmdir: missing operand\n");
+        return -1;
+    }
+    
+    int ret = rmdir(path);
+    if (ret < 0) {
+        printf("rmdir: failed to remove '%s'\n", path);
+        return -1;
+    }
+    
+    return 0;
+}
+
 int run_command(const char *path, char *argv[]) {
     pid_t pid = fork();
     
@@ -53,6 +69,9 @@ int main() {
             break;
         } else if (strcmp(cmd, "pwd") == 0) {
             pwd();
+        } else if (strcmp(cmd, "rmdir") == 0) {
+            char *path = strtok_r(NULL, " \t", &saveptr);
+            rmdir_cmd(path);
         } else if (strcmp(cmd, "ls") == 0) {
             char *path = strtok_r(NULL, " \t", &saveptr);
             char *argv[] = {"ls", path, NULL};
@@ -65,10 +84,6 @@ int main() {
             char *path = strtok_r(NULL, " \t", &saveptr);
             char *argv[] = {"mkdir", path, NULL};
             run_command("/bin/mkdir", argv);
-        } else if (strcmp(cmd, "rmdir") == 0) {
-            char *path = strtok_r(NULL, " \t", &saveptr);
-            char *argv[] = {"rmdir", path, NULL};
-            run_command("/bin/rmdir", argv);
         } else if (strcmp(cmd, "echo") == 0) {
             char *path = strtok_r(NULL, " \t", &saveptr);
             char *argv[] = {"echo", path, NULL};

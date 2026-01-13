@@ -6,7 +6,7 @@ int main(int argc, char *argv[]) {
         printf("mkdir: missing operand\n");
         return -1;
     }
-    
+    //TODO: Check if dir already exists
     int ret = mkdir(argv[1], 0755);
     if (ret < 0) {
         printf("mkdir: cannot create directory '%s'\n", argv[1]);
