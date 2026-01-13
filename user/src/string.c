@@ -163,6 +163,31 @@ size_t strlen(const char *s) {
     return ret;
 }
 
+char* strncat(char* dest, const char* src, size_t n) {
+    char* d = dest + strlen(dest);
+    while (n && (*d++ = *src++))
+        n--;
+
+    if (n)
+        *d = '\0';
+    
+    return dest;
+}
+
+
+char* strncpy(char* dest, const char* src, size_t n) {
+    char* d = dest;
+    while (n && (*d++ = *src++))
+        n--;
+
+    if (n) {
+        while (--n)
+            *d++ = '\0';
+    }
+
+    return dest;
+}
+
 char* strtok_r(char *restrict str, const char *restrict delim, char **restrict saveptr) {
     if (str == NULL) str = *saveptr;
     if (str == NULL) return NULL;

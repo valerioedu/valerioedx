@@ -22,6 +22,8 @@ int      strcmp(const char *, const char *);
 char    *strcpy(char *restrict, const char *restrict);
 size_t   strcspn(const char *, const char *);
 size_t   strlen(const char *);
+char    *strncat(char *restrict, const char *restrict, size_t);
+char    *strncpy(char *restrict, const char *restrict, size_t);
 char*    strtok_r(char *restrict, const char *restrict, char **restrict);
 
 
