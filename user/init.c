@@ -69,6 +69,10 @@ int main() {
             char *path = strtok_r(NULL, " \t", &saveptr);
             char *argv[] = {"rmdir", path, NULL};
             run_command("/bin/rmdir", argv);
+        } else if (strcmp(cmd, "echo") == 0) {
+            char *path = strtok_r(NULL, " \t", &saveptr);
+            char *argv[] = {"echo", path, NULL};
+            run_command("/bin/echo", argv);
         } else {
             printf("Unknown command: %s\n", cmd);
         }

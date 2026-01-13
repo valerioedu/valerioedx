@@ -1,19 +1,17 @@
-#include <stdio.h>
 #include <unistd.h>
+#include <string.h>
 
-//TODO: Fix non working rmdir binary
 int main(int argc, char *argv[]) {
     if (argc < 2) {
-        printf("rmdir: missing operand\n");
-        return -1;
+        write(1, "\n", 1);
+        return 0;
     }
-    
-    int ret = rmdir(argv[1]);
-    if (ret < 0) {
-        printf("rmdir: failed to remove '%s'\n", argv[1]);
-        return -1;
-    }
-    
+
+    for (int i = 1; i < argc; i++)
+        write(1, argv[i], strlen(argv[i]));
+
+    write(1, "\n", 1);
+
     return 0;
 }
 
