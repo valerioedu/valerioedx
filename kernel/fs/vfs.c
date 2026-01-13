@@ -78,8 +78,17 @@ void vfs_close(inode_t* node) {
             if (node->ops && node->ops->close)
                 node->ops->close(node); // Free private driver data (fat32_file_t)
             
-            kfree(node); // Free the VFS node itself
+            if (node->flags & FS_TEMPORARY)
+                kfree(node); // Free the VFS node itself
         }
+    }
+}
+
+void vfs_create(inode_t *node, const char *name) {
+    if (!node) return;
+
+    if (node && node->ops->create) {
+        node->ops->create(node, name);
     }
 }
 

@@ -89,6 +89,7 @@ u64 vfs_read(inode_t* node, u64 offset, u64 size, u8* buffer);
 u64 vfs_write(inode_t* node, u64 offset, u64 size, u8* buffer);
 void vfs_open(inode_t* node);
 void vfs_close(inode_t* node);
+void vfs_create(inode_t *node, const char *name);
 
 void vfs_mount_root(inode_t *node);
 int vfs_mount(inode_t* mountpoint, inode_t* fs_root);
