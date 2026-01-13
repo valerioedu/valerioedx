@@ -58,7 +58,6 @@ void sched_init() {
     current_task = runqueues[IDLE];
 
     kprintf("[ [CSCHED[W ] Multi-Queue Scheduler Initialized (%d Levels).\n", COUNT);
-    kprintf("[ [CSCHED[W ] Reaper Thread started.\n");
 }
 
 process_t *process_create(const char *name, void (*entry_point)(), task_priority priority) {
@@ -85,9 +84,7 @@ process_t *process_create(const char *name, void (*entry_point)(), task_priority
         return NULL;
     }
 
-    task_create(entry_point, priority, proc);
-    kprintf("[ [CSCHED[W ] Created Process:\tPID: %d\tName: %s\n", proc->pid, proc->name);
-    
+    task_create(entry_point, priority, proc);    
     proc->cwd = vfs_root;
     return proc;
 }
@@ -132,9 +129,6 @@ void task_create(void (*entry_point)(), task_priority priority, struct process *
     }
 
     spinlock_release_irqrestore(&sched_lock, flags);
-    
-    const char *type = proc ? "User Thread" : "Kernel Thread";
-    kprintf("[ [CSCHED[W ] Created %s:\tID: %d\tPriority: %d\n", type, t->id, priority);
 }
 
 void sleep_on(wait_queue_t* queue, spinlock_t* release_lock) {
@@ -189,8 +183,6 @@ void wake_up(wait_queue_t* queue) {
 
 void task_exit() {
     current_task->state = TASK_EXITED;
-    kprintf("[ [CSCHED[W ] Task %d exited.\n", current_task->id);
-
     schedule();
 }
 

@@ -36,11 +36,9 @@ mm_struct_t* mm_create() {
         VMA_ANONYMOUS
     );
     
-    if (stack) {
+    if (stack)
         vma_insert(mm, stack);
-    }
     
-    kprintf("[ [CMM [W] Created address space: PT=0x%llx\n", pt_phys);
     return mm;
 }
 
@@ -460,8 +458,6 @@ int vma_expand_stack(mm_struct_t* mm, uintptr_t addr) {
     stack_vma->vm_start = new_start;
     
     spinlock_release_irqrestore(&vma_lock, flags);
-    
-    kprintf("[ [CMM [W] Stack expanded to 0x%llx\n", new_start);
     return 0;
 }
 
