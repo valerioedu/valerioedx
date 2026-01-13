@@ -262,18 +262,33 @@ void schedule() {
 
         cpu_switch_to(prev_task, next_task);
 
-        if (next_mm) {
+        if (current_task->proc && current_task->proc->mm) {
             asm volatile(
                 "msr ttbr0_el1, %0\n"
                 "isb\n"
                 "tlbi vmalle1is\n"
                 "dsb ish\n"
                 "isb\n"
-                :: "r"((u64)next_mm->page_table)
+                :: "r"((u64)current_task->proc->mm->page_table)
                 : "memory"
             );
         }
     }
 
     spinlock_release_irqrestore(&sched_lock, flags);
+}
+
+void switch_to_child_mm() {
+    if (current_task && current_task->proc && current_task->proc->mm) {
+        u64 ttbr = (u64)current_task->proc->mm->page_table;
+        asm volatile(
+            "msr ttbr0_el1, %0\n"
+            "isb\n"
+            "tlbi vmalle1is\n"
+            "dsb ish\n"
+            "isb\n"
+            :: "r"(ttbr)
+            : "memory"
+        );
+    }
 }

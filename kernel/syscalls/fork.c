@@ -65,6 +65,8 @@ i64 sys_fork(trapframe_t *tf) {
     process_t *child = (process_t*)kmalloc(sizeof(process_t));
     if (!child) return -1;
 
+    memset(child, 0, sizeof(process_t));
+
     child->pid = pid_counter++;
     child->state = PROCESS_ACTIVE;
     child->mm = mm_duplicate(parent->mm);
@@ -106,37 +108,15 @@ i64 sys_fork(trapframe_t *tf) {
     
     child_task->context.sp = (u64)child_tf;
     child_task->context.x19 = 0;
+    extern void ret_from_fork_child();
+    child_task->context.lr = (u64)ret_from_fork_child;
 
     return child->pid;
 }
 
 void sys_exit(int code) {
-    u32 flags = spinlock_acquire_irqsave(&sched_lock);
-
     process_t *proc = current_task->proc;
     process_t *parent = proc->parent;
-
-    proc->exit_code = code;
-    proc->state = PROCESS_ZOMBIE;
-
-    extern process_t *init_process;
-    process_t *child = proc->child;
-    while (child) {
-        child->parent = init_process;
-        child = child->sibling;
-    }
-
-    if (parent) {
-        //TODO: Implement signals and send SIGCHILD
-        wake_up(&parent->wait_queue);
-    }
-
-    if (proc->mm) {
-        mm_destroy(proc->mm);
-        proc->mm = NULL;
-    }
-
-    spinlock_release_irqrestore(&sched_lock, flags);
 
     for (int i = 0; i < MAX_FD; i++) {
         if (proc->fd_table[i]) {
@@ -147,10 +127,33 @@ void sys_exit(int code) {
         }
     }
 
-    if (proc->cwd)
-        vfs_close(proc->cwd);
-    
-    task_exit();
+    if (proc->cwd) {
+         vfs_close(proc->cwd);
+         proc->cwd = NULL;
+    }
+
+    u32 flags = spinlock_acquire_irqsave(&sched_lock);
+
+    proc->exit_code = code;
+    proc->state = PROCESS_ZOMBIE;
+    current_task->state = TASK_EXITED;
+
+    extern process_t *init_process;
+    process_t *child = proc->child;
+    while (child) {
+        child->parent = init_process;
+        child = child->sibling;
+    }
+
+    spinlock_release_irqrestore(&sched_lock, flags);
+
+    if (parent) {
+        //TODO: Implement signals and send SIGCHILD
+        wake_up(&parent->wait_queue);
+    }
+
+    schedule();
+    while(1);
 }
 
 i64 sys_wait(int *status) {
@@ -173,21 +176,9 @@ i64 sys_wait(int *status) {
                 if (prev) prev->sibling = child->sibling;
                 else proc->child = child->sibling;
 
-                for (int i = 0; i < MAX_FD; i++) {
-                    if (child->fd_table[i]) {
-                        child->fd_table[i]->ref_count--;
-
-                        if (child->fd_table[i]->ref_count == 0)
-                            fd_free(i);
-                    }
-                }
-
-                if (child->cwd)
-                    vfs_close(child->cwd);
-
-                kfree(child);
                 spinlock_release_irqrestore(&sched_lock, flags);
-                
+                kfree(child);
+
                 return zombie_pid;
             }
 
@@ -200,6 +191,7 @@ i64 sys_wait(int *status) {
             return -1;  //ECHILD
         }
         
+        spinlock_release_irqrestore(&sched_lock, flags);
         sleep_on(&proc->wait_queue, &sched_lock);
     }
 }

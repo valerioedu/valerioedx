@@ -1,7 +1,9 @@
 .global cpu_switch_to
 .global ret_from_fork
+.global ret_from_fork_child
 .global enter_usermode
 .extern sched_unlock_release
+.extern switch_to_child_mm
 
 # void cpu_switch_to(struct task* prev, struct task* next);
 # x0 = pointer to 'prev' task struct
@@ -46,6 +48,38 @@ ret_from_fork:
     blr x19
     bl task_exit
     b .
+
+ret_from_fork_child:
+    bl sched_unlock_release
+    bl switch_to_child_mm
+    
+    ldr x10, [sp, #248]
+    msr sp_el0, x10
+    
+    ldr x10, [sp, #256]
+    msr elr_el1, x10
+    
+    ldr x10, [sp, #264]
+    msr spsr_el1, x10
+    
+    ldp x0, x1, [sp, #0]
+    ldp x2, x3, [sp, #16]
+    ldp x4, x5, [sp, #32]
+    ldp x6, x7, [sp, #48]
+    ldp x8, x9, [sp, #64]
+    ldp x10, x11, [sp, #80]
+    ldp x12, x13, [sp, #96]
+    ldp x14, x15, [sp, #112]
+    ldp x16, x17, [sp, #128]
+    ldp x18, x19, [sp, #144]
+    ldp x20, x21, [sp, #160]
+    ldp x22, x23, [sp, #176]
+    ldp x24, x25, [sp, #192]
+    ldp x26, x27, [sp, #208]
+    ldp x28, x29, [sp, #224]
+    ldr x30, [sp, #240]
+    
+    eret
 
 # void enter_usermode(u64 entry, u64 sp)
 # x0 = entry point address
