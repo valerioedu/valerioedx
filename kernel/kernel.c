@@ -8,6 +8,7 @@
 #include <tty.h>
 #include <vma.h>
 #include <syscalls.h>
+#include <ramfb.h>
 
 extern task_t *current_task;
 process_t *init_process = NULL;
@@ -60,11 +61,12 @@ void kmain() {
         }
     }
 
+    ramfb_clear();
     init_process = process_create("init", init_entry, HIGH);
 
-    if (!init_process) {
+    if (!init_process)
         kprintf("[ [RKMAIN [W] Failed to create init process!\n");
-    }
+
 
     while (true) asm volatile("wfi");
 }
