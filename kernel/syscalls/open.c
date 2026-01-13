@@ -4,6 +4,9 @@
 #include <sched.h>
 #include <heap.h>
 #include <kio.h>
+#include <string.h>
+
+#define O_CREAT 0x100
 
 extern task_t *current_task;
 
@@ -31,11 +34,55 @@ i64 sys_open(const char *path, int flags) {
     }
 
     inode_t *inode = namei(kpath);
-    if(!inode) return -1;
+    if (!inode && (flags & O_CREAT)) {
+        char *parent_path = kmalloc(256);
+        char *filename = kmalloc(256);
+        
+        char *last_slash = strrchr(kpath, '/');
+        
+        if (last_slash) {
+            if (last_slash == kpath)
+                strcpy(parent_path, "/");
+            else {
+                size_t len = last_slash - kpath;
+                strncpy(parent_path, kpath, len);
+                parent_path[len] = '\0';
+            }
+            
+            strcpy(filename, last_slash + 1);
+        } else {
+            strcpy(parent_path, ".");
+            strcpy(filename, kpath);
+        }
 
+        inode_t *parent = namei(parent_path);
+        if (parent) {
+            inode = vfs_create(parent, filename);
+            vfs_close(parent);
+        }
+        
+        kfree(parent_path);
+        kfree(filename);
+
+        goto success;
+    }
+
+    if (inode && (flags & O_CREAT)) {
+        int fd = fd_alloc();
+        kfree(kpath);
+        return fd;
+    }
+
+    if(!inode) {
+        kfree(kpath);
+        return -1;
+    }
+
+success:
     int fd = fd_alloc();
     if (fd < 0) {
         vfs_close(inode);
+        kfree(kpath);
         return -1;
     }
 
@@ -43,12 +90,14 @@ i64 sys_open(const char *path, int flags) {
     if (!file) {
         fd_free(fd);
         vfs_close(inode);
+        kfree(kpath);
         return -1;
     }
 
     current_task->proc->fd_table[fd] = file;
 
     vfs_close(inode);
+    kfree(kpath);
 
     return fd;
 }

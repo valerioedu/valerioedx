@@ -73,6 +73,7 @@ add_user_command(cat)
 add_user_command(ls)
 add_user_command(mkdir)
 add_user_command(echo)
+add_user_command(touch)
 
 option(VALERIOEDX_DEBUG "Enable DEBUG compile-time flag" OFF)
 
@@ -81,7 +82,7 @@ set_target_properties(init.elf PROPERTIES
 )
 
 add_custom_target(copy
-    DEPENDS init.elf cat.elf ls.elf mkdir.elf echo.elf
+    DEPENDS init.elf cat.elf ls.elf mkdir.elf echo.elf touch.elf
     COMMAND mcopy -i ../../kernel/arch/aarch64/disk.img ../lib/stdint.h ::/usr/include/stdint.h
     COMMAND mcopy -i ../../kernel/arch/aarch64/disk.img ../lib/stddef.h ::/usr/include/stddef.h
     COMMAND mcopy -i ../../kernel/arch/aarch64/disk.img ../lib/string.h ::/usr/include/string.h
@@ -91,4 +92,5 @@ add_custom_target(copy
     COMMAND mcopy -i ../../kernel/arch/aarch64/disk.img ls.elf ::/bin/ls
     COMMAND mcopy -i ../../kernel/arch/aarch64/disk.img mkdir.elf ::/bin/mkdir
     COMMAND mcopy -i ../../kernel/arch/aarch64/disk.img echo.elf ::/bin/echo
+    COMMAND mcopy -i ../../kernel/arch/aarch64/disk.img touch.elf ::/bin/touch
 )

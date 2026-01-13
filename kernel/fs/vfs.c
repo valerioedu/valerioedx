@@ -84,12 +84,13 @@ void vfs_close(inode_t* node) {
     }
 }
 
-void vfs_create(inode_t *node, const char *name) {
-    if (!node) return;
+inode_t *vfs_create(inode_t *node, const char *name) {
+    if (!node) return NULL;
 
-    if (node && node->ops->create) {
-        node->ops->create(node, name);
-    }
+    if (node && node->ops->create)
+        return node->ops->create(node, name);
+
+    return NULL;
 }
 
 inode_t *namei(const char *path) {

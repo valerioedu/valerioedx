@@ -73,6 +73,10 @@ int main() {
             char *path = strtok_r(NULL, " \t", &saveptr);
             char *argv[] = {"echo", path, NULL};
             run_command("/bin/echo", argv);
+        } else if (strcmp(cmd, "touch") == 0) {
+            char *path = strtok_r(NULL, " \t", &saveptr);
+            char *argv[] = {"touch", path, NULL};
+            run_command("/bin/touch", argv);
         } else {
             printf("Unknown command: %s\n", cmd);
         }

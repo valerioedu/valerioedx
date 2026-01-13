@@ -674,14 +674,6 @@ static inode_t* fat32_create_entry(inode_t* parent, const char* name, u8 attr) {
     fat32_file_t* parent_info = (fat32_file_t*)parent->ptr;
     fat32_fs_t* fs = parent_info->fs;
 
-    // Checks if entry already exists
-    inode_t* existing = fat32_lookup(parent, name);
-    if (existing) {
-        kfree(existing->ptr);
-        kfree(existing);
-        return NULL;  // Already exists
-    }
-    
     // Generates short name
     u8 short_name[11];
     generate_unique_short_name(fs, parent_info->first_cluster, name, short_name);
