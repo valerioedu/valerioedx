@@ -1,12 +1,11 @@
 #include <stdio.h>
 #include <dirent.h>
 #include <fcntl.h>
+#include <string.h>
 #include <unistd.h>
 
-int ls(char *path) {
-    if (path == NULL) {
-        path = ".";
-    }
+int main(int argc, char *argv[]) {
+    const char *path = (argc < 2) ? "." : argv[1];
     
     int fd = open(path, 0);
     if (fd < 0) {
@@ -34,4 +33,14 @@ int ls(char *path) {
     
     close(fd);
     return 0;
+}
+
+__attribute__((naked)) void _start() {
+    asm volatile(
+        "ldr x0, [sp]\n"        // x0 = argc
+        "add x1, sp, #8\n"      // x1 = &argv[0]
+        "bl main\n"
+        "mov x8, #1\n"
+        "svc #0\n"              // _exit(return value in x0)
+    );
 }

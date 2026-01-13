@@ -4,15 +4,29 @@
 #include <dirent.h>
 #include <fcntl.h>
 #include <sys/stat.h>
+#include <sys/wait.h>
 
-// Temporary until fork will work
-// Then fork and then execve the binaries
-extern int mkdir_cmd(const char *path);
-extern int rmdir_cmd(const char *path);
+// Built-in commands
 extern int cd(char *str);
 extern int pwd();
-extern int ls(char *path);
-extern int cat(const char *path);
+
+int run_command(const char *path, char *argv[]) {
+    pid_t pid = fork();
+    
+    if (pid == 0) {
+        char *envp[] = {NULL};
+        execve(path, argv, envp);
+        printf("%s: exec failed\n", argv[0]);
+        _exit(1);
+    } else if (pid > 0) {
+        int status;
+        wait(&status);
+        return status;
+    } else {
+        printf("fork failed\n");
+        return -1;
+    }
+}
 
 int main() {
     char buf[33];
@@ -35,22 +49,26 @@ int main() {
         if (strcmp(cmd, "cd") == 0) {
             char *path = strtok_r(NULL, " \t", &saveptr);
             cd(path);
-        } else if (strcmp("ls", cmd) == 0) {
-            char *path = strtok_r(NULL, " \t", &saveptr);
-            ls(path);
         } else if (strcmp(cmd, "exit") == 0) {
             break;
         } else if (strcmp(cmd, "pwd") == 0) {
             pwd();
+        } else if (strcmp(cmd, "ls") == 0) {
+            char *path = strtok_r(NULL, " \t", &saveptr);
+            char *argv[] = {"ls", path, NULL};
+            run_command("/bin/ls", argv);
         } else if (strcmp(cmd, "cat") == 0) {
             char *path = strtok_r(NULL, " \t", &saveptr);
-            cat(path);
-        }  else if (strcmp(cmd, "mkdir") == 0) {
+            char *argv[] = {"cat", path, NULL};
+            run_command("/bin/cat", argv);
+        } else if (strcmp(cmd, "mkdir") == 0) {
             char *path = strtok_r(NULL, " \t", &saveptr);
-            mkdir_cmd(path);
+            char *argv[] = {"mkdir", path, NULL};
+            run_command("/bin/mkdir", argv);
         } else if (strcmp(cmd, "rmdir") == 0) {
             char *path = strtok_r(NULL, " \t", &saveptr);
-            rmdir_cmd(path);
+            char *argv[] = {"rmdir", path, NULL};
+            run_command("/bin/rmdir", argv);
         } else {
             printf("Unknown command: %s\n", cmd);
         }

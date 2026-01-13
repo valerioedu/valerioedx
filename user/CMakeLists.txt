@@ -43,25 +43,52 @@ include_directories(
     ${CMAKE_CURRENT_SOURCE_DIR}/lib
 )
 
-file(GLOB_RECURSE INIT_SOURCES
-    ${CMAKE_CURRENT_SOURCE_DIR}/init.c
-    ${CMAKE_CURRENT_SOURCE_DIR}/commands/*.c
+file(GLOB_RECURSE LIB_SOURCES
     ${CMAKE_CURRENT_SOURCE_DIR}/src/*.c
 )
 
-add_executable(init.elf ${INIT_SOURCES})
+file(GLOB BUILTIN_COMMANDS
+    ${CMAKE_CURRENT_SOURCE_DIR}/commands/pwd.c
+    ${CMAKE_CURRENT_SOURCE_DIR}/commands/cd.c
+)
+
+add_executable(init.elf 
+    ${CMAKE_CURRENT_SOURCE_DIR}/init.c
+    ${LIB_SOURCES}
+    ${BUILTIN_COMMANDS}
+)
+
+macro(add_user_command name)
+    add_executable(${name}.elf
+        ${CMAKE_CURRENT_SOURCE_DIR}/commands/${name}.c
+        ${LIB_SOURCES}
+    )
+    set_target_properties(${name}.elf PROPERTIES
+        LINK_FLAGS "-Ttext=0x400000 -nostdlib"
+    )
+    list(APPEND USER_COMMANDS ${name}.elf)
+endmacro()
+
+add_user_command(cat)
+add_user_command(ls)
+add_user_command(mkdir)
+add_user_command(rmdir)
 
 option(VALERIOEDX_DEBUG "Enable DEBUG compile-time flag" OFF)
 
 set_target_properties(init.elf PROPERTIES
-    LINK_FLAGS " -Ttext=0x400000 -nostdlib"
+    LINK_FLAGS "-Ttext=0x400000 -nostdlib"
 )
 
 add_custom_target(copy
-    DEPENDS init.elf
+    DEPENDS init.elf cat.elf ls.elf mkdir.elf rmdir.elf
     COMMAND mcopy -i ../../kernel/arch/aarch64/disk.img ../lib/stdint.h ::/usr/include/stdint.h
     COMMAND mcopy -i ../../kernel/arch/aarch64/disk.img ../lib/stddef.h ::/usr/include/stddef.h
     COMMAND mcopy -i ../../kernel/arch/aarch64/disk.img ../lib/string.h ::/usr/include/string.h
     COMMAND mcopy -i ../../kernel/arch/aarch64/disk.img ../lib/unistd.h ::/usr/include/unistd.h
     COMMAND mcopy -i ../../kernel/arch/aarch64/disk.img init.elf ::/bin/init.elf
+    COMMAND mcopy -i ../../kernel/arch/aarch64/disk.img cat.elf ::/bin/cat
+    COMMAND mcopy -i ../../kernel/arch/aarch64/disk.img ls.elf ::/bin/ls
+    COMMAND mcopy -i ../../kernel/arch/aarch64/disk.img mkdir.elf ::/bin/mkdir
+    COMMAND mcopy -i ../../kernel/arch/aarch64/disk.img rmdir.elf ::/bin/rmdir
 )
