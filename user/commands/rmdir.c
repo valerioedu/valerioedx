@@ -17,7 +17,7 @@ int main(int argc, char *argv[]) {
     return 0;
 }
 
-__attribute__((naked)) void _start() {
+void _start() {
     asm volatile(
         "ldr x0, [sp]\n"        // x0 = argc
         "add x1, sp, #8\n"      // x1 = &argv[0]

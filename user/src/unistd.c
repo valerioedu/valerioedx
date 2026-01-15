@@ -59,6 +59,7 @@ _Noreturn void _exit(int status) {
     register u64 x8 asm("x8") = 1;
     asm volatile("svc #0"
         :: "r"(x0), "r"(x8) : "memory");
+    __builtin_unreachable();
 }
 
 pid_t getppid() {
@@ -90,7 +91,7 @@ int chdir(const char *path) {
     register u64 x8 asm("x8") = 12;
     asm volatile("svc #0"
         : "+r"(x0) : "r"(x8) : "memory");
-    return (int)x0;
+    return (int)(long)x0;
 }
 
 int fchdir(int fildes) {
@@ -110,7 +111,7 @@ int execve(const char *path, char *const argv[], char *const envp[]) {
                  : "+r"(x0)
                  : "r"(x1), "r"(x2), "r"(x8)
                  : "memory");
-    return (int)x0;
+    return (int)(long)x0;
 }
 
 int rmdir(const char *path) {
@@ -118,7 +119,7 @@ int rmdir(const char *path) {
     register uint64_t x8 asm("x8") = 137;
     asm volatile("svc #0"
         : "+r"(x0) : "r"(x8) : "memory");
-    return (int)x0;
+    return (int)(long)x0;
 }
 
 int unlink(const char *path) {
@@ -126,6 +127,6 @@ int unlink(const char *path) {
     register uint64_t x8 asm("x8") = 10;
     asm volatile("svc #0"
         : "+r"(x0) : "r"(x8) : "memory");
-    return (int)x0;
+    return (int)(long)x0;
 }
 //#endif

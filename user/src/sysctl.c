@@ -11,5 +11,5 @@ int sysctl(int *name, u_int namelen, void *oldp, size_t *oldlenp, void *newp, si
     asm volatile("svc #0"
         : "+r"(x0) : "r"(x1), "r"(x2), "r"(x3), "r"(x4), "r"(x5), "r"(x8)
         : "memory");
-    return (int)x0;
+    return (int)(long)x0;
 }

@@ -6,5 +6,5 @@ int open(const char *path, int oflag) {
     register unsigned short x8 asm("x8") = 5;
     asm volatile("svc #0"
         : "+r"(x0) : "r"(x1), "r"(x8) : "memory");
-    return (int)x0;
+    return (int)(long)x0;
 }

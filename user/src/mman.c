@@ -6,7 +6,7 @@ int munmap(void *addr, size_t len) {
     register long x8 asm("x8") = 73;
     asm volatile("svc #0"
         : "+r"(x0) : "r"(x1), "r"(x8) : "memory");
-    return (int)x0;
+    return (int)(long)x0;
 }
 
 void *mmap(void *addr, size_t len, int prot, int flags,
