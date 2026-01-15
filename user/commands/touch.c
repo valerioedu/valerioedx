@@ -8,11 +8,6 @@ int main(int argc, char **argv) {
         return 1;
     }
 
-    // Try to open with O_CREAT. 
-    // If it doesn't exist, it is created.
-    // If it does exist, it opens successfully (and we just close it).
-    // Note: Standard touch updates timestamps, but your filesystem
-    // needs to support timestamp updates for that to be fully effective.
     int fd = open(argv[1], O_CREAT | O_RDWR);
     
     if (fd < 0) {

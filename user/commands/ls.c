@@ -10,7 +10,7 @@ int main(int argc, char *argv[]) {
     int fd = open(path, 0);
     if (fd < 0) {
         printf("ls: cannot access '%s': No such file or directory\n", path);
-        return -1;
+        return 1;
     }
     
     char buf[1024];
@@ -24,7 +24,9 @@ int main(int argc, char *argv[]) {
             struct dirent *entry = (struct dirent*)ptr;
             
             // Skip entries with inode 0
-            if (entry->d_ino != 0)
+            if (entry->d_ino != 0 &&
+                    strcmp(entry->d_name, ".") != 0 &&
+                    strcmp(entry->d_name, "..") != 0)
                 printf("%s\n", entry->d_name);
             
             ptr += entry->d_reclen;

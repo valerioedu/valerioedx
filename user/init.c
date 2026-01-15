@@ -14,13 +14,13 @@ extern int pwd();
 int rmdir_cmd(const char *path) {
     if (path == NULL) {
         printf("rmdir: missing operand\n");
-        return -1;
+        return 1;
     }
     
     int ret = rmdir(path);
     if (ret < 0) {
         printf("rmdir: failed to remove '%s'\n", path);
-        return -1;
+        return 1;
     }
     
     return 0;
@@ -46,10 +46,10 @@ int run_command(const char *path, char *argv[]) {
 
 int main() {
     char buf[33];
-    char dir[16];
+    char dir[64];
     
     while (1) {
-        printf("valerioedx:%s$ ", getcwd(dir, 16));
+        printf("valerioedx:%s$ ", getcwd(dir, 64));
         fflush(stdout);
         fgets(buf, 32, stdin);
         buf[strcspn(buf, "\n")] = '\0';
