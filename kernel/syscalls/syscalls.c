@@ -27,7 +27,7 @@ typedef struct stat {
 #define SYS_WRITE           4
 #define SYS_OPEN            5
 #define SYS_CLOSE           6
-#define SYS_WAIT            7
+#define SYS_WAIT3           7
 #define SYS_CHDIR           12
 #define SYS_FCHDIR          13
 #define SYS_LSEEK           19
@@ -55,7 +55,7 @@ extern i64 sys_getppid();
 extern i64 sys_open(const char *path, int flags);
 extern i64 sys_close(int fd);
 extern void sys_exit(int code);
-extern i64 sys_wait(int *status);
+extern i64 sys_wait3(i64 pid, int *status, int options);
 extern i64 sys_stat(const char *path, stat_t *statbuf);
 extern i64 sys_lstat(const char *path, stat_t *statbuf);
 extern i64 sys_dup(int oldfd);
@@ -85,42 +85,19 @@ i64 sys_0() {
     return 0;
 }
 
-static syscalls_fn_t syscall_table[MAX_SYSCALLS] = {
-    [0 ... MAX_SYSCALLS - 1] = (syscalls_fn_t)sys_not_implemented,
-    [0]                      = (syscalls_fn_t)sys_0,
-    [SYS_EXIT]               = (syscalls_fn_t)sys_exit,
-    [SYS_FORK]               = (syscalls_fn_t)sys_fork,
-    [SYS_READ]               = (syscalls_fn_t)sys_read,
-    [SYS_WRITE]              = (syscalls_fn_t)sys_write,
-    [SYS_OPEN]               = (syscalls_fn_t)sys_open,
-    [SYS_CLOSE]              = (syscalls_fn_t)sys_close,
-    [SYS_WAIT]               = (syscalls_fn_t)sys_wait,
-    [SYS_CHDIR]              = (syscalls_fn_t)sys_chdir,
-    [SYS_FCHDIR]             = (syscalls_fn_t)sys_fchdir,
-    [SYS_LSEEK]              = (syscalls_fn_t)sys_lseek,
-    [SYS_GETPID]             = (syscalls_fn_t)sys_getpid,
-    [SYS_GETPPID]            = (syscalls_fn_t)sys_getppid,
-    [SYS_DUP]                = (syscalls_fn_t)sys_dup,
-    [SYS_EXECVE]             = (syscalls_fn_t)sys_execve,
-    [SYS_GETCWD]             = (syscalls_fn_t)sys_getcwd,
-    [SYS_DUP2]               = (syscalls_fn_t)sys_dup2,
-    [SYS_MKDIR]              = (syscalls_fn_t)sys_mkdir,
-    [SYS_RMDIR]              = (syscalls_fn_t)sys_rmdir,
-    [SYS_GETDIRENTRIES]      = (syscalls_fn_t)sys_getdirentries
-};
-
 i64 syscall_handler(trapframe_t *tf, u64 syscall_num, u64 arg0, u64 arg1, u64 arg2, u64 arg3, u64 arg4, u64 arg5) {
     if (syscall_num >= MAX_SYSCALLS)
         return -1; // -ENOSYS
 
     switch (syscall_num) {
+        case 0: return sys_0(); break;
         case SYS_EXIT: sys_exit(arg0); return 0;
         case SYS_FORK: return sys_fork(tf); break;
         case SYS_READ: return sys_read((u32)arg0, (char*)arg1, (size_t)arg2); break;
         case SYS_WRITE: return sys_write((u32)arg0, (const char*)arg1, (size_t)arg2); break;
         case SYS_OPEN: return sys_open((const char*)arg0, (int)arg1); break;
         case SYS_CLOSE: return sys_close((int)arg0); break;
-        case SYS_WAIT: return sys_wait((int*)arg0); break;
+        case SYS_WAIT3: return sys_wait3((i64)arg0, (int*)arg1, (int)arg2); break;
         case SYS_CHDIR: return sys_chdir((const char*)arg0); break;
         case SYS_FCHDIR: return sys_fchdir((int)arg0); break;
         case SYS_LSEEK: return sys_lseek((int)arg0, (i64)arg1, (int)arg2); break;

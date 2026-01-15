@@ -165,7 +165,7 @@ void sys_exit(int code) {
 #define __WIFEXITED(status)    (((status) & 0x7f) == 0)
 #define __WEXITSTATUS(status)  (((status) & 0xff00) >> 8)
 
-i64 sys_waitpid(i64 pid, int *status, int options) {
+i64 sys_wait3(i64 pid, int *status, int options) {
     process_t *proc = current_task->proc;
     if (!proc) return -1;
 
