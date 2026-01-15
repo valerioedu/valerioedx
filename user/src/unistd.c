@@ -120,4 +120,12 @@ int rmdir(const char *path) {
         : "+r"(x0) : "r"(x8) : "memory");
     return (int)x0;
 }
+
+int unlink(const char *path) {
+    register const char *x0 asm("x0") = path;
+    register uint64_t x8 asm("x8") = 10;
+    asm volatile("svc #0"
+        : "+r"(x0) : "r"(x8) : "memory");
+    return (int)x0;
+}
 //#endif

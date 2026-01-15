@@ -16,5 +16,6 @@ int chdir(const char *path);
 int fchdir(int fildes);
 int execve(const char *path, char *const argv[], char *const envp[]);
 int rmdir(const char *path);
+int unlink(const char *path);
 
 #endif

@@ -28,6 +28,7 @@ typedef struct stat {
 #define SYS_OPEN            5
 #define SYS_CLOSE           6
 #define SYS_WAIT3           7
+#define SYS_UNLINK          10
 #define SYS_CHDIR           12
 #define SYS_FCHDIR          13
 #define SYS_LSEEK           19
@@ -60,6 +61,7 @@ extern i64 sys_stat(const char *path, stat_t *statbuf);
 extern i64 sys_lstat(const char *path, stat_t *statbuf);
 extern i64 sys_dup(int oldfd);
 extern i64 sys_execve(const char* path, const char* argv[], const char* envp[]);
+extern i64 sys_unlink(const char *path);
 extern i64 sys_chdir(const char *path);
 extern i64 sys_fchdir(int fd);
 extern i64 sys_lseek(int fd, i64 offset, int whence);
@@ -98,6 +100,7 @@ i64 syscall_handler(trapframe_t *tf, u64 syscall_num, u64 arg0, u64 arg1, u64 ar
         case SYS_OPEN: return sys_open((const char*)arg0, (int)arg1); break;
         case SYS_CLOSE: return sys_close((int)arg0); break;
         case SYS_WAIT3: return sys_wait3((i64)arg0, (int*)arg1, (int)arg2); break;
+        case SYS_UNLINK: return sys_unlink((const char*)arg0); break;
         case SYS_CHDIR: return sys_chdir((const char*)arg0); break;
         case SYS_FCHDIR: return sys_fchdir((int)arg0); break;
         case SYS_LSEEK: return sys_lseek((int)arg0, (i64)arg1, (int)arg2); break;

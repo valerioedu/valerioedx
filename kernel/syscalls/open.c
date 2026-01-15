@@ -112,3 +112,58 @@ i64 sys_close(int fd) {
 
     return 0;
 }
+
+i64 sys_unlink(const char *path) {
+    if (!path) return -1;
+
+    char *kpath = kmalloc(256);
+    if (!kpath) return -1;
+
+    if (copy_string_from_user(kpath, path, 256) != 0) {
+        kfree(kpath);
+        return -1;
+    }
+
+    char *parent_path = kmalloc(256);
+    char *filename = kmalloc(256);
+    if (!parent_path || !filename) {
+        kfree(kpath);
+        kfree(parent_path);
+        kfree(filename);
+        return -1;
+    }
+
+    char *last_slash = strrchr(kpath, '/');
+
+    if (last_slash) {
+        if (last_slash == kpath)
+            strcpy(parent_path, "/");
+
+        else {
+            size_t len = last_slash - kpath;
+            strncpy(parent_path, kpath, len);
+            parent_path[len] = '\0';
+        }
+        
+        strcpy(filename, last_slash + 1);
+    } else {
+        strcpy(parent_path, ".");
+        strcpy(filename, kpath);
+    }
+
+    inode_t *parent = namei(parent_path);
+    if (!parent) {
+        kfree(kpath);
+        kfree(parent_path);
+        kfree(filename);
+        return -1;
+    }
+
+    i64 ret = vfs_unlink(parent, filename);
+
+    vfs_close(parent);
+    kfree(kpath);
+    kfree(parent_path);
+    kfree(filename);
+    return ret;
+}

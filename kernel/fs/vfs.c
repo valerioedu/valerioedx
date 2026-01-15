@@ -93,6 +93,16 @@ inode_t *vfs_create(inode_t *node, const char *name) {
     return NULL;
 }
 
+int vfs_unlink(struct vfs_node *parent, const char *name) {
+    if (!parent || !name)
+        return -1;
+
+    if (parent && parent->ops->unlink)
+        return parent->ops->unlink(parent, name);
+
+    return -1;
+}
+
 inode_t *namei(const char *path) {
     if (!vfs_root || !path) return NULL;
 
