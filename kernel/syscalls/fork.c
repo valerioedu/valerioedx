@@ -156,43 +156,98 @@ void sys_exit(int code) {
     while(1);
 }
 
-i64 sys_wait(int *status) {
+// waitpid options flags
+#define WNOHANG    0x00000001  // Don't block if no child has exited
+#define WUNTRACED  0x00000002  // Also return for stopped children
+#define WCONTINUED 0x00000008  // Also return for continued children
+
+#define __W_EXITCODE(ret, sig) ((ret) << 8 | (sig))
+#define __WIFEXITED(status)    (((status) & 0x7f) == 0)
+#define __WEXITSTATUS(status)  (((status) & 0xff00) >> 8)
+
+i64 sys_waitpid(i64 pid, int *status, int options) {
+    process_t *proc = current_task->proc;
+    if (!proc) return -1;
+
     while (true) {
         u32 flags = spinlock_acquire_irqsave(&sched_lock);
 
-        process_t *proc = current_task->proc;
         process_t *child = proc->child;
         process_t *prev = NULL;
-        bool has_children = false;
+        process_t *target = NULL;
+        bool has_matching_children = false;
 
         while (child) {
-            has_children = true;
+            bool matches = false;
 
-            if (child->state == PROCESS_ZOMBIE) {
-                if (status) *status = child->exit_code;
+            if (pid > 0)
+                matches = (child->pid == (u64)pid);
+            
+            else if (pid == -1)
+                matches = true;
+            
+            //TODO: Implement process groups
+            else if (pid == 0)
+                matches = true;
+            
+            else if (pid < -1)
+                matches = true;
 
-                u64 zombie_pid = child->pid;
+            if (matches) {
+                has_matching_children = true;
 
-                if (prev) prev->sibling = child->sibling;
-                else proc->child = child->sibling;
-
-                spinlock_release_irqrestore(&sched_lock, flags);
-                kfree(child);
-
-                return zombie_pid;
+                if (child->state == PROCESS_ZOMBIE) {
+                    target = child;
+                    break;
+                }
             }
 
             prev = child;
             child = child->sibling;
         }
 
-        if (!has_children) {
+        if (target) {
+            if (status)
+                *status = __W_EXITCODE(target->exit_code, 0);
+
+            u64 zombie_pid = target->pid;
+
+            if (prev) {
+                process_t *p = proc->child;
+                process_t *pp = NULL;
+                while (p && p != target) {
+                    pp = p;
+                    p = p->sibling;
+                }
+
+                if (pp) pp->sibling = target->sibling;
+                else proc->child = target->sibling;
+            } else {
+                proc->child = target->sibling;
+            }
+
             spinlock_release_irqrestore(&sched_lock, flags);
-            return -1;  //ECHILD
+            
+            // Clean up the zombie
+            if (target->mm) mm_destroy(target->mm);
+            kfree(target);
+
+            return zombie_pid;
         }
-        
+
+        if (!has_matching_children) {
+            spinlock_release_irqrestore(&sched_lock, flags);
+            return -1;  // -ECHILD
+        }
+
+        // WNOHANG: return immediately if no child has exited
+        if (options & WNOHANG) {
+            spinlock_release_irqrestore(&sched_lock, flags);
+            return 0;  // No child has exited yet
+        }
+
         spinlock_release_irqrestore(&sched_lock, flags);
-        sleep_on(&proc->wait_queue, &sched_lock);
+        sleep_on(&proc->wait_queue, NULL);
     }
 }
 

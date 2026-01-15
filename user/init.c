@@ -36,7 +36,7 @@ int run_command(const char *path, char *argv[]) {
         _exit(1);
     } else if (pid > 0) {
         int status;
-        wait(&status);
+        waitpid(pid, &status, 0);
         return status;
     } else {
         printf("fork failed\n");
