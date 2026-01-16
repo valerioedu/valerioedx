@@ -150,7 +150,13 @@ inode_t *namei(const char *path) {
             continue;
         }
 
-        inode_t* next = current->ops->lookup(current, token);
+        inode_t* next = NULL;
+        if (current == vfs_root && strcmp(token, "dev") == 0) {
+            next = devfs_get_root();
+            vfs_retain(next); 
+        } else {
+            next = current->ops->lookup(current, token);
+        }
 
         if (!next) {
             vfs_close(current);

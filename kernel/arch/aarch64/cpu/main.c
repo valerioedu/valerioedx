@@ -23,6 +23,7 @@ u64 *fwcfg = (u64*)0x09020000;
 u64 *virtio = (u64*)0x0A000000;
 
 u64 boot_time = 0;
+bool sgntr = false;
 
 void signature() {
     u8 *buf = (u8*)kmalloc(512);
@@ -44,6 +45,7 @@ void signature() {
     }
 
     if (match) {
+        sgntr = true;
         kprintf("[ [GVirtIO [W] Disk signature found\n");
     } else {
         kprintf("[ [RVirtIO [W] No signature found (First run or clean disk).\n");
@@ -144,6 +146,7 @@ void main() {
     uart_init();
     virtio_init();
     gic_enable_irq(30);
+    uart += PHYS_OFFSET;
 #ifdef DEBUG
     timer_init(1000);
 #else

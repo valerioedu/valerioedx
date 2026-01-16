@@ -48,6 +48,10 @@ inode_t *defvs_lookup(inode_t *node, const char *name) {
     return devfs_fetch_device(name);
 }
 
+void devfs_open(inode_t *node) {
+
+}
+
 int devfs_readdir(inode_t* node, int index, char* namebuf, int buflen, int* is_dir) {
     if (index < 0) return 0;
 
@@ -84,15 +88,12 @@ int devfs_readdir(inode_t* node, int index, char* namebuf, int buflen, int* is_d
     return 0;
 }
 
-static inode_ops devfs_root_ops = {
-    .lookup = defvs_lookup,
-    .readdir = devfs_readdir
-};
+inode_ops devfs_root_ops = { 0 };
 
-static inode_t devfs_root_node = {
-    .name = "devfs",
+inode_t devfs_root_node = {
+    .name = "DEV",
     .flags = FS_DIRECTORY,
-    .ops = &devfs_root_ops,
+    .ops = NULL,
     .id = 0,
     .size = 0,
     .mount_point = NULL
@@ -133,6 +134,10 @@ inode_t *devfs_fetch_device(const char* name) {
 }
 
 void devfs_init() {
+    devfs_root_ops.open = devfs_open;
+    devfs_root_ops.lookup = defvs_lookup;
+    devfs_root_ops.readdir = devfs_readdir;
+    devfs_root_node.ops = &devfs_root_ops;
     device_head = NULL;
     dev_count = 0;
 #ifdef ARM

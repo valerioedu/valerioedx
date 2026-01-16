@@ -43,11 +43,12 @@ void kmain() {
 
             inode_t* dev_dir = vfs_lookup("/dev");
 
-            if (!dev_dir) {
-                 if (root_fs->ops && root_fs->ops->mkdir) {
+            extern bool sgntr;
+            if (!sgntr) {
+                if (root_fs->ops && root_fs->ops->mkdir) {
                     kprintf("[ [CKMAIN [W] /dev not detected\n");
-                    dev_dir = root_fs->ops->mkdir(root_fs, "dev");
-                 }
+                    dev_dir = root_fs->ops->mkdir(root_fs, "DEV");
+                }
             }
 
             if (dev_dir) {
