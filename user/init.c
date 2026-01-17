@@ -6,6 +6,9 @@
 #include <sys/stat.h>
 #include <sys/wait.h>
 
+#define MAX_CMD_LEN 1024
+#define MAX_ARGS 64
+
 // Built-in commands
 extern int cd(char *str);
 extern int pwd();
@@ -26,13 +29,21 @@ int rmdir_cmd(const char *path) {
     return 0;
 }
 
-int run_command(const char *path, char *argv[]) {
+int run_command(const char *cmd, char *argv[]) {
     pid_t pid = fork();
-    
+
     if (pid == 0) {
         char *envp[] = {NULL};
+        char path[256];
+        snprintf(path, sizeof(path), "/bin/%s", cmd);
         execve(path, argv, envp);
-        printf("%s: exec failed\n", argv[0]);
+        snprintf(path, sizeof(path), "/sbin/%s", cmd);
+        execve(path, argv, envp);
+        snprintf(path, sizeof(path), "/usr/bin/%s", cmd);
+        execve(path, argv, envp);
+        snprintf(path, sizeof(path), "/usr/sbin/%s", cmd);
+        execve(path, argv, envp);
+        printf("command not found: %s\n", argv[0]);
         _exit(1);
     } else if (pid > 0) {
         int status;
@@ -45,60 +56,50 @@ int run_command(const char *path, char *argv[]) {
 }
 
 int main() {
-    char buf[33];
-    char dir[64];
-    
+    char buf[MAX_CMD_LEN];
+    char dir[128];
+    char *argv[MAX_ARGS];
+    int argc;
+
     while (1) {
-        printf("valerioedx:%s$ ", getcwd(dir, 64));
+        if (getcwd(dir, sizeof(dir)) != NULL)
+            printf("valerioedx:%s$ ", dir);
+
+        else printf("valerioedx:?$ ");
         fflush(stdout);
-        fgets(buf, 32, stdin);
+
+        if (fgets(buf, sizeof(buf), stdin) == NULL) break;
+        
         buf[strcspn(buf, "\n")] = '\0';
         
         // Skip empty commands
         if (buf[0] == '\0') continue;
-        
+
+        argc = 0;
         char *saveptr;
-        char *cmd = strtok_r(buf, " \t", &saveptr);
-        
-        if (cmd == NULL) continue;
-        
-        if (strcmp(cmd, "cd") == 0) {
-            char *path = strtok_r(NULL, " \t", &saveptr);
-            cd(path);
-        } else if (strcmp(cmd, "exit") == 0) {
-            break;
-        } else if (strcmp(cmd, "pwd") == 0) {
-            pwd();
-        } else if (strcmp(cmd, "rmdir") == 0) {
-            char *path = strtok_r(NULL, " \t", &saveptr);
-            rmdir_cmd(path);
-        } else if (strcmp(cmd, "ls") == 0) {
-            char *path = strtok_r(NULL, " \t", &saveptr);
-            char *argv[] = {"ls", path, NULL};
-            run_command("/bin/ls", argv);
-        } else if (strcmp(cmd, "cat") == 0) {
-            char *path = strtok_r(NULL, " \t", &saveptr);
-            char *argv[] = {"cat", path, NULL};
-            run_command("/bin/cat", argv);
-        } else if (strcmp(cmd, "mkdir") == 0) {
-            char *path = strtok_r(NULL, " \t", &saveptr);
-            char *argv[] = {"mkdir", path, NULL};
-            run_command("/bin/mkdir", argv);
-        } else if (strcmp(cmd, "echo") == 0) {
-            char *path = strtok_r(NULL, " \t", &saveptr);
-            char *argv[] = {"echo", path, NULL};
-            run_command("/bin/echo", argv);
-        } else if (strcmp(cmd, "touch") == 0) {
-            char *path = strtok_r(NULL, " \t", &saveptr);
-            char *argv[] = {"touch", path, NULL};
-            run_command("/bin/touch", argv);
-        } else if (strcmp(cmd, "rm") == 0) {
-            char *path = strtok_r(NULL, " \t", &saveptr);
-            char *argv[] = {"rm", path, NULL};
-            run_command("/bin/rm", argv);
-        } else {
-            printf("Unknown command: %s\n", cmd);
+        char *token = strtok_r(buf, " \t", &saveptr);
+        while (token != NULL && argc < MAX_ARGS - 1) {
+            argv[argc++] = token;
+            token = strtok_r(NULL, " \t", &saveptr);
         }
+
+        argv[argc] = NULL;
+
+        if (argc == 0) continue;
+        if (strcmp(argv[0], "exit") == 0)
+            break;
+
+        else if (strcmp(argv[0], "cd") == 0)
+            cd(argv[1]);
+
+        else if (strcmp(argv[0], "pwd") == 0)
+            pwd();
+
+        else if (strcmp(argv[0], "rmdir") == 0)
+            rmdir_cmd(argv[1]);
+
+        else 
+            run_command(argv[0], argv);
     }
 
     while (1) asm volatile("wfi");

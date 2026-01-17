@@ -1,5 +1,6 @@
 #include <unistd.h>
 #include <string.h>
+#include <stdio.h>
 
 int main(int argc, char *argv[]) {
     if (argc < 2) {
@@ -7,10 +8,11 @@ int main(int argc, char *argv[]) {
         return 0;
     }
 
-    for (int i = 1; i < argc; i++)
-        write(1, argv[i], strlen(argv[i]));
-
-    write(1, "\n", 1);
+    for (int i = 1; i < argc - 1; i++)
+        printf("%s ", argv[i]);
+    
+    printf("%s\n", argv[argc - 1]);
+    fflush(stdout);
 
     return 0;
 }

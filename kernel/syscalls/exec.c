@@ -273,10 +273,8 @@ i64 sys_execve(const char* path, const char* argv[], const char* envp[]) {
     }
 
     inode_t* file = namei(kpath);
-    if (!file) {
-        kprintf("[ [REXEC [W] File not found: %s\n", path);
+    if (!file)
         return -1;
-    }
 
     process_t* proc = current_task->proc;
     if (!proc) {
