@@ -306,6 +306,34 @@ int vfprintf(FILE *stream, const char *format, va_list ap) {
 
                 break;
             }
+            case 'f': {
+                double num = va_arg(ap, double);
+                if (num < 0) {
+                    fputc('-', stream);
+                    count++;
+                    num = -num;
+                }
+                
+                long int_part = (long)num;
+                double frac = num - (double)int_part;
+                frac += 0.5e-6;
+
+                _uitoa((unsigned long)int_part, numbuf, 10, false);
+                for (char *s = numbuf; *s; s++) {
+                    fputc(*s, stream);
+                    count++;
+                }
+
+                fputc('.', stream); count++;
+                for (int i = 0; i < 6; i++) {
+                    frac *= 10.0;
+                    int digit = (int)frac;
+                    fputc('0' + digit, stream); count++;
+                    frac -= digit;
+                }
+
+                break;
+            }
             case 's': {
                 char *s = va_arg(ap, char *);
                 if (!s) s = "(null)";
@@ -382,4 +410,219 @@ int printf(const char *restrict format, ...) {
 
 int vprintf(const char *format, va_list ap) {
     return vfprintf(stdout, format, ap);
+}
+
+int vsnprintf(char *str, size_t size, const char *format, va_list ap) {
+    size_t idx = 0;
+    int total = 0;
+    char numbuf[32];
+
+    for (const char *p = format; *p; p++) {
+        if (*p != '%') {
+            if (size > 0 && idx < size - 1) str[idx] = *p;
+            idx++;
+            total++;
+            continue;
+        }
+
+        p++;
+        if (!*p) break;
+
+        switch (*p) {
+            case 'd':
+            case 'i': {
+                int n = va_arg(ap, int);
+                _itoa(n, numbuf, 10, false);
+                for (char *s = numbuf; *s; s++) {
+                    if (size > 0 && idx < size - 1)
+                        str[idx] = *s;
+                    
+                    idx++; total++;
+                }
+
+                break;
+            }
+            case 'u': {
+                unsigned int n = va_arg(ap, unsigned int);
+                _uitoa(n, numbuf, 10, false);
+                for (char *s = numbuf; *s; s++) {
+                    if (size > 0 && idx < size - 1)
+                        str[idx] = *s;
+                    
+                    idx++; total++;
+                }
+
+                break;
+            }
+            case 'x': {
+                unsigned int n = va_arg(ap, unsigned int);
+                _uitoa(n, numbuf, 16, false);
+                for (char *s = numbuf; *s; s++) {
+                    if (size > 0 && idx < size - 1)
+                        str[idx] = *s;
+                    
+                    idx++; total++;
+                }
+
+                break;
+            }
+            case 'X': {
+                unsigned int n = va_arg(ap, unsigned int);
+                _uitoa(n, numbuf, 16, true);
+                for (char *s = numbuf; *s; s++) {
+                    if (size > 0 && idx < size - 1)
+                        str[idx] = *s;
+                    
+                    idx++; total++;
+                }
+
+                break;
+            }
+            case 'p': {
+                void *ptr = va_arg(ap, void *);
+                if (size > 0 && idx < size - 1)
+                    str[idx] = '0';
+                    
+                idx++; total++;
+                
+                if (size > 0 && idx < size - 1)
+                    str[idx] = 'x';
+                    
+                idx++; total++;
+                
+                _uitoa((unsigned long)ptr, numbuf, 16, false);
+                for (char *s = numbuf; *s; s++) {
+                    if (size > 0 && idx < size - 1)
+                        str[idx] = *s;
+                    
+                    idx++; total++;
+                }
+
+                break;
+            }
+            case 'f': {
+                double num = va_arg(ap, double);
+                if (num < 0) {
+                    if (size > 0 && idx < size - 1)
+                        str[idx] = '-';
+                    
+                    idx++; total++;
+                    num = -num;
+                }
+
+                long int_part = (long)num;
+                double frac = num - (double)int_part;
+                frac += 0.5e-6;
+
+                _uitoa((unsigned long)int_part, numbuf, 10, false);
+                for (char *s = numbuf; *s; s++) {
+                    if (size > 0 && idx < size - 1)
+                        str[idx] = *s;
+                        
+                    idx++; total++;
+                }
+
+                if (size > 0 && idx < size - 1)
+                    str[idx] = '.'; 
+                
+                idx++; total++;
+                for (int i = 0; i < 6; i++) {
+                    frac *= 10.0;
+                    int digit = (int)frac;
+                    if (size > 0 && idx < size - 1)
+                        str[idx] = '0' + digit;
+                    
+                    idx++; total++;
+                    frac -= digit;
+                }
+
+                break;
+            }
+            case 's': {
+                char *s = va_arg(ap, char *);
+                if (!s) s = "(null)";
+                while (*s) {
+                    if (size > 0 && idx < size - 1)
+                        str[idx] = *s;
+                    
+                    idx++; total++; s++;
+                }
+
+                break;
+            }
+            case 'c': {
+                int c = va_arg(ap, int);
+                if (size > 0 && idx < size - 1)
+                    str[idx] = c;
+                
+                idx++; total++;
+                break;
+            }
+            case '%':
+                if (size > 0 && idx < size - 1)
+                    str[idx] = '%';
+
+                idx++; total++;
+                break;
+            case 'l': {
+                p++;
+                if (*p == 'd' || *p == 'i') {
+                    long n = va_arg(ap, long);
+                    _itoa(n, numbuf, 10, false);
+                    for (char *s = numbuf; *s; s++) {
+                        if (size > 0 && idx < size - 1)
+                            str[idx] = *s;
+                            
+                        idx++; total++;
+                    }
+                } else if (*p == 'u') {
+                    unsigned long n = va_arg(ap, unsigned long);
+                    _uitoa(n, numbuf, 10, false);
+                    for (char *s = numbuf; *s; s++) {
+                        if (size > 0 && idx < size - 1)
+                            str[idx] = *s;
+                        
+                        idx++; total++;
+                    }
+                } else if (*p == 'x') {
+                    unsigned long n = va_arg(ap, unsigned long);
+                    _uitoa(n, numbuf, 16, false);
+                    for (char *s = numbuf; *s; s++) {
+                        if (size > 0 && idx < size - 1)
+                            str[idx] = *s;
+                        
+                        idx++; total++;
+                    }
+                }
+
+                break;
+            }
+            default:
+                if (size > 0 && idx < size - 1)
+                    str[idx] = '%';
+                
+                idx++; total++;
+
+                if (size > 0 && idx < size - 1)
+                    str[idx] = *p;
+                
+                idx++; total++;
+                break;
+        }
+    }
+
+    if (size > 0) {
+        if (idx < size) str[idx < size ? idx : size - 1] = '\0';
+        else str[size - 1] = '\0';
+    }
+
+    return total;
+}
+
+int snprintf(char *str, size_t size, const char *format, ...) {
+    va_list ap;
+    va_start(ap, format);
+    int ret = vsnprintf(str, size, format, ap);
+    va_end(ap);
+    return ret;
 }
