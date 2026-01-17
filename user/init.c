@@ -1,49 +1,15 @@
 #include <unistd.h>
-#include <string.h>
-#include <stdio.h>
-#include <dirent.h>
-#include <fcntl.h>
-#include <sys/stat.h>
 #include <sys/wait.h>
+#include <stdio.h>
 
-#define MAX_CMD_LEN 1024
-#define MAX_ARGS 64
-
-// Built-in commands
-extern int cd(char *str);
-extern int pwd();
-
-// Temporary
-int rmdir_cmd(const char *path) {
-    if (path == NULL) {
-        printf("rmdir: missing operand\n");
-        return 1;
-    }
-    
-    int ret = rmdir(path);
-    if (ret < 0) {
-        printf("rmdir: failed to remove '%s'\n", path);
-        return 1;
-    }
-    
-    return 0;
-}
-
-int run_command(const char *cmd, char *argv[]) {
+int main() {
     pid_t pid = fork();
 
     if (pid == 0) {
+        char *argv[] = {"sh", NULL};
         char *envp[] = {NULL};
-        char path[256];
-        snprintf(path, sizeof(path), "/bin/%s", cmd);
-        execve(path, argv, envp);
-        snprintf(path, sizeof(path), "/sbin/%s", cmd);
-        execve(path, argv, envp);
-        snprintf(path, sizeof(path), "/usr/bin/%s", cmd);
-        execve(path, argv, envp);
-        snprintf(path, sizeof(path), "/usr/sbin/%s", cmd);
-        execve(path, argv, envp);
-        printf("command not found: %s\n", argv[0]);
+        
+        execve("/bin/sh", argv, envp);
         _exit(1);
     } else if (pid > 0) {
         int status;
@@ -53,56 +19,36 @@ int run_command(const char *cmd, char *argv[]) {
         printf("fork failed\n");
         return -1;
     }
-}
-
-int main() {
-    char buf[MAX_CMD_LEN];
-    char dir[128];
-    char *argv[MAX_ARGS];
-    int argc;
 
     while (1) {
-        if (getcwd(dir, sizeof(dir)) != NULL)
-            printf("valerioedx:%s$ ", dir);
+        int status;
+        pid_t zombie = wait(&status);
 
-        else printf("valerioedx:?$ ");
-        fflush(stdout);
+        if (zombie > 0) {
+            // TODO: Print a log if the shell itself crashes
+            if (zombie == pid) {
+                //TODO: Implement login and launch it here
+                printf("init: shell exited (pid %d).\n", zombie);
+                pid_t pid = fork();
 
-        if (fgets(buf, sizeof(buf), stdin) == NULL) break;
-        
-        buf[strcspn(buf, "\n")] = '\0';
-        
-        // Skip empty commands
-        if (buf[0] == '\0') continue;
-
-        argc = 0;
-        char *saveptr;
-        char *token = strtok_r(buf, " \t", &saveptr);
-        while (token != NULL && argc < MAX_ARGS - 1) {
-            argv[argc++] = token;
-            token = strtok_r(NULL, " \t", &saveptr);
-        }
-
-        argv[argc] = NULL;
-
-        if (argc == 0) continue;
-        if (strcmp(argv[0], "exit") == 0)
-            break;
-
-        else if (strcmp(argv[0], "cd") == 0)
-            cd(argv[1]);
-
-        else if (strcmp(argv[0], "pwd") == 0)
-            pwd();
-
-        else if (strcmp(argv[0], "rmdir") == 0)
-            rmdir_cmd(argv[1]);
-
-        else 
-            run_command(argv[0], argv);
+                if (pid == 0) {
+                    char *argv[] = {"sh", NULL};
+                    char *envp[] = {NULL};
+                    
+                    execve("/bin/sh", argv, envp);
+                    _exit(1);
+                } else if (pid > 0) {
+                    int status;
+                    waitpid(pid, &status, 0);
+                    return status;
+                } else {
+                    printf("fork failed\n");
+                    return -1;
+                }
+            }
+        } else  asm volatile("wfi");
     }
 
-    while (1) asm volatile("wfi");
     return 0;
 }
 
