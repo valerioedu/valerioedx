@@ -1,4 +1,5 @@
 #include <string.h>
+#include <stdlib.h>
 
 void *memccpy(void *restrict s1, const void *restrict s2, int c, size_t n) {
     unsigned char *d = (unsigned char *)s1;
@@ -153,6 +154,17 @@ char* strcpy(char* restrict dest, const char* restrict src) {
     char* d = dest;
     while ((*d++ = *src++));
     return dest;
+}
+
+char *strdup(const char *s) {
+    if (s == NULL) return NULL;
+
+    size_t len = strlen(s) + 1;
+    char *d = malloc(len);
+    if (!d) return NULL;
+
+    memcpy(d, s, len);
+    return d;
 }
 
 size_t strlen(const char *s) {
