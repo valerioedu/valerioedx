@@ -22,7 +22,8 @@ extern FILE *stdin;
 extern FILE *stdout;
 extern FILE *stderr;
 
-int fgetc(FILE *stream);
+int getc(FILE *stream);
+int ungetc(int c, FILE *stream);
 int fputc(int c, FILE *stream);
 int getchar(void);
 int putchar(int c);
@@ -37,6 +38,10 @@ int printf(const char *restrict format, ...);
 int fprintf(FILE *stream, const char *format, ...);
 int vprintf(const char *format, va_list ap);
 int vfprintf(FILE *stream, const char *format, va_list ap);
+int scanf(const char *restrict format, ...);
+int fscanf(FILE *stream, const char *restrict format, ...);
+int vfscanf(FILE *stream, const char *restrict format, va_list ap);
+int sscanf(const char *str, const char *format, ...);
 
 // Block I/O
 size_t fread(void *ptr, size_t size, size_t nmemb, FILE *stream);

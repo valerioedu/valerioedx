@@ -3,6 +3,7 @@
 #include <stdarg.h>
 #include <unistd.h>
 #include <stdbool.h>
+#include <ctype.h>
 
 #define _READ   0x01
 #define _WRITE  0x02
@@ -65,7 +66,7 @@ static int _fillbuf(FILE *stream) {
     return (unsigned char)*stream->ptr++;
 }
 
-int fgetc(FILE *stream) {
+int getc(FILE *stream) {
     if (--stream->cnt >= 0)
         return (unsigned char)*stream->ptr++;
 
@@ -101,7 +102,7 @@ int fputc(int c, FILE *stream) {
 }
 
 int getchar(void) {
-    return fgetc(stdin);
+    return getc(stdin);
 }
 
 int putchar(int c) {
@@ -112,7 +113,7 @@ char *fgets(char *s, int n, FILE *stream) {
     char *p = s;
     int c;
     
-    while (--n > 0 && (c = fgetc(stream)) != EOF) {
+    while (--n > 0 && (c = getc(stream)) != EOF) {
         if (c == '\b') {
             if (p > s) p--;
 
@@ -164,7 +165,7 @@ size_t fread(void *ptr, size_t size, size_t nmemb, FILE *stream) {
     size_t nread = 0;
     
     for (size_t i = 0; i < total; i++) {
-        int c = fgetc(stream);
+        int c = getc(stream);
         if (c == EOF)
             return nread / size;
 
@@ -623,6 +624,196 @@ int snprintf(char *str, size_t size, const char *format, ...) {
     va_list ap;
     va_start(ap, format);
     int ret = vsnprintf(str, size, format, ap);
+    va_end(ap);
+    return ret;
+}
+
+int ungetc(int c, FILE *stream) {
+    if (c == EOF || !stream) return EOF;
+    
+    if (stream->ptr > stream->buf) {
+        stream->ptr--;
+        stream->cnt++;
+        *stream->ptr = (char)c;
+        stream->flags &= ~_EOF;
+    
+        return (unsigned char)c;
+    }
+
+    return EOF;
+}
+
+int vfscanf(FILE *stream, const char *format, va_list ap) {
+    int count = 0;
+    const char *p = format;
+
+    while (*p) {
+        if (isspace(*p)) {
+            int c;
+            while (isspace(c = getc(stream)));
+            ungetc(c, stream);
+            p++;
+            continue;
+        }
+
+        if (*p != '%') {
+            int c = getc(stream);
+            if (c == EOF) return count > 0 ? count : EOF;
+            if (c != *p) {
+                ungetc(c, stream);
+                return count;
+            }
+
+            p++;
+            continue;
+        }
+
+        p++;    // skip '%'
+        if (*p == '\0') break;
+
+        int is_long = 0;
+        if (*p == 'l') {
+            is_long = 1;
+            p++;
+        }
+
+        switch (*p) {
+            case 'd':
+            case 'i':
+            case 'u': {
+                int c;
+                while (isspace(c = getc(stream)));
+                
+                if (c == EOF) return count > 0 ? count : EOF;
+
+                int sign = 1;
+                if (c == '-') {
+                    sign = -1;
+                    c = getc(stream);
+                } else if (c == '+') {
+                    c = getc(stream);
+                }
+
+                if (!isdigit(c)) {
+                    ungetc(c, stream);
+                    return count;
+                }
+
+                long num = 0;
+                while (isdigit(c)) {
+                    num = num * 10 + (c - '0');
+                    c = getc(stream);
+                }
+
+                ungetc(c, stream); // Push back the non-digit
+
+                if (*p == 'u') {
+                    if (is_long)
+                        *va_arg(ap, unsigned long*) = num;
+                    
+                    else *va_arg(ap, unsigned int*) = (unsigned int)num;
+                } else {
+                    num *= sign;
+                    if (is_long)
+                        *va_arg(ap, long*) = num;
+                    
+                    else *va_arg(ap, int*) = (int)num;
+                }
+
+                count++;
+                break;
+            }
+            case 'x':
+            case 'X': {
+                int c;
+                while (isspace(c = getc(stream)));
+                if (c == EOF) return count > 0 ? count : EOF;
+
+                if (!isxdigit(c)) {
+                    ungetc(c, stream);
+                    return count;
+                }
+
+                unsigned long num = 0;
+                while (isxdigit(c)) {
+                    int val;
+                    if (c >= '0' && c <= '9')
+                        val = c - '0';
+                        
+                    else if (c >= 'a' && c <= 'f')
+                        val = c - 'a' + 10;
+                    
+                    else val = c - 'A' + 10;
+                    
+                    num = num * 16 + val;
+                    c = getc(stream);
+                }
+
+                ungetc(c, stream);
+
+                if (is_long)
+                    *va_arg(ap, unsigned long*) = num;
+                
+                else *va_arg(ap, unsigned int*) = (unsigned int)num;
+                count++;
+                break;
+            }
+            case 's': {
+                char *s = va_arg(ap, char *);
+                int c;
+                while (isspace(c = getc(stream)));
+                
+                if (c == EOF) return count > 0 ? count : EOF;
+
+                while (c != EOF && !isspace(c)) {
+                    *s++ = c;
+                    c = getc(stream);
+                }
+
+                *s = '\0';
+                ungetc(c, stream);
+                count++;
+                break;
+            }
+            case 'c': {
+                char *s = va_arg(ap, char *);
+                int c = getc(stream);
+                if (c == EOF) return count > 0 ? count : EOF;
+                *s = c;
+                count++;
+                break;
+            }
+            case '%': {
+                int c;
+                while (isspace(c = getc(stream)));
+                if (c != '%') {
+                    ungetc(c, stream);
+                    return count;
+                }
+
+                break;
+            }
+            default:
+                return count;
+        }
+        p++;
+    }
+
+    return count;
+}
+
+int fscanf(FILE *stream, const char *format, ...) {
+    va_list ap;
+    va_start(ap, format);
+    int ret = vfscanf(stream, format, ap);
+    va_end(ap);
+    return ret;
+}
+
+int scanf(const char *format, ...) {
+    va_list ap;
+    va_start(ap, format);
+    int ret = vfscanf(stdin, format, ap);
     va_end(ap);
     return ret;
 }
