@@ -162,3 +162,26 @@ void *realloc(void *ptr, size_t size) {
     free(ptr);
     return new_ptr;
 }
+
+int atoi(const char *str) {
+    if (!str) return 0;
+    
+    while (*str == ' ' || *str == '\t' ||
+        *str == '\n' || *str == '\v' || 
+        *str == '\f' || *str == '\r')
+        str++;
+
+    int sign = 1;
+    if (*str == '+' || *str == '-') {
+        if (*str == '-') sign = -1;
+        str++;
+    }
+
+    long result = 0;
+    while (*str >= '0' && *str <= '9') {
+        result = result * 10 + (*str - '0');
+        str++;
+    }
+
+    return (int)(result * sign);
+}
