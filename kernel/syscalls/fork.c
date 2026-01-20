@@ -134,6 +134,7 @@ void sys_exit(int code) {
     }
 
     u32 flags = spinlock_acquire_irqsave(&sched_lock);
+    pid_hash_remove(proc);
 
     proc->exit_code = code;
     proc->state = PROCESS_ZOMBIE;
