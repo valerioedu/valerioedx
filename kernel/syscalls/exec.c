@@ -339,9 +339,9 @@ i64 sys_execve(const char* path, const char* argv[], const char* envp[]) {
     if (old_mm) mm_destroy(old_mm);
 
     // Update process name
-    const char* name = strrchr(path, '/');
+    const char* name = strrchr(kpath, '/');
     if (name) name++;
-    else name = path;
+    else name = kpath;
 
     strncpy(proc->name, name, 63);
 
