@@ -68,6 +68,7 @@ i64 sys_fork(trapframe_t *tf) {
     memset(child, 0, sizeof(process_t));
 
     child->pid = pid_counter++;
+    pid_hash_insert(child);
     child->state = PROCESS_ACTIVE;
     child->mm = mm_duplicate(parent->mm);
     if (!child->mm) {
@@ -230,6 +231,7 @@ i64 sys_wait3(i64 pid, int *status, int options) {
             
             // Clean up the zombie
             if (target->mm) mm_destroy(target->mm);
+            pid_hash_remove(target);
             kfree(target);
 
             return zombie_pid;

@@ -4,6 +4,7 @@
 #include <lib.h>
 #include <spinlock.h>
 #include <file.h>
+#include <signal.h>
 
 #define MAX_FD 1024
 
@@ -90,6 +91,7 @@ typedef struct process {
     process_state state;
     int exit_code;
     wait_queue_t wait_queue;
+    struct process *hash_next;
 } process_t;
 
 void sched_init();
@@ -100,5 +102,8 @@ void cpu_switch_to(struct task* prev, struct task* next);
 void sleep_on(wait_queue_t* queue, spinlock_t* release_lock);
 void wake_up(wait_queue_t* queue);
 process_t *process_create(const char *name, void (*entry_point)(), task_priority priority);
+process_t *find_process_by_pid(u64 pid);
+void pid_hash_insert(process_t *proc);
+void pid_hash_remove(process_t *proc);
 
 #endif

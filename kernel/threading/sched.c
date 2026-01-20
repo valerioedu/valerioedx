@@ -8,6 +8,8 @@
 #include <vma.h>
 #include <file.h>
 
+#define PID_HASH_SIZE 1024
+
 extern void ret_from_fork();
 extern void cpu_switch_to(struct task* prev, struct task* next);
 
@@ -19,6 +21,8 @@ u64 pid_counter = 1;
 u64 tid_counter = 1;
 
 spinlock_t sched_lock = 0;
+
+static process_t *pid_hash[PID_HASH_SIZE];
 
 // Store the kernel's root page table for TTBR1
 static u64 kernel_ttbr1 = 0;
@@ -70,6 +74,7 @@ process_t *process_create(const char *name, void (*entry_point)(), task_priority
     memset(proc, 0, sizeof(process_t));
 
     proc->pid = pid_counter++;
+    pid_hash_insert(proc);
     strncpy(proc->name, name, 63);
 
     extern int setup_standard_fds(process_t* proc);
@@ -283,4 +288,44 @@ void switch_to_child_mm() {
             : "memory"
         );
     }
+}
+
+void pid_hash_insert(process_t *proc) {
+    u64 idx = proc->pid % PID_HASH_SIZE;
+    proc->hash_next = pid_hash[idx];
+    pid_hash[idx] = proc;
+}
+
+void pid_hash_remove(process_t *proc) {
+    u64 idx = proc->pid % PID_HASH_SIZE;
+    process_t **curr = &pid_hash[idx];
+
+    while (*curr) {
+        if (*curr == proc) {
+            *curr = proc->hash_next;
+            proc->hash_next = NULL; 
+            return;
+        }
+
+        curr = &(*curr)->hash_next;
+    }
+}
+
+process_t *find_process_by_pid(u64 pid) {
+    u64 idx = pid % PID_HASH_SIZE;
+
+    u32 flags = spinlock_acquire_irqsave(&sched_lock);
+    
+    process_t *proc = pid_hash[idx];
+    while (proc) {
+        if (proc->pid == pid) {
+            spinlock_release_irqrestore(&sched_lock, flags);
+            return proc;
+        }
+        
+        proc = proc->hash_next;
+    }
+
+    spinlock_release_irqrestore(&sched_lock, flags);
+    return NULL;
 }
