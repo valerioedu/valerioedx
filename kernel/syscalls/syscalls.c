@@ -3,6 +3,7 @@
 #include <tty.h>
 #include <sched.h>
 #include <kio.h>
+#include <signal.h>
 
 typedef struct stat {
     u64 st_dev;
@@ -33,14 +34,19 @@ typedef struct stat {
 #define SYS_FCHDIR          13
 #define SYS_LSEEK           19
 #define SYS_GETPID          20
+#define SYS_KILL            37
 #define SYS_STAT            38
 #define SYS_GETPPID         39
 #define SYS_LSTAT           40
 #define SYS_DUP             41
+#define SYS_SIGACTION       46
+#define SYS_SIGPROCMASK     48
+#define SYS_SIGPENDING      52
 #define SYS_EXECVE          59
 #define SYS_MUNMAP          73
 #define SYS_GETCWD          76
 #define SYS_DUP2            90
+#define SYS_SIGRETURN       103
 #define SYS_MKDIR           136
 #define SYS_RMDIR           137
 #define SYS_FSTAT           189
@@ -74,6 +80,11 @@ extern i64 sys_fstat(int fd, stat_t *statbuf);
 extern i64 sys_getdirentries(int fd, char *buf, size_t nbytes, i64 *basep);
 extern i64 sys_mmap(void *addr, size_t length, int prot, int flags, int fd, i64 offset);
 extern i64 sys_sysctl(int *name, u32 namelen, void *oldp, u64 *oldlenp, void *newp, u64 newlen);
+extern i64 sys_kill(i64 pid, int sig);
+extern i64 sys_sigaction(int sig, const struct sigaction* act, struct sigaction* oldact);
+extern i64 sys_sigprocmask(int how, const sigset_t* set, sigset_t* oldset);
+extern i64 sys_sigpending(sigset_t* set);
+extern i64 sys_sigreturn(trapframe_t* tf);
 
 typedef i64 (*syscalls_fn_t)(i64, i64, i64, i64, i64, i64);
 
@@ -105,10 +116,14 @@ i64 syscall_handler(trapframe_t *tf, u64 syscall_num, u64 arg0, u64 arg1, u64 ar
         case SYS_FCHDIR: return sys_fchdir((int)arg0); break;
         case SYS_LSEEK: return sys_lseek((int)arg0, (i64)arg1, (int)arg2); break;
         case SYS_GETPID: return sys_getpid(); break;
+        case SYS_KILL: return sys_kill((i64)arg0, (int)arg1); break;
         case SYS_STAT: return sys_stat((const char*)arg0, (stat_t*)arg1); break;
         case SYS_GETPPID: return sys_getppid(); break;
         case SYS_LSTAT: return sys_lstat((const char*)arg0, (stat_t*)arg1); break;
         case SYS_DUP: return sys_dup((int)arg0); break;
+        case SYS_SIGACTION: return sys_sigaction((int)arg0, (const struct sigaction*)arg1, (struct sigaction*)arg2); break;
+        case SYS_SIGPROCMASK: return sys_sigprocmask((int)arg0, (const sigset_t*)arg1, (sigset_t*)arg2); break;
+        case SYS_SIGPENDING: return sys_sigpending((sigset_t*)arg0); break;
         case SYS_EXECVE: return sys_execve((const char*)arg0, (const char**)arg1, (const char**)arg2); break;
         case SYS_MUNMAP: return sys_munmap((void*)arg0, (size_t)arg1); break;
         case SYS_GETCWD: return sys_getcwd((char*)arg0, (size_t)arg1); break;
@@ -120,6 +135,11 @@ i64 syscall_handler(trapframe_t *tf, u64 syscall_num, u64 arg0, u64 arg1, u64 ar
         case SYS_MMAP: return sys_mmap((void*)arg0, (size_t)arg1, (int)arg2, (int)arg3, (int)arg4, (i64)arg5); break;
         case SYS_SYSCTL: return sys_sysctl((int*)arg0, (u32)arg1, (void*)arg2, (u64*)arg3, (void*)arg4, (u64)arg5); break;
         default: return sys_not_implemented(); break;
+    }
+
+    extern task_t *current_task;
+    if (current_task && current_task->proc && current_task->proc->signals) {
+        signal_check_pending(tf);
     }
 
     return -1;

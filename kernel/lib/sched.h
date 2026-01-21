@@ -4,12 +4,37 @@
 #include <lib.h>
 #include <spinlock.h>
 #include <file.h>
-#include <signal.h>
 
 #define MAX_FD 1024
+#define NSIG   32
 
-// Forward declaration
+// Forward declarations
 struct mm_struct;
+typedef u32 sigset_t;
+typedef void (*sighandler_t)(int);
+
+typedef struct sigaction {
+    sighandler_t sa_handler;    // Signal handler or SIG_DFL/SIG_IGN
+    sigset_t sa_mask;           // Signals to block during handler
+    int sa_flags;               // Flags
+} sigaction_t;
+
+typedef struct signal_struct {
+    sigaction_t actions[NSIG];  // Signal handlers
+    sigset_t pending;           // Pending signals
+    sigset_t blocked;           // Blocked signals
+} signal_struct_t;
+
+// Signal frame for user-space signal delivery (saved on user stack)
+typedef struct sigframe {
+    u64 x[31];          // General purpose registers
+    u64 sp;             // Stack pointer
+    u64 pc;             // Program counter (return address)
+    u64 pstate;         // Processor state
+    sigset_t old_mask;  // Previous signal mask
+    int sig;            // Signal number
+    u64 retcode[2];     // sigreturn trampoline
+} sigframe_t;
 
 typedef enum task_priority {
     IDLE = 0,
@@ -92,6 +117,7 @@ typedef struct process {
     int exit_code;
     wait_queue_t wait_queue;
     struct process *hash_next;
+    struct signal_struct *signals;  // Signal handling state
 } process_t;
 
 void sched_init();

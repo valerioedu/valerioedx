@@ -16,4 +16,14 @@ int copy_to_user(void *user_dst, const void *kernel_src, size_t size);
 int copy_from_user(void *kernel_dst, const void *user_src, size_t size);
 void sysctl_init();
 
+struct sigaction;
+typedef u32 sigset_t;
+typedef void (*sighandler_t)(int);
+
+i64 sys_kill(i64 pid, int sig);
+i64 sys_sigaction(int sig, const struct sigaction* act, struct sigaction* oldact);
+i64 sys_sigprocmask(int how, const sigset_t* set, sigset_t* oldset);
+i64 sys_sigpending(sigset_t* set);
+i64 sys_sigreturn(trapframe_t* tf);
+
 #endif
