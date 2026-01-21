@@ -80,6 +80,17 @@ macro(build_shell name)
     list(APPEND USER_COMMANDS ${name}.elf)
 endmacro()
 
+macro(build_program name)
+    add_executable(${name}.elf
+        ${CMAKE_CURRENT_SOURCE_DIR}/programs/${name}/${name}.c
+        ${LIB_SOURCES}
+    )
+    set_target_properties(${name}.elf PROPERTIES
+        LINK_FLAGS "-Ttext=0x400000 -nostdlib"
+    )
+    list(APPEND USER_COMMANDS ${name}.elf)
+endmacro()
+
 add_user_util(cat)
 add_user_util(ls)
 add_user_util(mkdir)
@@ -87,6 +98,7 @@ add_user_util(echo)
 add_user_util(touch)
 add_user_util(rm)
 build_shell(sh)
+build_program(vbasic)
 
 option(VALERIOEDX_DEBUG "Enable DEBUG compile-time flag" OFF)
 
@@ -95,7 +107,7 @@ set_target_properties(init.elf PROPERTIES
 )
 
 add_custom_target(copy
-    DEPENDS init.elf cat.elf ls.elf mkdir.elf echo.elf touch.elf rm.elf sh.elf
+    DEPENDS init.elf cat.elf ls.elf mkdir.elf echo.elf touch.elf rm.elf sh.elf vbasic.elf
     COMMAND mcopy -i ../../kernel/arch/aarch64/disk.img ../lib/stdint.h ::/usr/include/stdint.h
     COMMAND mcopy -i ../../kernel/arch/aarch64/disk.img ../lib/stddef.h ::/usr/include/stddef.h
     COMMAND mcopy -i ../../kernel/arch/aarch64/disk.img ../lib/string.h ::/usr/include/string.h
@@ -108,4 +120,5 @@ add_custom_target(copy
     COMMAND mcopy -i ../../kernel/arch/aarch64/disk.img touch.elf ::/bin/touch
     COMMAND mcopy -i ../../kernel/arch/aarch64/disk.img rm.elf ::/bin/rm
     COMMAND mcopy -i ../../kernel/arch/aarch64/disk.img sh.elf ::/bin/sh
+    COMMAND mcopy -i ../../kernel/arch/aarch64/disk.img vbasic.elf ::/bin/vbasic
 )
