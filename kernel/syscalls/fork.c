@@ -7,6 +7,7 @@
 #include <spinlock.h>
 #include <file.h>
 #include <vma.h>
+#include <signal.h>
 
 extern task_t *current_task;
 extern u64 pid_counter;
@@ -94,10 +95,22 @@ i64 sys_fork(trapframe_t *tf) {
         vfs_retain(child->cwd);
     }
 
+    if (parent->signals) {
+        child->signals = signal_copy(parent->signals);
+        if (!child->signals) {
+            mm_destroy(child->mm);
+            kfree(child);
+            return -1;
+        }
+    }
+
     strncpy(child->name, parent->name, 64);
 
     task_t *child_task = task_clone(current_task, child);
     if (!child_task) {
+        if (child->signals)
+            signal_destroy(child->signals);
+
         mm_destroy(child->mm);
         kfree(child);
         return -1;
@@ -133,6 +146,11 @@ void sys_exit(int code) {
          proc->cwd = NULL;
     }
 
+    if (proc->signals) {
+        signal_destroy(proc->signals);
+        proc->signals = NULL;
+    }
+
     u32 flags = spinlock_acquire_irqsave(&sched_lock);
     pid_hash_remove(proc);
 
@@ -150,7 +168,8 @@ void sys_exit(int code) {
     spinlock_release_irqrestore(&sched_lock, flags);
 
     if (parent) {
-        //TODO: Implement signals and send SIGCHILD
+        // Send SIGCHLD to parent
+        signal_send(parent, SIGCHLD);
         wake_up(&parent->wait_queue);
     }
 
@@ -232,6 +251,7 @@ i64 sys_wait3(i64 pid, int *status, int options) {
             
             // Clean up the zombie
             if (target->mm) mm_destroy(target->mm);
+            if (target->signals) signal_destroy(target->signals);
             pid_hash_remove(target);
             kfree(target);
 

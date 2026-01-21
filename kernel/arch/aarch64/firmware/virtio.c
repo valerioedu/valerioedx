@@ -41,6 +41,7 @@ volatile int kb_tail = 0;
 wait_queue_t kb_wait_queue = NULL;
 
 static bool shifting = false;
+static bool ctrl_pressed = false;
 
 static mutex_t blk_mutex;
 
@@ -62,7 +63,13 @@ static char key_map_shift[] = {
 static char virtio_scancode_to_ascii(u16 code) {
     if (code == 1) return 0; // ESC
     if (code >= 2 && code < sizeof(key_map)) {
-        return shifting ? key_map_shift[code] : key_map[code];
+        char c = shifting ? key_map_shift[code] : key_map[code];
+        if (!c) return 0;
+        if (ctrl_pressed) {
+            if (c >= 'a' && c <= 'z') return (char)(c - 'a' + 1);
+            if (c >= 'A' && c <= 'Z') return (char)(c - 'A' + 1);
+        }
+        return c;
     }
     return 0;
 }
@@ -165,6 +172,8 @@ void virtio_input_handler() {
             // Handle shift key press/release
             if (evt->code == KEY_LEFTSHIFT || evt->code == KEY_RIGHTSHIFT) {
                 shifting = (evt->value == 1); // 1 = press, 0 = release
+            } else if (evt->code == KEY_LEFTCTRL || evt->code == KEY_RIGHTCTRL) {
+                ctrl_pressed = (evt->value == 1);
             } else if (evt->value == 1) { // Key press
                 char c = virtio_scancode_to_ascii(evt->code);
                 if (c) {

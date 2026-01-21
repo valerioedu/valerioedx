@@ -7,6 +7,7 @@
 #include <vmm.h>
 #include <vma.h>
 #include <file.h>
+#include <signal.h>
 
 #define PID_HASH_SIZE 1024
 
@@ -86,6 +87,15 @@ process_t *process_create(const char *name, void (*entry_point)(), task_priority
     if (!proc->mm) {
         kfree(proc);
         kprintf("[ [RSCHED [W] Failed to create address space\n");
+        return NULL;
+    }
+
+    // Initialize signal handling
+    proc->signals = signal_create();
+    if (!proc->signals) {
+        mm_destroy(proc->mm);
+        kfree(proc);
+        kprintf("[ [RSCHED [W] Failed to create signal struct\n");
         return NULL;
     }
 

@@ -6,6 +6,10 @@
 #include <virtio.h>
 #include <vmm.h>
 #include <syscalls.h>
+#include <signal.h>
+#include <sched.h>
+
+extern task_t *current_task;
 
 void dump_stack() {
     uint64_t fp;
@@ -56,13 +60,16 @@ void el1_sync_handler(trapframe_t *tf) {
                 if (is_write && vmm_handle_page_fault(far, true) == 0) return;
             }
 
-            // TODO: if in userland kill the process
+            if (current_task->proc) {
+                extern i64 sys_kill(i64 pid, int sig);
+                sys_kill(current_task->proc->pid, 2);
+            }
+
             kprintf("\n[ [RPANIC [W] UNHANDLED SYNC EXCEPTION\n");
             kprintf("  Type: %s Abort\n", (ec & 0x1) ? "Data" : "Instruction");
             kprintf("  ESR: 0x%llx (FSC: 0x%x, Write: %d)\n", esr, fsc, is_write);
             kprintf("  FAR: 0x%llx\n", far);
             dump_stack();
-            while(1) asm volatile("wfe");
             break;
 
         case 0x15: {
@@ -89,6 +96,9 @@ void el1_sync_handler(trapframe_t *tf) {
     }
 
     kprintf("[EXC] EL1 synchronous exception\n");
+    if (current_task && current_task->proc && current_task->proc->signals)
+        signal_check_pending(tf);
+    
     while (1) asm volatile("wfe");
 }
 

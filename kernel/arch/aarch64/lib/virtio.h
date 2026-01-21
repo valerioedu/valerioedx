@@ -47,6 +47,8 @@
 
 #define KEY_LEFTSHIFT  42
 #define KEY_RIGHTSHIFT 54
+#define KEY_LEFTCTRL   29
+#define KEY_RIGHTCTRL  97
 
 typedef struct {
     u16 type;

@@ -1,4 +1,7 @@
 #include <tty.h>
+#include <sched.h>
+
+extern task_t *current_task;
 
 tty_t tty_console;
 tty_t tty_serial;
@@ -56,15 +59,25 @@ u64 tty_console_read(struct vfs_node *file, u64 format, u64 size, u8 *buffer) {
 
     while (read_count < size) {
         while (tty_console.read_head == tty_console.read_tail) {
-            sleep_on(&tty_console.queue, NULL);  // CHANGED: proper sleep
+            if (current_task->proc->signals->pending & ~current_task->proc->signals->blocked) {
+                tty_console.echo = false;
+                return read_count == 0 ? -1 : read_count; 
+            }
+
+            sleep_on(&tty_console.queue, NULL);
         }
 
         u32 flags = spinlock_acquire_irqsave(&tty_console.lock);
 
-        if (tty_console.read_head != tty_console.read_tail) {
-            buffer[read_count] = tty_console.read_buffer[tty_console.read_tail];
-            tty_console.read_tail = (tty_console.read_tail + 1) % BUF_SIZE;
-            read_count++;
+        char c = tty_console.read_buffer[tty_console.read_tail];
+        buffer[read_count] = c;
+        tty_console.read_tail = (tty_console.read_tail + 1) % BUF_SIZE;
+        read_count++;
+        
+        // Canonical mode
+        if (c == '\n') {
+            spinlock_release_irqrestore(&tty_console.lock, flags);
+            return read_count;
         }
 
         spinlock_release_irqrestore(&tty_console.lock, flags);
@@ -105,8 +118,22 @@ u64 tty_serial_read(struct vfs_node *file, u64 format, u64 size, u8 *buffer) {
 void tty_push_char(char c, tty_t *tty) {
     u32 flags = spinlock_acquire_irqsave(&tty->lock);
 
+    if (c == 3) {
+        spinlock_release_irqrestore(&tty->lock, flags);
+        if (tty->fg_pid > 0) {
+            extern int signal_send_pid(u64 pid, int sig);
+            signal_send_pid(tty->fg_pid, 2); // SIGINT
+        }
+
+        wake_up(&tty->queue);
+        tty->putc('^');
+        tty->putc('C');
+        tty->putc('\n');
+        return;
+    }
+
     tty->read_buffer[tty->read_head] = c;
-    
+
     if (tty->echo && tty->putc) tty->putc(c);
     tty->read_head = (tty->read_head + 1) % BUF_SIZE;
 
