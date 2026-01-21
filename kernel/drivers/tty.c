@@ -1,4 +1,7 @@
 #include <tty.h>
+#include <sched.h>
+
+extern task_t *current_task;
 
 tty_t tty_console;
 tty_t tty_serial;
@@ -56,6 +59,12 @@ u64 tty_console_read(struct vfs_node *file, u64 format, u64 size, u8 *buffer) {
 
     while (read_count < size) {
         while (tty_console.read_head == tty_console.read_tail) {
+            if (current_task->proc->signals->pending & ~current_task->proc->signals->blocked) {
+                tty_console.echo = false;
+                // If we read nothing, return error (simplification of EINTR)
+                return read_count == 0 ? -1 : read_count; 
+            }
+
             sleep_on(&tty_console.queue, NULL);  // CHANGED: proper sleep
         }
 
@@ -106,6 +115,14 @@ void tty_push_char(char c, tty_t *tty) {
     u32 flags = spinlock_acquire_irqsave(&tty->lock);
 
     tty->read_buffer[tty->read_head] = c;
+
+    if (c == 3) {
+        extern i64 sys_getpid();
+        extern i64 signal_send_pid(i64 pid, int sig);
+        i64 pid = sys_getpid();
+        if (pid) signal_send_pid(pid, 2);
+        return; // Don't put the ^C character into the read buffer
+    }
     
     if (tty->echo && tty->putc) tty->putc(c);
     tty->read_head = (tty->read_head + 1) % BUF_SIZE;
