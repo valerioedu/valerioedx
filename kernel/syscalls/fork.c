@@ -95,7 +95,6 @@ i64 sys_fork(trapframe_t *tf) {
         vfs_retain(child->cwd);
     }
 
-    // Copy signal handlers (pending signals are cleared)
     if (parent->signals) {
         child->signals = signal_copy(parent->signals);
         if (!child->signals) {
@@ -109,7 +108,9 @@ i64 sys_fork(trapframe_t *tf) {
 
     task_t *child_task = task_clone(current_task, child);
     if (!child_task) {
-        if (child->signals) signal_destroy(child->signals);
+        if (child->signals)
+            signal_destroy(child->signals);
+
         mm_destroy(child->mm);
         kfree(child);
         return -1;
@@ -145,7 +146,6 @@ void sys_exit(int code) {
          proc->cwd = NULL;
     }
 
-    // Clean up signal structure
     if (proc->signals) {
         signal_destroy(proc->signals);
         proc->signals = NULL;

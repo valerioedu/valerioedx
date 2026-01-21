@@ -8,15 +8,16 @@
 #include <vma.h>
 #include <pmm.h>
 
+//TODO: Check for ^C outside of read too
+
 #define offsetof(type, member) ((size_t) &((type *)0)->member)
 
 extern void sys_exit(int code);
 
 extern task_t *current_task;
 
-// Default actions for each signal
 static const u8 sig_default_action[NSIG + 1] = {
-    [0]         = SIG_ACTION_IGN,   // Signal 0 (null signal)
+    [0]         = SIG_ACTION_IGN,
     [SIGHUP]    = SIG_ACTION_TERM,
     [SIGINT]    = SIG_ACTION_TERM,
     [SIGQUIT]   = SIG_ACTION_CORE,
@@ -63,7 +64,6 @@ signal_struct_t* signal_create(void) {
     
     memset(sig, 0, sizeof(signal_struct_t));
     
-    // Initialize all handlers to SIG_DFL
     for (int i = 0; i < NSIG; i++) {
         sig->actions[i].sa_handler = SIG_DFL;
         sig->actions[i].sa_mask = 0;
@@ -84,24 +84,19 @@ signal_struct_t* signal_copy(signal_struct_t* old) {
     if (!new) return NULL;
     
     memcpy(new, old, sizeof(signal_struct_t));
-    // Clear pending signals in child
     new->pending = 0;
     
     return new;
 }
 
-// Send a signal to a process
 int signal_send(process_t* proc, int sig) {
     if (!proc || sig < 1 || sig > NSIG) return -1;
     
     signal_struct_t* siginfo = proc->signals;
     if (!siginfo) return -1;
     
-    // Add to pending set
     sigaddset(&siginfo->pending, sig);
-    
-    // Wake up the process if it's sleeping (for interruptible sleeps)
-    // This is simplified - real implementation would check sleep state
+    //TODO: Wake up if sleeping
     
     return 0;
 }
@@ -113,7 +108,6 @@ int signal_send_pid(u64 pid, int sig) {
     return signal_send(proc, sig);
 }
 
-// Get next pending signal that isn't blocked
 static int signal_dequeue(signal_struct_t* sig) {
     sigset_t pending = sig->pending & ~sig->blocked;
     
@@ -146,7 +140,6 @@ static int setup_signal_frame(trapframe_t* tf, int sig, sigaction_t* act) {
     sp -= sizeof(sigframe_t);
     sp &= ~15;  // Align to 16 bytes
     
-    // Ensure the stack page is mapped
     u64* pte = vmm_get_pte_from_table_alloc((u64*)P2V((uintptr_t)mm->page_table), sp);
     if (!pte) return -1;
     
@@ -161,11 +154,9 @@ static int setup_signal_frame(trapframe_t* tf, int sig, sigaction_t* act) {
         *pte = entry;
     }
     
-    // Build signal frame in kernel memory, then copy to user
     sigframe_t frame;
     memset(&frame, 0, sizeof(frame));
     
-    // Save all registers
     memcpy(frame.x, tf->x, sizeof(frame.x));
     frame.sp = tf->sp_el0;
     frame.pc = tf->elr;
@@ -176,10 +167,9 @@ static int setup_signal_frame(trapframe_t* tf, int sig, sigaction_t* act) {
     // Setup sigreturn trampoline
     // mov x8, #119    ; SYS_sigreturn
     // svc #0
-    frame.retcode[0] = 0xD2800EE8;  // mov x8, #119
+    frame.retcode[0] = 0xD2800CE8;  // mov x8, #103
     frame.retcode[1] = 0xD4000001;  // svc #0
     
-    // Copy frame to user stack
     u64 frame_phys = (*pte & 0x0000FFFFFFFFF000ULL) + (sp & (PAGE_SIZE - 1));
     
     // Handle potential page boundary crossing
@@ -204,11 +194,10 @@ static int setup_signal_frame(trapframe_t* tf, int sig, sigaction_t* act) {
     if (!(act->sa_flags & SA_NODEFER))
         sigaddset(&siginfo->blocked, sig);
     
-    // Modify trapframe to run signal handler
     tf->elr = (u64)act->sa_handler;
     tf->sp_el0 = sp;
-    tf->x[0] = sig;                         // First argument: signal number
-    tf->x[30] = sp + offsetof(sigframe_t, retcode);  // Return address
+    tf->x[0] = sig;                                     // First argument: signal number
+    tf->x[30] = sp + offsetof(sigframe_t, retcode);     // Return address
     
     // Reset handler if SA_RESETHAND
     if (act->sa_flags & SA_RESETHAND)
@@ -217,7 +206,6 @@ static int setup_signal_frame(trapframe_t* tf, int sig, sigaction_t* act) {
     return 0;
 }
 
-// Check and handle pending signals (called from exception return path)
 void signal_check_pending(trapframe_t* tf) {
     if (!current_task || !current_task->proc)
         return;
@@ -260,19 +248,14 @@ void signal_check_pending(trapframe_t* tf) {
             }
         }
         
-        // User-defined handler - setup signal frame
         if (setup_signal_frame(tf, sig, act) < 0) {
-            // Failed to setup frame, terminate
             sys_exit(128 + sig);
             return;
         }
         
-        // Only handle one signal per return from kernel
         break;
     }
 }
-
-// Syscalls
 
 i64 sys_kill(i64 pid, int sig) {
     if (sig < 0 || sig > NSIG) return -1;
@@ -281,20 +264,26 @@ i64 sys_kill(i64 pid, int sig) {
     if (sig == 0) {
         if (pid > 0)
             return find_process_by_pid(pid) ? 0 : -1;
+
         return -1;
     }
     
     if (pid > 0) {
-        // Send to specific process
         return signal_send_pid(pid, sig);
     } else if (pid == 0) {
         // Send to all processes in caller's process group
         // TODO: Implement process groups
         return -1;
     } else if (pid == -1) {
-        // Send to all processes (except init)
-        // TODO: Implement
-        return -1;
+        int ret = 0;
+        for (int i = 2; i < 1024; i++) { //Pid hash size
+            process_t *proc = find_process_by_pid(i);
+            if (!proc) continue;
+            if (signal_send_pid(i, sig) == 0)
+                ret++;
+        }
+
+        return ret > 0 ? 0 : -1;
     } else {
         // Send to process group -pid
         // TODO: Implement process groups
@@ -304,7 +293,7 @@ i64 sys_kill(i64 pid, int sig) {
 
 i64 sys_sigaction(int sig, const sigaction_t* act, sigaction_t* oldact) {
     if (sig < 1 || sig > NSIG) return -1;
-    if (sig == SIGKILL || sig == SIGSTOP) return -1;  // Cannot change
+    if (sig == SIGKILL || sig == SIGSTOP) return -1;
     
     if (!current_task || !current_task->proc) return -1;
     
@@ -424,7 +413,6 @@ i64 sys_sigreturn(trapframe_t* tf) {
                sizeof(sigframe_t) - first_page_bytes);
     }
     
-    // Restore registers
     memcpy(tf->x, frame.x, sizeof(frame.x));
     tf->sp_el0 = frame.sp;
     tf->elr = frame.pc;
@@ -433,5 +421,5 @@ i64 sys_sigreturn(trapframe_t* tf) {
     // Restore signal mask
     siginfo->blocked = frame.old_mask & ~SIG_KERNEL_ONLY_MASK;
     
-    return tf->x[0];  // Return the original x0 value
+    return tf->x[0];
 }

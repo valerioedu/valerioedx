@@ -5,6 +5,7 @@
 #include <vma.h>
 #include <heap.h>
 #include <kio.h>
+#include <tty.h>
 
 extern task_t *current_task;
 
@@ -97,6 +98,9 @@ int copy_to_user(void *user_dst, const void *kernel_src, size_t size) {
 i64 sys_read(u32 fd, char *buf, size_t count) {
     file_t *f = fd_get(fd);
     if (!f) return -1;
+
+    //IMPORTANT TODO: do this in the shell when ioctl will be implemented
+    if (fd == 0) tty_console.fg_pid = current_task->proc->pid;
 
     char *kbuf = kmalloc(count);
     if (!kbuf) return -1;

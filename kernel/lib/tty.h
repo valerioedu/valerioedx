@@ -33,6 +33,7 @@ typedef struct tty {
 
     // Flags
     bool echo;
+    u64 fg_pid;
 } tty_t;
 
 extern tty_t tty_console;
