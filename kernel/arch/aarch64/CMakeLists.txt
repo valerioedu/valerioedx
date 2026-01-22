@@ -83,9 +83,12 @@ set_target_properties(kernel.elf PROPERTIES
 
 add_custom_target(run
     COMMAND dtc -I dts -O dtb -o virt.dtb ../virt.dts
+    COMMAND aarch64-elf-objcopy -O binary kernel.elf kernel.img
+    COMMAND mcopy -i ../disk.img kernel.img ::/kernel.img
     COMMAND qemu-system-aarch64 -M virt -m 2G -cpu cortex-a53 
-            -kernel kernel.elf -device ramfb 
-            -drive if=none,file=../disk.img,format=raw,id=hd0 
+            -bios /opt/homebrew/share/qemu/edk2-aarch64-code.fd
+            -drive file=../disk.img,if=none,format=raw,id=hd0
+            -device ramfb 
             -device virtio-blk-device,drive=hd0
             -device virtio-keyboard-device
             -serial mon:stdio -dtb virt.dtb
@@ -96,9 +99,12 @@ add_custom_target(run
 
 add_custom_target(debug
     COMMAND dtc -I dts -O dtb -o virt.dtb ../virt.dts
-    COMMAND qemu-system-aarch64 -M virt -m 2G -cpu cortex-a53 
-            -kernel kernel.elf -device ramfb 
-            -drive if=none,file=../disk.img,format=raw,id=hd0 
+    COMMAND aarch64-elf-objcopy -O binary kernel.elf kernel.img
+    COMMAND mcopy -i ../disk.img kernel.img ::/kernel.img
+    COMMAND qemu-system-aarch64 -M virt -m 2G -cpu cortex-a53
+            -bios /opt/homebrew/share/qemu/edk2-aarch64-code.fd
+            -drive file=../disk.img,if=none,format=raw,id=hd0
+            -device ramfb 
             -device virtio-blk-device,drive=hd0
             -device virtio-keyboard-device
             -serial mon:stdio -dtb virt.dtb -d int

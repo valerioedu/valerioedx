@@ -2,6 +2,20 @@
 .global _start
 
 _start:
+    // --- Linux Kernel Header ---
+    b entry_point               // 0x00: Code to jump to entry
+    .long 0                     // 0x04: Reserved
+    .quad 0x100000              // 0x08: text_offset (Link Addr 0x40100000 - RAM 0x40000000)
+    .quad _kernel_end - _start         // 0x10: Image size
+    .quad 0                     // 0x18: Flags (0 = Load at text_offset)
+    .quad 0                     // 0x20: Reserved
+    .quad 0                     // 0x28: Reserved
+    .quad 0                     // 0x30: Reserved
+    .ascii "ARM\x64"            // 0x38: Magic "ARM\x64"
+    .long 0                     // 0x3C: Reserved
+    // ---------------------------
+
+entry_point:
     ldr x1, =dtb_phys_addr
     str x0, [x1]
 
