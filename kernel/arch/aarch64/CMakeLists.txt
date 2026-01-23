@@ -21,6 +21,16 @@ if (CMAKE_SYSTEM_NAME STREQUAL "Linux")
         set(CMAKE_ASM_COMPILER ${CMAKE_C_COMPILER})
         set(CMAKE_LINKER aarch64-linux-gnu-ld)
     endif()
+
+    set(OBJCOPY aarch64-linux-gnu-objcopy)
+    if(EXISTS "/usr/share/qemu-efi-aarch64/AAVMF_CODE.fd")
+        set(BIOS /usr/share/qemu-efi-aarch64/AAVMF_CODE.fd)
+    elseif(EXISTS "/usr/share/AAVMF/AAVMF_CODE.fd")
+        set(BIOS /usr/share/AAVMF/AAVMF_CODE.fd)
+    else()
+        # Fallback (The one you have now)
+        set(BIOS /usr/share/qemu-efi-aarch64/QEMU_EFI.fd)
+    endif()
 #MacOS
 else()
     if (CMAKE_SYSTEM_PROCESSOR MATCHES "aarch64|ARM64")
@@ -32,6 +42,9 @@ else()
         set(CMAKE_ASM_COMPILER ${CMAKE_C_COMPILER})
         set(CMAKE_LINKER aarch64-elf-ld)
     endif()
+
+    set(OBJCOPY aarch64-elf-objcopy)
+    set(BIOS /opt/homebrew/share/qemu-efi-aarch64/edk2-aarch64-code.fd)
 endif()
 
 set(CMAKE_C_FLAGS "-march=armv8-a -ffreestanding -fno-pie -fno-builtin")
@@ -83,10 +96,10 @@ set_target_properties(kernel.elf PROPERTIES
 
 add_custom_target(run
     COMMAND dtc -I dts -O dtb -o virt.dtb ../virt.dts
-    COMMAND aarch64-elf-objcopy -O binary kernel.elf kernel.img
+    COMMAND ${OBJCOPY} -O binary kernel.elf kernel.img
     COMMAND mcopy -i ../disk.img kernel.img ::/kernel.img
     COMMAND qemu-system-aarch64 -M virt -m 2G -cpu cortex-a53 
-            -bios /opt/homebrew/share/qemu/edk2-aarch64-code.fd
+            -bios ${BIOS}
             -drive file=../disk.img,if=none,format=raw,id=hd0
             -device ramfb 
             -device virtio-blk-device,drive=hd0
@@ -99,10 +112,10 @@ add_custom_target(run
 
 add_custom_target(debug
     COMMAND dtc -I dts -O dtb -o virt.dtb ../virt.dts
-    COMMAND aarch64-elf-objcopy -O binary kernel.elf kernel.img
+    COMMAND ${OBJCOPY} -O binary kernel.elf kernel.img
     COMMAND mcopy -i ../disk.img kernel.img ::/kernel.img
     COMMAND qemu-system-aarch64 -M virt -m 2G -cpu cortex-a53
-            -bios /opt/homebrew/share/qemu/edk2-aarch64-code.fd
+            -bios ${BIOS}
             -drive file=../disk.img,if=none,format=raw,id=hd0
             -device ramfb 
             -device virtio-blk-device,drive=hd0

@@ -259,6 +259,10 @@ case $MACHINE in
                 mmd -i disk.img ::/usr/include
             else 
                 /usr/sbin/mkfs.fat -F 32 -I disk.img
+                mmd -i disk.img ::/EFI
+                mmd -i disk.img ::/EFI/BOOT
+                mcopy -i disk.img BOOTAA64.EFI ::/EFI/BOOT/BOOTAA64.EFI
+                mcopy -i disk.img limine.conf ::/limine.conf
                 mmd -i disk.img ::/bin
                 mmd -i disk.img ::/sbin
                 mmd -i disk.img ::/home
