@@ -2,6 +2,19 @@
 .global _start
 
 _start:
+#   Linux boot protocol header
+    b entry_point
+    .long 0
+    .quad 0x100000
+    .quad _kernel_end - _start
+    .quad 0
+    .quad 0
+    .quad 0
+    .quad 0
+    .ascii "ARM\x64"
+    .long 0
+
+entry_point:
     ldr x1, =dtb_phys_addr
     str x0, [x1]
 
@@ -10,7 +23,7 @@ _start:
     mov sp, x0
 
 #   EL1 vector base
-    ldr x0, =el1_vector_table
+    adr x0, el1_vector_table
     msr VBAR_EL1, x0
     isb
 
@@ -106,13 +119,12 @@ hang:
 dtb_phys_addr:
     .quad 0
 
+.section .text
+
 .extern el1_sync_handler
 .extern el1_irq_handler
 .extern el1_fiq_handler
 .extern el1_serr_handler
-
-.align 11
-.global el1_vector_table
 
 .global irq_entry
 irq_entry:
@@ -165,3 +177,8 @@ el1_vector_table:
     b el1_fiq_handler
     .align 7
     b el1_serr_handler
+
+.section .data
+.global vbar_debug
+vbar_debug:
+    .quad 0

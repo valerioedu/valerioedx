@@ -132,9 +132,10 @@ if [[ "$MACHINE" == "virt" ]]; then
             fi
             check_and_install "dtc" "dtc" "brew install dtc"
             check_and_install "cmake" "cmake" "brew install cmake"
-            check_and_install "mdir" "dosfstools" "brew install dosfstools"
+            check_and_install "/opt/homebrew/Cellar/dosfstools/4.2/sbin/mkfs.fat" "dosfstools" "brew install dosfstools"
             check_and_install "aarch64-elf-gcc" "aarch64-elf-gcc" "brew install aarch64-elf-gcc"
             check_and_install "qemu-system-aarch64" "qemu" "brew install qemu"
+            check_and_install "mdir" "mtools" "brew install mtools"
             ;;
         Linux*)
             PKG_MANAGER=""
@@ -194,6 +195,8 @@ if [[ "$MACHINE" == "virt" ]]; then
                 fi
 
                 check_and_install "qemu-system-aarch64" "$QEMU_PKG" "$INSTALL_CMD $QEMU_PKG"
+                check_and_install "mdir" "mtools" "$INSTALL_CMD mtools"
+                check_and_install "/usr/sbin/mkfs.fat" "dosfstools" "$INSTALL_CMD dosfstools"
             else
                 echo "Warning: Could not detect a supported package manager (apt, dnf, pacman, zypper, yum)."
                 echo "Please ensure dtc, cmake, gcc (or cross-compiler), and qemu-system-aarch64 are installed."
@@ -227,6 +230,11 @@ case $MACHINE in
         rm -rf build
         ;;
     virt)
+        if [ ! -f kernel/arch/aarch64/BOOTAA64.EFI ] || [ ! -f kernel/arch/aarch64/lib/limine.h ]; then
+            curl -o kernel/arch/aarch64/BOOTAA64.EFI https://raw.githubusercontent.com/limine-bootloader/limine/v8.x-binary/BOOTAA64.EFI
+            curl -o kernel/arch/aarch64/lib/limine.h https://raw.githubusercontent.com/limine-bootloader/limine/v8.x-binary/limine.h
+        fi
+
         cd kernel/arch/aarch64
         rm -rf build
         mkdir build && cd build
@@ -238,15 +246,10 @@ case $MACHINE in
             OS="$(uname -s)"
             if [[ "$OS" == "Darwin" ]]; then
                 /opt/homebrew/Cellar/dosfstools/4.2/sbin/mkfs.fat -F 32 -I disk.img
-                /opt/homebrew/bin/mmd -i disk.img ::/bin
-                /opt/homebrew/bin/mmd -i disk.img ::/sbin
-                /opt/homebrew/bin/mmd -i disk.img ::/home
-                /opt/homebrew/bin/mmd -i disk.img ::/usr
-                /opt/homebrew/bin/mmd -i disk.img ::/usr/bin
-                /opt/homebrew/bin/mmd -i disk.img ::/usr/sbin
-                /opt/homebrew/bin/mmd -i disk.img ::/usr/include
-            else 
-                /usr/sbin/mkfs.fat -F 32 -I disk.img
+                mmd -i disk.img ::/EFI
+                mmd -i disk.img ::/EFI/BOOT
+                mcopy -i disk.img BOOTAA64.EFI ::/EFI/BOOT/BOOTAA64.EFI
+                mcopy -i disk.img limine.conf ::/EFI/BOOT/limine.conf
                 mmd -i disk.img ::/bin
                 mmd -i disk.img ::/sbin
                 mmd -i disk.img ::/home
@@ -254,6 +257,21 @@ case $MACHINE in
                 mmd -i disk.img ::/usr/bin
                 mmd -i disk.img ::/usr/sbin
                 mmd -i disk.img ::/usr/include
+                mmd -i disk.img ::/boot
+            else 
+                /usr/sbin/mkfs.fat -F 32 -I disk.img
+                mmd -i disk.img ::/EFI
+                mmd -i disk.img ::/EFI/BOOT
+                mcopy -i disk.img BOOTAA64.EFI ::/EFI/BOOT/BOOTAA64.EFI
+                mcopy -i disk.img limine.conf ::/EFI/BOOT/limine.conf
+                mmd -i disk.img ::/bin
+                mmd -i disk.img ::/sbin
+                mmd -i disk.img ::/home
+                mmd -i disk.img ::/usr
+                mmd -i disk.img ::/usr/bin
+                mmd -i disk.img ::/usr/sbin
+                mmd -i disk.img ::/usr/include
+                mmd -i disk.img ::/boot
             fi
 
             cd ../../../user
@@ -269,10 +287,12 @@ case $MACHINE in
         if $DEBUG; then
             cmake -DVALERIOEDX_DEBUG=ON ..
             make debug
+        elif $NEW; then
+            cmake -DVALERIOEDX_DEBUG=OFF ..
+            make build
         else
             cmake -DVALERIOEDX_DEBUG=OFF ..
             make run
-
         fi
         cd ../
         rm -rf build
