@@ -230,9 +230,8 @@ case $MACHINE in
         rm -rf build
         ;;
     virt)
-        if [ ! -f kernel/arch/aarch64/BOOTAA64.EFI ] || [ ! -f kernel/arch/aarch64/lib/limine.h ]; then
+        if [ ! -f kernel/arch/aarch64/BOOTAA64.EFI ]; then
             curl -o kernel/arch/aarch64/BOOTAA64.EFI https://raw.githubusercontent.com/limine-bootloader/limine/v8.x-binary/BOOTAA64.EFI
-            curl -o kernel/arch/aarch64/lib/limine.h https://raw.githubusercontent.com/limine-bootloader/limine/v8.x-binary/limine.h
         fi
 
         cd kernel/arch/aarch64
