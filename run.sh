@@ -249,7 +249,7 @@ case $MACHINE in
                 mmd -i disk.img ::/EFI
                 mmd -i disk.img ::/EFI/BOOT
                 mcopy -i disk.img BOOTAA64.EFI ::/EFI/BOOT/BOOTAA64.EFI
-                mcopy -i disk.img limine.conf ::/limine.conf
+                mcopy -i disk.img limine.conf ::/EFI/BOOT/limine.conf
                 mmd -i disk.img ::/bin
                 mmd -i disk.img ::/sbin
                 mmd -i disk.img ::/home
@@ -257,12 +257,13 @@ case $MACHINE in
                 mmd -i disk.img ::/usr/bin
                 mmd -i disk.img ::/usr/sbin
                 mmd -i disk.img ::/usr/include
+                mmd -i disk.img ::/boot
             else 
                 /usr/sbin/mkfs.fat -F 32 -I disk.img
                 mmd -i disk.img ::/EFI
                 mmd -i disk.img ::/EFI/BOOT
                 mcopy -i disk.img BOOTAA64.EFI ::/EFI/BOOT/BOOTAA64.EFI
-                mcopy -i disk.img limine.conf ::/limine.conf
+                mcopy -i disk.img limine.conf ::/EFI/BOOT/limine.conf
                 mmd -i disk.img ::/bin
                 mmd -i disk.img ::/sbin
                 mmd -i disk.img ::/home
@@ -270,6 +271,7 @@ case $MACHINE in
                 mmd -i disk.img ::/usr/bin
                 mmd -i disk.img ::/usr/sbin
                 mmd -i disk.img ::/usr/include
+                mmd -i disk.img ::/boot
             fi
 
             cd ../../../user
@@ -285,10 +287,12 @@ case $MACHINE in
         if $DEBUG; then
             cmake -DVALERIOEDX_DEBUG=ON ..
             make debug
+        elif $NEW; then
+            cmake -DVALERIOEDX_DEBUG=OFF ..
+            make build
         else
             cmake -DVALERIOEDX_DEBUG=OFF ..
             make run
-
         fi
         cd ../
         rm -rf build

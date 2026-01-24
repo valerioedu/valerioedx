@@ -96,8 +96,6 @@ set_target_properties(kernel.elf PROPERTIES
 
 add_custom_target(run
     COMMAND dtc -I dts -O dtb -o virt.dtb ../virt.dts
-    COMMAND ${OBJCOPY} -O binary kernel.elf kernel.img
-    COMMAND mcopy -i ../disk.img kernel.img ::/kernel.img
     COMMAND qemu-system-aarch64 -M virt -m 2G -cpu cortex-a53 
             -bios ${BIOS}
             -drive file=../disk.img,if=none,format=raw,id=hd0
@@ -105,15 +103,12 @@ add_custom_target(run
             -device virtio-blk-device,drive=hd0
             -device virtio-keyboard-device
             -serial mon:stdio -dtb virt.dtb
-    DEPENDS kernel.elf
-    WORKING_DIRECTORY ${CMAKE_BINARY_DIR}
-    COMMENT "Running kernel in QEMU"
 )
 
 add_custom_target(debug
     COMMAND dtc -I dts -O dtb -o virt.dtb ../virt.dts
     COMMAND ${OBJCOPY} -O binary kernel.elf kernel.img
-    COMMAND mcopy -i ../disk.img kernel.img ::/kernel.img
+    COMMAND mcopy -i ../disk.img kernel.img ::/boot/kernel.img
     COMMAND qemu-system-aarch64 -M virt -m 2G -cpu cortex-a53
             -bios ${BIOS}
             -drive file=../disk.img,if=none,format=raw,id=hd0
@@ -124,4 +119,20 @@ add_custom_target(debug
     DEPENDS kernel.elf
     WORKING_DIRECTORY ${CMAKE_BINARY_DIR}
     COMMENT "Running kernel in QEMU using interrupts debug"
+)
+
+add_custom_target(build
+    COMMAND dtc -I dts -O dtb -o virt.dtb ../virt.dts
+    COMMAND ${OBJCOPY} -O binary kernel.elf kernel.img
+    COMMAND mcopy -i ../disk.img kernel.img ::/boot/kernel.img
+    COMMAND qemu-system-aarch64 -M virt -m 2G -cpu cortex-a53 
+            -bios ${BIOS}
+            -drive file=../disk.img,if=none,format=raw,id=hd0
+            -device ramfb 
+            -device virtio-blk-device,drive=hd0
+            -device virtio-keyboard-device
+            -serial mon:stdio -dtb virt.dtb
+    DEPENDS kernel.elf
+    WORKING_DIRECTORY ${CMAKE_BINARY_DIR}
+    COMMENT "Running kernel in QEMU"
 )

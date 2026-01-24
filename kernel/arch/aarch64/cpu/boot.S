@@ -2,6 +2,7 @@
 .global _start
 
 _start:
+#   Linux boot protocol header
     b entry_point
     .long 0
     .quad 0x100000
@@ -22,7 +23,7 @@ entry_point:
     mov sp, x0
 
 #   EL1 vector base
-    ldr x0, =el1_vector_table
+    adr x0, el1_vector_table
     msr VBAR_EL1, x0
     isb
 
@@ -176,3 +177,8 @@ el1_vector_table:
     b el1_fiq_handler
     .align 7
     b el1_serr_handler
+
+.section .data
+.global vbar_debug
+vbar_debug:
+    .quad 0
