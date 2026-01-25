@@ -43,6 +43,10 @@ void el1_sync_handler(trapframe_t *tf) {
     u64 iss = esr & 0x1FFFFFF;
 
     switch (ec) {
+        case 0x01: // Trapped WFI/WFE
+            tf->elr += 4;
+            schedule();
+            break;
         case 0x20:  // Instruction Abort (Higher EL)
         case 0x21:  // Data Abort   (Higher EL)
         case 0x24:  // Instruction Abort (Lower EL)
@@ -70,6 +74,7 @@ void el1_sync_handler(trapframe_t *tf) {
             kprintf("  ESR: 0x%llx (FSC: 0x%x, Write: %d)\n", esr, fsc, is_write);
             kprintf("  FAR: 0x%llx\n", far);
             dump_stack();
+            kprintf("[EXC] EL1 synchronous exception\n");
             break;
 
         case 0x15: {
@@ -92,10 +97,10 @@ void el1_sync_handler(trapframe_t *tf) {
             kprintf("  ELR: 0x%llx (PC)\n", elr);
             kprintf("  FAR: 0x%llx (Addr)\n", far);
             dump_stack();
+            kprintf("[EXC] EL1 synchronous exception\n");
             break;
     }
 
-    kprintf("[EXC] EL1 synchronous exception\n");
     if (current_task && current_task->proc && current_task->proc->signals)
         signal_check_pending(tf);
     

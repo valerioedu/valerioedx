@@ -11,12 +11,8 @@ int main() {
         
         execve("/bin/sh", argv, envp);
         _exit(1);
-    } else if (pid > 0) {
-        int status;
-        waitpid(pid, &status, 0);
-        return status;
-    } else {
-        printf("fork failed\n");
+    } else if (pid < 0) {
+        printf("init: critical error, first fork failed.\n");
         return -1;
     }
 
@@ -28,22 +24,17 @@ int main() {
             // TODO: Print a log if the shell itself crashes
             if (zombie == pid) {
                 //TODO: Implement login and launch it here
-                printf("init: shell exited (pid %d).\n", zombie);
-                pid_t pid = fork();
-
+                printf("init: shell exited (pid %d) with status %d. Respawning...\n", zombie, status);
+                
+                pid = fork();
                 if (pid == 0) {
                     char *argv[] = {"sh", NULL};
                     char *envp[] = {NULL};
                     
                     execve("/bin/sh", argv, envp);
                     _exit(1);
-                } else if (pid > 0) {
-                    int status;
-                    waitpid(pid, &status, 0);
-                    return status;
-                } else {
-                    printf("fork failed\n");
-                    return -1;
+                } else if (pid < 0) {
+                    printf("init: failed to respawn shell.\n");
                 }
             }
         } else  asm volatile("wfi");

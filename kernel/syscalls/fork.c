@@ -152,7 +152,6 @@ void sys_exit(int code) {
     }
 
     u32 flags = spinlock_acquire_irqsave(&sched_lock);
-    pid_hash_remove(proc);
 
     proc->exit_code = code;
     proc->state = PROCESS_ZOMBIE;
@@ -161,9 +160,15 @@ void sys_exit(int code) {
     extern process_t *init_process;
     process_t *child = proc->child;
     while (child) {
+        process_t *next = child->sibling;
         child->parent = init_process;
-        child = child->sibling;
+        
+        child->sibling = init_process->child;
+        init_process->child = child;
+        child = next;
     }
+
+    proc->child = NULL;
 
     spinlock_release_irqrestore(&sched_lock, flags);
 

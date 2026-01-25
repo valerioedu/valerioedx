@@ -1,7 +1,7 @@
 #include <sys/wait.h>
 
 pid_t waitpid(pid_t pid, int *stat_loc, int options) {
-    register pid_t x0 asm("x0") = pid;
+    register unsigned long x0 asm("x0") = (unsigned long)pid;
     register int *x1 asm("x1") = stat_loc;
     register int x2 asm("x2") = options;
     register uint64_t x8 asm("x8") = 7;
