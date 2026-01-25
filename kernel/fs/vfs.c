@@ -23,6 +23,28 @@ void vfs_init() {
     kprintf("[ [CVFS [W] Virtual File System Initialized\n");
 }
 
+int vfs_check_permission(inode_t *node, int mask) {
+    if (!node) return -1;
+    if (!current_task || !current_task->proc)
+        return 0;
+
+    process_t *p = current_task->proc;
+
+    if (p->euid == 0) return 0;
+
+    int mode = node->mode;
+
+    if (p->euid == node->uid)
+        mode >>= 6; 
+
+    else if (p->egid == node->gid)
+        mode >>= 3;
+
+    if ((mode & mask) == mask) return 0;
+
+    return -1;
+}
+
 void vfs_retain(inode_t *node) {
     if (node) node->ref_count++;
 }
@@ -49,14 +71,22 @@ int vfs_mount(inode_t* mountpoint, inode_t* fs_root) {
 }
 
 u64 vfs_read(inode_t* node, u64 offset, u64 size, u8* buffer) {
+    if (vfs_check_permission(node, 4) != 0)
+        return (u64)-1;
+
     if (node && node->ops && node->ops->read)
         return node->ops->read(node, offset, size, buffer);
+    
     return 0;
 }
 
 u64 vfs_write(inode_t* node, u64 offset, u64 size, u8* buffer) {
+    if (vfs_check_permission(node, 2) != 0)
+        return (u64)-1;
+    
     if (node && node->ops && node->ops->write)
         return node->ops->write(node, offset, size, buffer);
+    
     return 0;
 }
 

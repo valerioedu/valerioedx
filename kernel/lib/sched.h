@@ -102,10 +102,16 @@ typedef struct task {
 } task_t;
 
 typedef task_t* wait_queue_t;
+typedef u32 uid_t;
+typedef u32 gid_t;
 
 // Process
 typedef struct process {
     u64 pid;
+    uid_t uid;
+    gid_t gid;
+    uid_t euid;
+    gid_t egid;
     struct mm_struct *mm;       // Memory management struct
     struct file *fd_table[MAX_FD];
     char name[64];

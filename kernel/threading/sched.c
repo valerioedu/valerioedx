@@ -101,6 +101,8 @@ process_t *process_create(const char *name, void (*entry_point)(), task_priority
 
     task_create(entry_point, priority, proc);    
     proc->cwd = vfs_root;
+    proc->gid = 0;
+    proc->uid = 0;
     return proc;
 }
 

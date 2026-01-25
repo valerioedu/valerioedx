@@ -9,6 +9,19 @@
 #define FS_BLOCKDEVICE 0x04
 #define FS_TEMPORARY   0x80
 
+#define S_IRWXU 00700
+#define S_IRUSR 00400
+#define S_IWUSR 00200
+#define S_IXUSR 00100
+#define S_IRWXG 00070
+#define S_IRGRP 00040
+#define S_IWGRP 00020
+#define S_IXGRP 00010
+#define S_IRWXO 00007
+#define S_IROTH 00004
+#define S_IWOTH 00002
+#define S_IXOTH 00001
+
 #define vfs_lookup(path) namei(path)    // For legacy compatibility
 
 struct vfs_node;
@@ -70,8 +83,11 @@ struct file_operations {
 };*/
 
 typedef struct vfs_node {
-    char name[32];
+    char name[64];
     u32 flags;
+    u32 uid;
+    u32 gid;
+    u32 mode;
     u64 size;
     u64 id;
     inode_ops *ops;

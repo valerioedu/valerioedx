@@ -410,6 +410,10 @@ inode_t* fat32_lookup(inode_t* node, const char* name) {
                 
                 result->ptr = file_data;
                 result->id = (entry->fst_clus_hi << 16) | entry->fst_clus_lo;
+
+                result->uid = 0;
+                result->gid = 0;
+                result->mode = 777;
                 goto done;
             }
         }

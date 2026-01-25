@@ -34,12 +34,17 @@ typedef struct stat {
 #define SYS_FCHDIR          13
 #define SYS_LSEEK           19
 #define SYS_GETPID          20
+#define SYS_SETUID          23
+#define SYS_GETUID          24
+#define SYS_GETEUID         25
 #define SYS_KILL            37
 #define SYS_STAT            38
 #define SYS_GETPPID         39
 #define SYS_LSTAT           40
 #define SYS_DUP             41
+#define SYS_GETEGID         43
 #define SYS_SIGACTION       46
+#define SYS_GETGID          47
 #define SYS_SIGPROCMASK     48
 #define SYS_SIGPENDING      52
 #define SYS_EXECVE          59
@@ -49,6 +54,9 @@ typedef struct stat {
 #define SYS_SIGRETURN       103
 #define SYS_MKDIR           136
 #define SYS_RMDIR           137
+#define SYS_SETGID          181
+#define SYS_SETEGID         182
+#define SYS_SETEUID         183
 #define SYS_FSTAT           189
 #define SYS_GETDIRENTRIES   196
 #define SYS_MMAP            197
@@ -85,6 +93,14 @@ extern i64 sys_sigaction(int sig, const struct sigaction* act, struct sigaction*
 extern i64 sys_sigprocmask(int how, const sigset_t* set, sigset_t* oldset);
 extern i64 sys_sigpending(sigset_t* set);
 extern i64 sys_sigreturn(trapframe_t* tf);
+extern i64 sys_getuid();
+extern i64 sys_setuid(u32 uid);
+extern i64 sys_seteuid(u32 euid);
+extern i64 sys_getgid();
+extern i64 sys_setgid(u32 gid);
+extern i64 sys_setegid(u32 egid);
+extern i64 sys_geteuid();
+extern i64 sys_getegid();
 
 typedef i64 (*syscalls_fn_t)(i64, i64, i64, i64, i64, i64);
 
@@ -118,12 +134,17 @@ i64 syscall_handler(trapframe_t *tf, u64 syscall_num, u64 arg0, u64 arg1, u64 ar
         case SYS_FCHDIR: ret = sys_fchdir((int)arg0); break;
         case SYS_LSEEK: ret = sys_lseek((int)arg0, (i64)arg1, (int)arg2); break;
         case SYS_GETPID: ret = sys_getpid(); break;
+        case SYS_SETUID: ret = sys_setuid((u32)arg0); break;
+        case SYS_GETUID: ret = sys_getuid(); break;
+        case SYS_GETEUID: ret = sys_geteuid(); break;
         case SYS_KILL: ret = sys_kill((i64)arg0, (int)arg1); break;
         case SYS_STAT: ret = sys_stat((const char*)arg0, (stat_t*)arg1); break;
         case SYS_GETPPID: ret = sys_getppid(); break;
         case SYS_LSTAT: ret = sys_lstat((const char*)arg0, (stat_t*)arg1); break;
         case SYS_DUP: ret = sys_dup((int)arg0); break;
+        case SYS_GETEGID: ret = sys_getegid(); break;
         case SYS_SIGACTION: ret = sys_sigaction((int)arg0, (const struct sigaction*)arg1, (struct sigaction*)arg2); break;
+        case SYS_GETGID: ret = sys_getgid(); break;
         case SYS_SIGPROCMASK: ret = sys_sigprocmask((int)arg0, (const sigset_t*)arg1, (sigset_t*)arg2); break;
         case SYS_SIGPENDING: ret = sys_sigpending((sigset_t*)arg0); break;
         case SYS_EXECVE: ret = sys_execve((const char*)arg0, (const char**)arg1, (const char**)arg2); break;
@@ -133,6 +154,9 @@ i64 syscall_handler(trapframe_t *tf, u64 syscall_num, u64 arg0, u64 arg1, u64 ar
         case SYS_SIGRETURN: ret = sys_sigreturn((trapframe_t*)arg0); break;
         case SYS_MKDIR: ret = sys_mkdir((const char*)arg0, (mode_t)arg1); break;
         case SYS_RMDIR: ret = sys_rmdir((const char*)arg0); break;
+        case SYS_SETGID: ret = sys_setgid((u32)arg0); break;
+        case SYS_SETEGID: ret = sys_setegid((u32)arg0); break;
+        case SYS_SETEUID: ret = sys_seteuid((u32)arg0); break;
         case SYS_FSTAT: ret = sys_fstat((int)arg0, (stat_t*)arg1); break;
         case SYS_GETDIRENTRIES: ret = sys_getdirentries((int)arg0, (char*)arg1, (size_t)arg2, (i64*)arg3); break;
         case SYS_MMAP: ret = sys_mmap((void*)arg0, (size_t)arg1, (int)arg2, (int)arg3, (int)arg4, (i64)arg5); break;
