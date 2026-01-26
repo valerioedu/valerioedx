@@ -28,7 +28,6 @@ if (CMAKE_SYSTEM_NAME STREQUAL "Linux")
     elseif(EXISTS "/usr/share/AAVMF/AAVMF_CODE.fd")
         set(BIOS /usr/share/AAVMF/AAVMF_CODE.fd)
     else()
-        # Fallback (The one you have now)
         set(BIOS /usr/share/qemu-efi-aarch64/QEMU_EFI.fd)
     endif()
 #MacOS
@@ -44,7 +43,7 @@ else()
     endif()
 
     set(OBJCOPY aarch64-elf-objcopy)
-    set(BIOS /opt/homebrew/share/qemu-efi-aarch64/edk2-aarch64-code.fd)
+    set(BIOS /opt/homebrew/share/qemu/edk2-aarch64-code.fd)
 endif()
 
 set(CMAKE_C_FLAGS "-march=armv8-a -ffreestanding -fno-pie -fno-builtin")
@@ -96,7 +95,7 @@ set_target_properties(kernel.elf PROPERTIES
 
 add_custom_target(run
     COMMAND dtc -I dts -O dtb -o virt.dtb ../virt.dts
-    COMMAND qemu-system-aarch64 -M virt -m 2G -cpu cortex-a53 
+    COMMAND qemu-system-aarch64 -M virt -m 2G -cpu cortex-a710  
             -bios ${BIOS}
             -drive file=../disk.img,if=none,format=raw,id=hd0
             -device ramfb 
@@ -109,7 +108,7 @@ add_custom_target(debug
     COMMAND dtc -I dts -O dtb -o virt.dtb ../virt.dts
     COMMAND ${OBJCOPY} -O binary kernel.elf kernel.img
     COMMAND mcopy -i ../disk.img kernel.img ::/boot/kernel.img
-    COMMAND qemu-system-aarch64 -M virt -m 2G -cpu cortex-a53
+    COMMAND qemu-system-aarch64 -M virt -m 2G -cpu cortex-a710
             -bios ${BIOS}
             -drive file=../disk.img,if=none,format=raw,id=hd0
             -device ramfb 
@@ -125,7 +124,7 @@ add_custom_target(build
     COMMAND dtc -I dts -O dtb -o virt.dtb ../virt.dts
     COMMAND ${OBJCOPY} -O binary kernel.elf kernel.img
     COMMAND mcopy -i ../disk.img kernel.img ::/boot/kernel.img
-    COMMAND qemu-system-aarch64 -M virt -m 2G -cpu cortex-a53 
+    COMMAND qemu-system-aarch64 -M virt -m 2G -cpu cortex-a710 
             -bios ${BIOS}
             -drive file=../disk.img,if=none,format=raw,id=hd0
             -device ramfb 
