@@ -12,9 +12,6 @@
 #include <vga.h>
 #endif
 
-
-// This is temporary, will be replaced by the fs/vfs
-// TODO: Implement kprintf based on the write syscall
 u8 current_kstdio = 255;
 
 #ifdef ARM
