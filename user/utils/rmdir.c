@@ -1,7 +1,6 @@
 #include <stdio.h>
 #include <unistd.h>
 
-//TODO: Fix non working rmdir binary
 int main(int argc, char *argv[]) {
     if (argc < 2) {
         printf("rmdir: missing operand\n");

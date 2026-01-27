@@ -13,22 +13,6 @@
 extern int cd(char *str);
 extern int pwd();
 
-// Temporary
-int rmdir_cmd(const char *path) {
-    if (path == NULL) {
-        printf("rmdir: missing operand\n");
-        return 1;
-    }
-    
-    int ret = rmdir(path);
-    if (ret < 0) {
-        printf("rmdir: failed to remove '%s'\n", path);
-        return 1;
-    }
-    
-    return 0;
-}
-
 int run_command(const char *cmd, char *argv[]) {
     pid_t pid = fork();
 
@@ -94,9 +78,6 @@ int main() {
 
         else if (strcmp(argv[0], "pwd") == 0)
             pwd();
-
-        else if (strcmp(argv[0], "rmdir") == 0)
-            rmdir_cmd(argv[1]);
 
         else 
             run_command(argv[0], argv);

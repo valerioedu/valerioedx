@@ -95,6 +95,7 @@ add_user_util(cat)
 add_user_util(ls)
 add_user_util(mkdir)
 add_user_util(echo)
+add_user_util(rmdir)
 add_user_util(touch)
 add_user_util(rm)
 build_shell(sh)
@@ -107,7 +108,7 @@ set_target_properties(init.elf PROPERTIES
 )
 
 add_custom_target(copy
-    DEPENDS init.elf cat.elf ls.elf mkdir.elf echo.elf touch.elf rm.elf sh.elf vbasic.elf
+    DEPENDS init.elf cat.elf ls.elf mkdir.elf echo.elf touch.elf rm.elf sh.elf vbasic.elf rmdir.elf
     COMMAND mcopy -i ../../kernel/arch/aarch64/disk.img ../lib/stdint.h ::/usr/include/stdint.h
     COMMAND mcopy -i ../../kernel/arch/aarch64/disk.img ../lib/stddef.h ::/usr/include/stddef.h
     COMMAND mcopy -i ../../kernel/arch/aarch64/disk.img ../lib/string.h ::/usr/include/string.h
@@ -116,6 +117,7 @@ add_custom_target(copy
     COMMAND mcopy -i ../../kernel/arch/aarch64/disk.img cat.elf ::/bin/cat
     COMMAND mcopy -i ../../kernel/arch/aarch64/disk.img ls.elf ::/bin/ls
     COMMAND mcopy -i ../../kernel/arch/aarch64/disk.img mkdir.elf ::/bin/mkdir
+    COMMAND mcopy -i ../../kernel/arch/aarch64/disk.img rmdir.elf ::/bin/rmdir
     COMMAND mcopy -i ../../kernel/arch/aarch64/disk.img echo.elf ::/bin/echo
     COMMAND mcopy -i ../../kernel/arch/aarch64/disk.img touch.elf ::/bin/touch
     COMMAND mcopy -i ../../kernel/arch/aarch64/disk.img rm.elf ::/bin/rm
