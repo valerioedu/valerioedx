@@ -487,7 +487,7 @@ mm_struct_t* mm_duplicate(mm_struct_t* old_mm) {
     while (old_vma) {
         vma_t* new_vma = vma_create(old_vma->vm_start, old_vma->vm_end, old_vma->vm_flags, old_vma->vm_type);
         if (!new_vma) {
-            // TODO: clean everything up
+            mm_destroy(new_mm);
             return NULL; 
         }
 
