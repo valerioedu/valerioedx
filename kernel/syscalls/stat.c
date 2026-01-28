@@ -39,7 +39,6 @@ static int fill_stat(inode_t *node, stat_t *st) {
     
     memset(st, 0, sizeof(stat_t));
     
-    //TODO: Implement device ids
     st->st_dev = node->dev;
     st->st_ino = node->id;
     
