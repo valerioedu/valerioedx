@@ -4,6 +4,8 @@
 #include <tty.h>
 #include <heap.h>
 
+#define DEVFS_ROOT_ID 0xDE7F5
+
 #ifdef ARM
 #include <uart.h>
 #include <virtio.h>
@@ -11,12 +13,15 @@
 
 typedef struct device_driver {
     char name[32];
+    u32 id;
+    int type;
     inode_ops *ops;
     struct device_driver *next;
 } device_driver_t;
 
 static device_driver_t *device_head = NULL;
 static int dev_count = 0;
+static unsigned long devfs_next_id = 0x80000000ULL;
 
 static inode_t *create_device_inode(device_driver_t *device) {
     if (!device) goto done;
@@ -27,14 +32,27 @@ static inode_t *create_device_inode(device_driver_t *device) {
     memset(node, 0, sizeof(inode_t));
     strncpy(node->name, device->name, 31);
 
-    node->flags = FS_CHARDEVICE | FS_TEMPORARY;
+    node->flags = device->type | FS_TEMPORARY;
     node->ops = device->ops;
 
-    //TODO: Implement the creation of a unique id
-    node->id = 0;
+    node->id = device->id;
+    node->dev = DEVFS_ROOT_ID;
+    node->rdev = device->id;
     node->size = 0;
-    
+
+    if (device->type == FS_BLOCKDEVICE) {
+        node->mode = S_IFBLK | 0600;
+    } else {
+        node->mode = S_IFCHR | 0600;
+    }
+
+    node->nlink = 1;
     node->ptr = NULL; 
+    node->uid = 0;
+    node->gid = 0;
+    node->size = 0;
+    node->blksize = 0;
+    node->blocks = 0;
 
     return node;
 
@@ -93,6 +111,7 @@ inode_ops devfs_root_ops = { 0 };
 inode_t devfs_root_node = {
     .name = "DEV",
     .flags = FS_DIRECTORY,
+    .mode = S_IFDIR | 755,
     .ops = NULL,
     .id = 0,
     .size = 0,
@@ -103,7 +122,7 @@ inode_t *devfs_get_root() {
     return &devfs_root_node;
 }
 
-void devfs_mount_device(char* name, inode_ops* ops) {
+void devfs_mount_device(char* name, inode_ops* ops, int type) {
     device_driver_t *drv = kmalloc(sizeof(device_driver_t));
 
     if (!drv) {
@@ -113,9 +132,10 @@ void devfs_mount_device(char* name, inode_ops* ops) {
 
     strncpy(drv->name, name, 31);
     drv->ops = ops;
+    drv->type = type;
+    drv->id = ++dev_count;
     drv->next = device_head;
     device_head = drv;
-    dev_count++;
 
     kprintf("[ [CDevFS [W] Registered device: %s\n", name);
 }
@@ -141,13 +161,13 @@ void devfs_init() {
     device_head = NULL;
     dev_count = 0;
 #ifdef ARM
-    devfs_mount_device("virtio-blk", &virtio_blk_ops);
-    devfs_mount_device("uart", &uart_ops);
-    devfs_mount_device("virtio-kb", &virtio_kb_ops);
-    devfs_mount_device("tty0", &tty_console_ops);
-    devfs_mount_device("ttS0", &tty_serial_ops);
-    devfs_mount_device("stdin", &stdin_ops);
-    devfs_mount_device("stdout", &stdout_ops);
-    devfs_mount_device("stderr", &stderr_ops);
+    devfs_mount_device("virtio-blk", &virtio_blk_ops, FS_BLOCKDEVICE);
+    devfs_mount_device("uart", &uart_ops, FS_CHARDEVICE);
+    devfs_mount_device("virtio-kb", &virtio_kb_ops, FS_CHARDEVICE);
+    devfs_mount_device("tty0", &tty_console_ops, FS_CHARDEVICE);
+    devfs_mount_device("ttS0", &tty_serial_ops, FS_CHARDEVICE);
+    devfs_mount_device("stdin", &stdin_ops, FS_CHARDEVICE);
+    devfs_mount_device("stdout", &stdout_ops, FS_CHARDEVICE);
+    devfs_mount_device("stderr", &stderr_ops, FS_CHARDEVICE);
 #endif
 }

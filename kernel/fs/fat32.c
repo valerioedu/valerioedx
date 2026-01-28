@@ -302,6 +302,7 @@ u64 fat32_write_file(inode_t* node, u64 offset, u64 size, u8* buffer) {
     // Update file size if extended
     if (offset + written > node->size) {
         node->size = offset + written;
+        node->blocks = (node->size + 511) / 512;
         
         // Update directory entry
         if (file->dir_entry_cluster >= 2) {
@@ -399,6 +400,14 @@ inode_t* fat32_lookup(inode_t* node, const char* name) {
                 result->size = entry->file_size;
                 result->ops = &fat32_ops;
                 result->ref_count = 1;
+                result->dev = fs->device->id;
+                result->rdev = 0;
+                result->nlink = 1;
+                result->uid = 0;
+                result->gid = 0;
+                result->mode = ((entry->attr & FAT_ATTR_DIRECTORY) ? (S_IFDIR | 0755) : (S_IFREG | 0644));
+                result->blksize = fs->bytes_per_cluster;
+                result->blocks = (entry->file_size + 511) / 512;
 
                 // Setup private data
                 fat32_file_t* file_data = kmalloc(sizeof(fat32_file_t));
@@ -410,10 +419,6 @@ inode_t* fat32_lookup(inode_t* node, const char* name) {
                 
                 result->ptr = file_data;
                 result->id = (entry->fst_clus_hi << 16) | entry->fst_clus_lo;
-
-                result->uid = 0;
-                result->gid = 0;
-                result->mode = 777;
                 goto done;
             }
         }
@@ -1164,6 +1169,14 @@ inode_t* fat32_mount(inode_t* device) {
     memset(root, 0, sizeof(inode_t));
     strcpy(root->name, "/");
     root->flags = FS_DIRECTORY;
+    root->mode = S_IFDIR | 0755;
+    root->dev = device->id;
+    root->rdev = 0;
+    root->blksize = fs->bytes_per_cluster;
+    root->blocks = 0;
+    root->nlink = 2;    // . and ..
+    root->uid = 0;
+    root->gid = 0;
     root->ops = &fat32_ops;
 
     fat32_file_t* root_data = kmalloc(sizeof(fat32_file_t));
