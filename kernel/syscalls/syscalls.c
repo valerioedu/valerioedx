@@ -47,6 +47,7 @@ typedef struct stat {
 #define SYS_GETGID          47
 #define SYS_SIGPROCMASK     48
 #define SYS_SIGPENDING      52
+#define SYS_REBOOT          55
 #define SYS_EXECVE          59
 #define SYS_MUNMAP          73
 #define SYS_GETCWD          76
@@ -114,6 +115,39 @@ i64 sys_0() {
     return 0;
 }
 
+#define RB_AUTOBOOT     0
+#define RB_HALT         0x08
+#define RB_POWEROFF     0x4000
+
+#ifdef ARM
+#define PSCI_SYSTEM_OFF   0x84000008
+#define PSCI_SYSTEM_RESET 0x84000009
+#endif
+
+i64 sys_reboot(int howto) {
+    if (sys_getuid() != 0) return -1;
+
+    if (howto & RB_HALT) {
+#ifdef ARM
+        while (1) asm volatile("hlt #0");
+#endif
+    }
+
+    if (howto & RB_POWEROFF) {
+#ifdef ARM
+        register u64 x0 asm("x0") = PSCI_SYSTEM_OFF;
+        asm volatile("hvc #0" :: "r"(x0) : "memory");
+#endif
+        return -1;
+    }
+
+#ifdef ARM
+    register u64 x0 asm("x0") = PSCI_SYSTEM_RESET;
+    asm volatile("hvc #0" :: "r"(x0) : "memory");
+#endif
+    return 0;
+}
+
 i64 syscall_handler(trapframe_t *tf, u64 syscall_num, u64 arg0, u64 arg1, u64 arg2, u64 arg3, u64 arg4, u64 arg5) {
     if (syscall_num >= MAX_SYSCALLS)
         return -1; // -ENOSYS
@@ -147,6 +181,7 @@ i64 syscall_handler(trapframe_t *tf, u64 syscall_num, u64 arg0, u64 arg1, u64 ar
         case SYS_GETGID: ret = sys_getgid(); break;
         case SYS_SIGPROCMASK: ret = sys_sigprocmask((int)arg0, (const sigset_t*)arg1, (sigset_t*)arg2); break;
         case SYS_SIGPENDING: ret = sys_sigpending((sigset_t*)arg0); break;
+        case SYS_REBOOT: ret = sys_reboot((int)arg0); break;
         case SYS_EXECVE: ret = sys_execve((const char*)arg0, (const char**)arg1, (const char**)arg2); break;
         case SYS_MUNMAP: ret = sys_munmap((void*)arg0, (size_t)arg1); break;
         case SYS_GETCWD: ret = sys_getcwd((char*)arg0, (size_t)arg1); break;
