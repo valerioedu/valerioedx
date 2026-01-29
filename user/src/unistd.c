@@ -129,4 +129,32 @@ int unlink(const char *path) {
         : "+r"(x0) : "r"(x8) : "memory");
     return (int)(long)x0;
 }
+
+int setuid(uid_t uid) {
+    register uid_t x0 asm("x0") = uid;
+    register u64 x8 asm("x8") = 23;
+    asm volatile("svc #0" : "+r"(x0) : "r"(x8) : "memory");
+    return x0;
+}
+
+int setgid(gid_t gid) {
+    register gid_t x0 asm("x0") = gid;
+    register u64 x8 asm("x8") = 181;
+    asm volatile("svc #0" : "+r"(x0) : "r"(x8) : "memory");
+    return x0;
+}
+
+int seteuid(uid_t uid) {
+    register uid_t x0 asm("x0") = uid;
+    register u64 x8 asm("x8") = 183;
+    asm volatile("svc #0" : "+r"(x0) : "r"(x8) : "memory");
+    return x0;
+}
+
+int setegid(gid_t gid) {
+    register gid_t x0 asm("x0") = gid;
+    register u64 x8 asm("x8") = 182;
+    asm volatile("svc #0" : "+r"(x0) : "r"(x8) : "memory");
+    return x0;
+}
 //#endif

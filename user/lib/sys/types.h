@@ -10,6 +10,8 @@ typedef int64_t clock_t;
 typedef int clockid_t;
 typedef void* timer_t;
 typedef int pid_t;
+typedef uint32_t uid_t;
+typedef uint32_t gid_t;
 typedef long mode_t;
 typedef long off_t;
 typedef unsigned int u_int;

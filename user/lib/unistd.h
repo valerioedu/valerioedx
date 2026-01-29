@@ -17,5 +17,9 @@ int fchdir(int fildes);
 int execve(const char *path, char *const argv[], char *const envp[]);
 int rmdir(const char *path);
 int unlink(const char *path);
+int setuid(uid_t uid);
+int setgid(gid_t gid);
+int seteuid(uid_t uid);
+int setegid(gid_t gid);
 
 #endif
