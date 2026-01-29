@@ -129,7 +129,7 @@ i64 sys_reboot(int howto) {
 
     if (howto & RB_HALT) {
 #ifdef ARM
-        while (1) asm volatile("hlt #0");
+        while (1) asm volatile("wfi");
 #endif
     }
 
