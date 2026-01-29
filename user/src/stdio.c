@@ -4,6 +4,8 @@
 #include <unistd.h>
 #include <stdbool.h>
 #include <ctype.h>
+#include <fcntl.h>
+#include <stdlib.h>
 
 #define _READ   0x01
 #define _WRITE  0x02
@@ -110,6 +112,9 @@ int putchar(int c) {
 }
 
 char *fgets(char *s, int n, FILE *stream) {
+    if (stream == stdin) 
+        fflush(NULL);
+    
     char *p = s;
     int c;
     
@@ -644,6 +649,9 @@ int ungetc(int c, FILE *stream) {
 }
 
 int vfscanf(FILE *stream, const char *format, va_list ap) {
+    if (stream == stdin)
+        fflush(NULL);
+    
     int count = 0;
     const char *p = format;
 
@@ -814,6 +822,194 @@ int scanf(const char *format, ...) {
     va_list ap;
     va_start(ap, format);
     int ret = vfscanf(stdin, format, ap);
+    va_end(ap);
+    return ret;
+}
+
+FILE *fopen(const char *filename, const char *mode) {
+    int flags = 0;
+    int rw = 0;
+
+    if (strcmp(mode, "r") == 0) {
+        flags = O_RDONLY;
+        rw = _READ;
+    } else if (strcmp(mode, "w") == 0) {
+        flags = O_WRONLY | O_CREAT | O_TRUNC;
+        rw = _WRITE;
+    } else if (strcmp(mode, "a") == 0) {
+        flags = O_WRONLY | O_CREAT | O_APPEND;
+        rw = _WRITE;
+    } else if (strcmp(mode, "r+") == 0) {
+        flags = O_RDWR;
+        rw = _READ | _WRITE;
+    } else if (strcmp(mode, "w+") == 0) {
+        flags = O_RDWR | O_CREAT | O_TRUNC;
+        rw = _READ | _WRITE;
+    } else if (strcmp(mode, "a+") == 0) {
+        flags = O_RDWR | O_CREAT | O_APPEND;
+        rw = _READ | _WRITE;
+    } else return NULL;
+
+    int fd = open(filename, flags);
+    if (fd < 0) return NULL;
+
+    FILE *f = malloc(sizeof(FILE));
+    if (!f) {
+        close(fd);
+        return NULL;
+    }
+
+    f->fd = fd;
+    f->flags = rw;
+    f->bufsiz = BUFSIZ;
+    f->buf = malloc(BUFSIZ);
+    if (!f->buf) {
+        free(f);
+        close(fd);
+        return NULL;
+    }
+    
+    f->ptr = f->buf;
+    
+    f->cnt = (rw & _WRITE) ? f->bufsiz : 0;
+
+    return f;
+}
+
+int fclose(FILE *stream) {
+    if (!stream) return EOF;
+
+    fflush(stream);
+    
+    close(stream->fd);
+    
+    if (stream->buf) free(stream->buf);
+    free(stream);
+    
+    return 0;
+}
+
+int vsscanf(const char *str, const char *format, va_list ap) {
+    int count = 0;
+    const char *p = format;
+    const char *s = str;
+
+    while (*p) {
+        if (isspace(*p)) {
+            while (isspace(*s)) s++;
+            p++;
+            continue;
+        }
+
+        if (*p != '%') {
+            if (*s == '\0') return count > 0 ? count : EOF;
+            if (*s != *p) return count;
+            s++;
+            p++;
+            continue;
+        }
+
+        p++;
+        if (*p == '\0') break;
+
+        int is_long = 0;
+        if (*p == 'l') {
+            is_long = 1;
+            p++;
+        }
+
+        switch (*p) {
+            case 'd':
+            case 'i':
+            case 'u': {
+                while (isspace(*s)) s++;
+                if (*s == '\0') return count > 0 ? count : EOF;
+
+                int sign = 1;
+                if (*s == '-') {
+                    sign = -1;
+                    s++;
+                } else if (*s == '+') s++;
+
+                if (!isdigit(*s)) return count;
+
+                long num = 0;
+                while (isdigit(*s)) {
+                    num = num * 10 + (*s - '0');
+                    s++;
+                }
+
+                if (*p == 'u') {
+                    if (is_long) *va_arg(ap, unsigned long*) = num;
+                    else *va_arg(ap, unsigned int*) = (unsigned int)num;
+                } else {
+                    num *= sign;
+                    if (is_long) *va_arg(ap, long*) = num;
+                    else *va_arg(ap, int*) = (int)num;
+                }
+                count++;
+                break;
+            }
+            case 'x':
+            case 'X': {
+                while (isspace(*s)) s++;
+                if (*s == '\0') return count > 0 ? count : EOF;
+                
+                if (!isxdigit(*s)) return count;
+
+                unsigned long num = 0;
+                while (isxdigit(*s)) {
+                    int val;
+                    if (*s >= '0' && *s <= '9') val = *s - '0';
+                    else if (*s >= 'a' && *s <= 'f') val = *s - 'a' + 10;
+                    else val = *s - 'A' + 10;
+                    
+                    num = num * 16 + val;
+                    s++;
+                }
+
+                if (is_long) *va_arg(ap, unsigned long*) = num;
+                else *va_arg(ap, unsigned int*) = (unsigned int)num;
+                count++;
+                break;
+            }
+            case 's': {
+                char *dest = va_arg(ap, char *);
+                while (isspace(*s)) s++;
+                if (*s == '\0') return count > 0 ? count : EOF;
+
+                while (*s && !isspace(*s))
+                    *dest++ = *s++;
+
+                *dest = '\0';
+                count++;
+                break;
+            }
+            case 'c': {
+                char *dest = va_arg(ap, char *);
+                if (*s == '\0') return count > 0 ? count : EOF;
+                *dest = *s++;
+                count++;
+                break;
+            }
+            case '%':
+                if (*s != '%') return count;
+                s++;
+                break;
+            default:
+                return count;
+        }
+
+        p++;
+    }
+    
+    return count;
+}
+
+int sscanf(const char *str, const char *format, ...) {
+    va_list ap;
+    va_start(ap, format);
+    int ret = vsscanf(str, format, ap);
     va_end(ap);
     return ret;
 }

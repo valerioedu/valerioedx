@@ -58,4 +58,7 @@ void clearerr(FILE *stream);
 int vsnprintf(char *str, size_t size, const char *format, va_list ap);
 int snprintf(char *str, size_t size, const char *format, ...);
 
+FILE *fopen(const char *filename, const char *mode);
+int fclose(FILE *stream);
+
 #endif

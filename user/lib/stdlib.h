@@ -11,5 +11,6 @@ void *calloc(size_t nelem, size_t elsize);
 void *realloc(void *ptr, size_t size);
 void free(void *ptr);
 int atoi(const char *str);
+void exit(int status);
 
 #endif

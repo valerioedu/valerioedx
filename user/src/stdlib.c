@@ -2,6 +2,8 @@
 #include <stddef.h>
 #include <stdint.h>
 #include <string.h>
+#include <stdio.h>
+#include <unistd.h>
 
 #define ALIGNMENT 16
 #define PAGE_SIZE 4096
@@ -184,4 +186,9 @@ int atoi(const char *str) {
     }
 
     return (int)(result * sign);
+}
+
+void exit(int status) {
+    fflush(NULL);
+    _exit(status);
 }
