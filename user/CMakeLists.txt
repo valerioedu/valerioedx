@@ -117,6 +117,7 @@ add_custom_target(copy
     COMMAND mcopy -i ../../kernel/arch/aarch64/disk.img ../lib/string.h ::/usr/include/string.h
     COMMAND mcopy -i ../../kernel/arch/aarch64/disk.img ../lib/unistd.h ::/usr/include/unistd.h
     COMMAND mcopy -i ../../kernel/arch/aarch64/disk.img init.elf ::/bin/init.elf
+    COMMAND mcopy -i ../../kernel/arch/aarch64/disk.img init.elf ::/bin/init
     COMMAND mcopy -i ../../kernel/arch/aarch64/disk.img cat.elf ::/bin/cat
     COMMAND mcopy -i ../../kernel/arch/aarch64/disk.img ls.elf ::/bin/ls
     COMMAND mcopy -i ../../kernel/arch/aarch64/disk.img mkdir.elf ::/bin/mkdir
