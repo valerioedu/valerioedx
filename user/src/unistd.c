@@ -157,4 +157,36 @@ int setegid(gid_t gid) {
     asm volatile("svc #0" : "+r"(x0) : "r"(x8) : "memory");
     return x0;
 }
+
+int getuid() {
+    register uid_t x0 asm("x0") = 0;
+    register u64 x8 asm("x8") = 24;
+    asm volatile("svc #0"
+        : "+r"(x0) : "r"(x8) : "memory");
+    return x0;
+}
+
+int geteuid() {
+    register uid_t x0 asm("x0") = 0;
+    register u64 x8 asm("x8") = 25;
+    asm volatile("svc #0"
+        : "+r"(x0) : "r"(x8) : "memory");
+    return x0;
+}
+
+int getgid() {
+    register gid_t x0 asm("x0") = 0;
+    register u64 x8 asm("x8") = 47;
+    asm volatile("svc #0"
+        : "+r"(x0) : "r"(x8) : "memory");
+    return x0;
+}
+
+int getegid() {
+    register gid_t x0 asm("x0") = 0;
+    register u64 x8 asm("x8") = 43;
+    asm volatile("svc #0"
+        : "+r"(x0) : "r"(x8) : "memory");
+    return x0;
+}
 //#endif

@@ -21,5 +21,9 @@ int setuid(uid_t uid);
 int setgid(gid_t gid);
 int seteuid(uid_t uid);
 int setegid(gid_t gid);
+int getuid();
+int geteuid();
+int getgid();
+int getegid();
 
 #endif
