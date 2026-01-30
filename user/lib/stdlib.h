@@ -12,5 +12,6 @@ void *realloc(void *ptr, size_t size);
 void free(void *ptr);
 int atoi(const char *str);
 void exit(int status);
+unsigned long strtoul(const char *nptr, char **endptr, int base);
 
 #endif

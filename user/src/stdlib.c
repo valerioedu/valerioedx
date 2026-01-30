@@ -192,3 +192,72 @@ void exit(int status) {
     fflush(NULL);
     _exit(status);
 }
+
+unsigned long strtoul(const char *nptr, char **endptr, int base) {
+    const char *s = nptr;
+    unsigned long acc;
+    int c;
+    unsigned long cutoff;
+    int neg = 0, any, cutlim;
+
+    if (base < 0 || base == 1 || base > 36) {
+        if (endptr) *endptr = (char *)nptr;
+        return 0;
+    }
+
+    while (*s == ' ' || *s == '\t' ||
+           *s == '\n' || *s == '\v' || 
+           *s == '\f' || *s == '\r')
+        s++;
+
+    if (*s == '-') {
+        neg = 1;
+        s++;
+    } else if (*s == '+') s++;
+
+    if ((base == 0 || base == 16) &&
+        *s == '0' && (*(s + 1) == 'x' || *(s + 1) == 'X')) {
+        c = s[2];
+        if ((c >= '0' && c <= '9') || 
+           (c >= 'a' && c <= 'f') || 
+           (c >= 'A' && c <= 'F')) {
+            base = 16;
+            s += 2;
+        }
+    }
+
+    if (base == 0) {
+        if (*s == '0') base = 8;
+        else base = 10;
+    }
+
+    cutoff = (unsigned long)~0 / (unsigned long)base;
+    cutlim = (unsigned long)~0 % (unsigned long)base;
+
+    for (acc = 0, any = 0;; s++) {
+        c = *s;
+        if (c >= '0' && c <= '9') c -= '0';
+        else if (c >= 'A' && c <= 'Z') c -= 'A' - 10;
+        else if (c >= 'a' && c <= 'z') c -= 'a' - 10;
+        else break;
+        
+        if (c >= base) break;
+
+        if (any < 0 || acc > cutoff || (acc == cutoff && c > cutlim))
+            any = -1; // Overflow
+        
+        else {
+            any = 1;
+            acc *= base;
+            acc += c;
+        }
+    }
+
+    if (any < 0) acc = (unsigned long)~0;
+    else if (neg) acc = -acc;
+
+    if (endptr != 0)
+        *endptr = (char *)(any ? s : nptr);
+
+    return acc;
+}
