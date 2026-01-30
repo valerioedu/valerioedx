@@ -800,6 +800,7 @@ static inode_t* fat32_create_entry(inode_t* parent, const char* name, u8 attr) {
     file_data->dir_entry_offset = entry_offset + (lfn_count * sizeof(fat_dir_entry_t));
     node->ptr = file_data;
     node->id = new_cluster;
+    node->ref_count = 1;
     
     return node;
 }
