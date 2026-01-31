@@ -257,6 +257,7 @@ case $MACHINE in
                 mmd -i disk.img ::/usr/sbin
                 mmd -i disk.img ::/usr/include
                 mmd -i disk.img ::/boot
+                mmd -i disk.img ::/etc
             else 
                 /usr/sbin/mkfs.fat -F 32 -I disk.img
                 mmd -i disk.img ::/EFI
@@ -271,6 +272,7 @@ case $MACHINE in
                 mmd -i disk.img ::/usr/sbin
                 mmd -i disk.img ::/usr/include
                 mmd -i disk.img ::/boot
+                mmd -i disk.img ::/etc
             fi
 
             cd ../../../user
