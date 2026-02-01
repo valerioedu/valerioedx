@@ -227,4 +227,20 @@ pid_t getsid(pid_t pid) {
     asm volatile("svc #0" : "+r"(x0) : "r"(x8) : "memory");
     return x0;
 }
+
+int getgroups(int gidsetsize, gid_t grouplist[]) {
+    register int x0 asm("x0") = gidsetsize;
+    register gid_t *x1 asm("x1") = grouplist;
+    register u64 x8 asm("x8") = 79;
+    asm volatile("svc #0" : "+r"(x0) : "r"(x1), "r"(x8) : "memory");
+    return x0;
+}
+
+int setgroups(int gidsetsize, const gid_t grouplist[]) {
+    register int x0 asm("x0") = gidsetsize;
+    register const gid_t *x1 asm("x1") = grouplist;
+    register u64 x8 asm("x8") = 80;
+    asm volatile("svc #0" : "+r"(x0) : "r"(x1), "r"(x8) : "memory");
+    return x0;
+}
 //#endif

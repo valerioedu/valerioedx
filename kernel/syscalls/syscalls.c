@@ -51,6 +51,8 @@ typedef struct stat {
 #define SYS_EXECVE          59
 #define SYS_MUNMAP          73
 #define SYS_GETCWD          76
+#define SYS_GETGROUPS       79
+#define SYS_SETGROUPS       80
 #define SYS_GETPGRP         81
 #define SYS_SETPGID         82
 #define SYS_DUP2            90
@@ -112,6 +114,8 @@ extern i64 sys_getsid(u64 pid);
 extern i64 sys_getpgid(u64 pid);
 extern i64 sys_setpgid(u64 pid, u64 pgid);
 extern i64 sys_getpgrp();
+extern i64 sys_getgroups(int size, gid_t *list);
+extern i64 sys_setgroups(int size, const gid_t *list);
 
 typedef i64 (*syscalls_fn_t)(i64, i64, i64, i64, i64, i64);
 
@@ -195,6 +199,8 @@ i64 syscall_handler(trapframe_t *tf, u64 syscall_num, u64 arg0, u64 arg1, u64 ar
         case SYS_EXECVE: ret = sys_execve((const char*)arg0, (const char**)arg1, (const char**)arg2); break;
         case SYS_MUNMAP: ret = sys_munmap((void*)arg0, (size_t)arg1); break;
         case SYS_GETCWD: ret = sys_getcwd((char*)arg0, (size_t)arg1); break;
+        case SYS_GETGROUPS: ret = sys_getgroups((int)arg0, (gid_t*)arg1); break;
+        case SYS_SETGROUPS: ret = sys_setgroups((int)arg0, (gid_t*)arg1); break;
         case SYS_GETPGRP: ret = sys_getpgrp(); break;
         case SYS_SETPGID: ret = sys_setpgid((u64)arg0, (u64)arg1); break;
         case SYS_DUP2: ret = sys_dup2((int)arg0, (int)arg1); break;

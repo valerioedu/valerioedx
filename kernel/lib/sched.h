@@ -7,6 +7,7 @@
 
 #define MAX_FD 1024
 #define NSIG   32
+#define NGROUPS_MAX 32
 
 // Forward declarations
 struct mm_struct;
@@ -110,6 +111,8 @@ typedef struct process {
     u64 pid;
     u64 sid;
     u64 pgid;
+    gid_t groups[NGROUPS_MAX];
+    int ngroups;
     uid_t uid;
     gid_t gid;
     uid_t euid;

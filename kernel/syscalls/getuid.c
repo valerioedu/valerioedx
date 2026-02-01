@@ -148,3 +148,43 @@ i64 sys_getpgrp() {
     
     return current_task->proc->pgid;
 }
+
+i64 sys_getgroups(int size, gid_t *list) {
+    if (!current_task || !current_task->proc)
+        return -1;
+
+    process_t *p = current_task->proc;
+
+    if (size == 0) return p->ngroups;
+
+    if (size < p->ngroups) return -1;
+
+    if (copy_to_user(list, p->groups, p->ngroups * sizeof(gid_t)) < 0) 
+        return -1;
+
+    return p->ngroups;
+}
+
+i64 sys_setgroups(int size, const gid_t *list) {
+    if (!current_task || !current_task->proc)
+        return -1;
+
+    process_t *p = current_task->proc;
+
+    if (p->euid != 0) return -1;
+
+    if (size < 0 || size > NGROUPS_MAX)
+        return -1;
+
+    gid_t new_groups[NGROUPS_MAX];
+    if (copy_from_user(new_groups, list, size * sizeof(gid_t)) < 0)
+        return -1;
+
+
+    for (int i = 0; i < size; i++)
+        p->groups[i] = new_groups[i];
+    
+    p->ngroups = size;
+
+    return 0;
+}
