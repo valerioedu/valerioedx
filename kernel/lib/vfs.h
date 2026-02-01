@@ -68,6 +68,7 @@ typedef struct {
     int (*rmdir)(struct vfs_node*, const char*);                 // Delete directory
     struct vfs_node* (*symlink)(struct vfs_node*, const char*, const char*);  // Create symlink
     int (*readdir)(struct vfs_node*, int, char *namebuf, int buflen, int *isdir);
+    int (*ioctl)(struct vfs_node* file, u64 request, u64 arg);
 } inode_ops;
 
 /*
