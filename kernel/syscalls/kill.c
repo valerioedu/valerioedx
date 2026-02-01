@@ -272,8 +272,8 @@ i64 sys_kill(i64 pid, int sig) {
         return signal_send_pid(pid, sig);
     } else if (pid == 0) {
         // Send to all processes in caller's process group
-        // TODO: Implement process groups
-        return -1;
+        if (!current_task || !current_task->proc) return -1;
+        return signal_send_group(current_task->proc->pgid, sig);
     } else if (pid == -1) {
         int ret = 0;
         for (int i = 2; i < 1024; i++) { //Pid hash size
@@ -284,11 +284,7 @@ i64 sys_kill(i64 pid, int sig) {
         }
 
         return ret > 0 ? 0 : -1;
-    } else {
-        // Send to process group -pid
-        // TODO: Implement process groups
-        return -1;
-    }
+    } else return signal_send_group((u64)(-pid), sig);
 }
 
 i64 sys_sigaction(int sig, const sigaction_t* act, sigaction_t* oldact) {

@@ -82,5 +82,6 @@ int signal_send(process_t *proc, int sig);
 int signal_send_pid(u64 pid, int sig);
 void signal_check_pending(trapframe_t* tf);
 int signal_get_default_action(int sig);
+int signal_send_group(u64 pgid, int sig);
 
 #endif

@@ -216,12 +216,11 @@ i64 sys_wait3(i64 pid, int *status, int options) {
             else if (pid == -1)
                 matches = true;
             
-            //TODO: Implement process groups
             else if (pid == 0)
-                matches = true;
+                matches = (child->pgid == proc->pgid);
             
             else if (pid < -1)
-                matches = true;
+                matches = (child->pgid == (u64)(-pid));
 
             if (matches) {
                 has_matching_children = true;

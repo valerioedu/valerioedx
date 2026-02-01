@@ -343,3 +343,26 @@ process_t *find_process_by_pid(u64 pid) {
     spinlock_release_irqrestore(&sched_lock, flags);
     return NULL;
 }
+
+int signal_send_group(u64 pgid, int sig) {
+    if (sig < 0 || sig > NSIG) return -1;
+
+    int count = 0;
+    u32 flags = spinlock_acquire_irqsave(&sched_lock);
+
+    for (int i = 0; i < PID_HASH_SIZE; i++) {
+        process_t *proc = pid_hash[i];
+
+        while (proc) {
+            if (proc->pgid == pgid) {
+                if (signal_send(proc, sig) == 0)
+                    count++;
+            }
+            proc = proc->hash_next;
+        }
+    }
+
+    spinlock_release_irqrestore(&sched_lock, flags);
+    
+    return (count > 0) ? 0 : -1;
+}
