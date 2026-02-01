@@ -25,5 +25,10 @@ int getuid();
 int geteuid();
 int getgid();
 int getegid();
+pid_t getpgrp();
+int setpgid(pid_t pid, pid_t pgid);
+pid_t setsid();
+pid_t getpgid(pid_t pid);
+pid_t getsid(pid_t pid);
 
 #endif
