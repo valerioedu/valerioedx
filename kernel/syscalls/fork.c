@@ -48,6 +48,11 @@ task_t *task_clone(task_t *task, process_t *process) {
 
     new->proc = process;
 
+    if (process) {
+        new->thread_next = process->threads;
+        process->threads = new;
+    }
+
     if (runqueues[new->priority] == NULL) {
         runqueues[new->priority] = new;
         runqueues_tail[new->priority] = new;
@@ -228,6 +233,13 @@ i64 sys_wait3(i64 pid, int *status, int options) {
                 if (child->state == PROCESS_ZOMBIE) {
                     target = child;
                     break;
+                }
+
+                if ((options & WUNTRACED) && child->state == PROCESS_STOPPED) {
+                    if (status) *status = (0x7f) | (SIGSTOP << 8);
+                    
+                    spinlock_release_irqrestore(&sched_lock, flags);
+                    return child->pid;
                 }
             }
 

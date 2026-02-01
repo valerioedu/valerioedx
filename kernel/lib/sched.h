@@ -52,13 +52,15 @@ typedef enum task_state {
     TASK_RUNNING = 0,
     TASK_READY = 1,
     TASK_EXITED = 2,
-    TASK_BLOCKED = 3
+    TASK_BLOCKED = 3,
+    TASK_STOPPED = 4
 } task_state;
 
 typedef enum process_state {
     PROCESS_ACTIVE = 0,
     PROCESS_ZOMBIE = 1,
-    PROCESS_KILLED = 2
+    PROCESS_KILLED = 2,
+    PROCESS_STOPPED = 3
 } process_state;
 
 // Architecture-specific context (Callee-saved registers for AArch64)
@@ -98,6 +100,7 @@ typedef struct task {
     task_priority priority;
     struct task* next;          // Linked list pointer
     struct task* next_wait;     // Pointer to wait queue
+    struct task* thread_next;
     void* stack_page;           // Pointer to the allocated stack memory
     struct process *proc;
 } task_t;
@@ -129,6 +132,7 @@ typedef struct process {
     wait_queue_t wait_queue;
     struct process *hash_next;
     struct signal_struct *signals;  // Signal handling state
+    task_t *threads;
 } process_t;
 
 void sched_init();
@@ -138,6 +142,7 @@ void task_exit();
 void cpu_switch_to(struct task* prev, struct task* next);
 void sleep_on(wait_queue_t* queue, spinlock_t* release_lock);
 void wake_up(wait_queue_t* queue);
+void task_wake_up_process(process_t *proc);
 process_t *process_create(const char *name, void (*entry_point)(), task_priority priority);
 process_t *find_process_by_pid(u64 pid);
 void pid_hash_insert(process_t *proc);

@@ -67,6 +67,7 @@
 
 // Uncatchable/unblockable signals
 #define SIG_KERNEL_ONLY_MASK (sigmask(SIGKILL) | sigmask(SIGSTOP))
+#define SIG_STOP_MASK (sigmask(SIGSTOP) | sigmask(SIGTSTP) | sigmask(SIGTTIN) | sigmask(SIGTTOU))
 
 // Default action types
 #define SIG_ACTION_TERM     0   // Terminate process

@@ -138,6 +138,11 @@ void task_create(void (*entry_point)(), task_priority priority, struct process *
     t->context.x19 = (u64)entry_point;
 
     u32 flags = spinlock_acquire_irqsave(&sched_lock);
+
+    if (proc) {
+        t->thread_next = proc->threads;
+        proc->threads = t;
+    }
     
     if (runqueues[priority] == NULL) {
         runqueues[priority] = t;
@@ -197,6 +202,22 @@ void wake_up(wait_queue_t* queue) {
         runqueues_tail[prio]->next = t;
         runqueues_tail[prio] = t;
     }
+    spinlock_release_irqrestore(&sched_lock, flags);
+}
+
+void task_wake_up_process(process_t *proc) {
+    if (!proc) return;
+
+    u32 flags = spinlock_acquire_irqsave(&sched_lock);
+
+    task_t *t = proc->threads;
+    while (t) {
+        if (t->state == TASK_STOPPED)
+            t->state = TASK_READY;
+
+        t = t->thread_next;
+    }
+
     spinlock_release_irqrestore(&sched_lock, flags);
 }
 

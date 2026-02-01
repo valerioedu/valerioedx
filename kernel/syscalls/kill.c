@@ -95,9 +95,17 @@ int signal_send(process_t* proc, int sig) {
     signal_struct_t* siginfo = proc->signals;
     if (!siginfo) return -1;
     
-    sigaddset(&siginfo->pending, sig);
-    //TODO: Wake up if sleeping
+    if (sig == SIGCONT) {
+        siginfo->pending &= ~SIG_STOP_MASK;
+        proc->state = PROCESS_ACTIVE;
+        task_wake_up_process(proc);
+    }
     
+    if (sigmask(sig) & SIG_STOP_MASK)
+        sigdelset(&siginfo->pending, SIGCONT);
+
+    sigaddset(&siginfo->pending, sig);
+
     return 0;
 }
 
@@ -235,11 +243,19 @@ void signal_check_pending(trapframe_t* tf) {
                     return;
                 
                 case SIG_ACTION_STOP:
-                    // TODO: Implement process stopping
+                    current_task->proc->state = PROCESS_STOPPED;
+                    current_task->state = TASK_STOPPED;
+                    
+                    if (current_task->proc->parent) {
+                        signal_send(current_task->proc->parent, SIGCHLD);
+                        wake_up(&current_task->proc->parent->wait_queue);
+                    }
+                    
+                    schedule(); 
                     continue;
                 
                 case SIG_ACTION_CONT:
-                    // TODO: Implement process continuation
+                    // Implicitly handled by signal_send.
                     continue;
                 
                 case SIG_ACTION_IGN:
