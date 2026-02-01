@@ -57,7 +57,6 @@ typedef struct stat {
 #define SYS_GETPGRP         81
 #define SYS_SETPGID         82
 #define SYS_DUP2            90
-#define SYS_SIGRETURN       103
 #define SYS_MKDIR           136
 #define SYS_RMDIR           137
 #define SYS_SETSID          147
@@ -65,6 +64,7 @@ typedef struct stat {
 #define SYS_SETGID          181
 #define SYS_SETEGID         182
 #define SYS_SETEUID         183
+#define SYS_SIGRETURN       184
 #define SYS_FSTAT           189
 #define SYS_GETDIRENTRIES   196
 #define SYS_MMAP            197
@@ -207,7 +207,6 @@ i64 syscall_handler(trapframe_t *tf, u64 syscall_num, u64 arg0, u64 arg1, u64 ar
         case SYS_GETPGRP: ret = sys_getpgrp(); break;
         case SYS_SETPGID: ret = sys_setpgid((u64)arg0, (u64)arg1); break;
         case SYS_DUP2: ret = sys_dup2((int)arg0, (int)arg1); break;
-        case SYS_SIGRETURN: ret = sys_sigreturn((trapframe_t*)arg0); break;
         case SYS_MKDIR: ret = sys_mkdir((const char*)arg0, (mode_t)arg1); break;
         case SYS_RMDIR: ret = sys_rmdir((const char*)arg0); break;
         case SYS_SETSID: ret = sys_setsid(); break;
