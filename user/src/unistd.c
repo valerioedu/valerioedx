@@ -189,4 +189,42 @@ int getegid() {
         : "+r"(x0) : "r"(x8) : "memory");
     return x0;
 }
+
+pid_t getpgrp() {
+    register pid_t x0 asm("x0") = 0;
+    register u64 x8 asm("x8") = 81;
+    asm volatile("svc #0"
+        : "+r"(x0) : "r"(x8) : "memory");
+    return x0;
+}
+
+int setpgid(pid_t pid, pid_t pgid) {
+    register pid_t x0 asm("x0") = pid;
+    register pid_t x1 asm("x1") = pgid;
+    register u64 x8 asm("x8") = 82;
+    asm volatile("svc #0" : "+r"(x0) : "r"(x1), "r"(x8) : "memory");
+    return (int)x0;
+}
+
+pid_t setsid() {
+    register pid_t x0 asm("x0") = 0;
+    register u64 x8 asm("x8") = 147;
+    asm volatile("svc #0"
+        : "+r"(x0) : "r"(x8) : "memory");
+    return x0;
+}
+
+pid_t getpgid(pid_t pid) {
+    register pid_t x0 asm("x0") = pid;
+    register u64 x8 asm("x8") = 182;
+    asm volatile("svc #0" : "+r"(x0) : "r"(x8) : "memory");
+    return x0;
+}
+
+pid_t getsid(pid_t pid) {
+    register pid_t x0 asm("x0") = pid;
+    register u64 x8 asm("x8") = 310;
+    asm volatile("svc #0" : "+r"(x0) : "r"(x8) : "memory");
+    return x0;
+}
 //#endif

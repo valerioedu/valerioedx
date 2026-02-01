@@ -108,6 +108,8 @@ typedef u32 gid_t;
 // Process
 typedef struct process {
     u64 pid;
+    u64 sid;
+    u64 pgid;
     uid_t uid;
     gid_t gid;
     uid_t euid;

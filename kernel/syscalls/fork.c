@@ -107,6 +107,8 @@ i64 sys_fork(trapframe_t *tf) {
     strncpy(child->name, parent->name, 64);
     child->uid = parent->uid;
     child->gid = parent->gid;
+    child->pgid = parent->pgid;
+    child->sid = parent->sid;
 
     task_t *child_task = task_clone(current_task, child);
     if (!child_task) {

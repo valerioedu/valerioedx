@@ -71,3 +71,80 @@ i64 sys_geteuid() {
 i64 sys_getegid() {
     return current_task && current_task->proc ? current_task->proc->egid : -1;
 }
+
+i64 sys_setsid() {
+    if (!current_task || !current_task->proc)
+        return -1;
+
+    process_t *p = current_task->proc;
+
+    if (p->pgid == p->pid)
+        return -1;
+
+    p->sid = p->pid;
+    p->pgid = p->pid;
+    
+    //TODO: p->tty = NULL;
+
+    return p->sid;
+}
+
+i64 sys_getsid(u64 pid) {
+    if (pid == 0) {
+        // pid 0 = calling process
+        if (!current_task || !current_task->proc)
+            return -1;
+
+        return current_task->proc->sid;
+    }
+
+    process_t *target = find_process_by_pid(pid);
+    if (!target)
+        return -1;
+
+    return target->sid;
+}
+
+i64 sys_getpgid(u64 pid) {
+    process_t *target;
+
+    if (pid == 0) {
+        if (!current_task || !current_task->proc) 
+            return -1;
+
+        target = current_task->proc;
+    } else target = find_process_by_pid(pid);
+
+    if (!target) return -1;
+
+    return target->pgid;
+}
+
+i64 sys_setpgid(u64 pid, u64 pgid) {
+    if (!current_task || !current_task->proc) return -1;
+    
+    process_t *caller = current_task->proc;
+    process_t *target;
+
+    if (pid == 0 || pid == caller->pid)
+        target = caller;
+    
+    else {
+        target = find_process_by_pid(pid);
+        if (!target) return -1;
+        if (target->parent != caller) return -1;
+    }
+
+    if (pgid == 0) pgid = target->pid;
+    if (target->sid != caller->sid) return -1;
+
+    target->pgid = pgid;
+    return 0;
+}
+
+i64 sys_getpgrp() {
+    if (!current_task || !current_task->proc)
+        return -1;
+    
+    return current_task->proc->pgid;
+}

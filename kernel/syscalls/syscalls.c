@@ -21,7 +21,7 @@ typedef struct stat {
     i64 st_ctime;
 } stat_t;
 
-#define MAX_SYSCALLS        256
+#define MAX_SYSCALLS        512
 #define SYS_EXIT            1
 #define SYS_FORK            2
 #define SYS_READ            3
@@ -51,10 +51,14 @@ typedef struct stat {
 #define SYS_EXECVE          59
 #define SYS_MUNMAP          73
 #define SYS_GETCWD          76
+#define SYS_GETPGRP         81
+#define SYS_SETPGID         82
 #define SYS_DUP2            90
 #define SYS_SIGRETURN       103
 #define SYS_MKDIR           136
 #define SYS_RMDIR           137
+#define SYS_SETSID          147
+#define SYS_GETPGID         151
 #define SYS_SETGID          181
 #define SYS_SETEGID         182
 #define SYS_SETEUID         183
@@ -62,6 +66,7 @@ typedef struct stat {
 #define SYS_GETDIRENTRIES   196
 #define SYS_MMAP            197
 #define SYS_SYSCTL          202
+#define SYS_GETSID          310
 
 extern i64 sys_write(u32 fd, const char *buf, size_t count);
 extern i64 sys_read(u32 fd, char *buf, size_t count);
@@ -102,6 +107,11 @@ extern i64 sys_setgid(u32 gid);
 extern i64 sys_setegid(u32 egid);
 extern i64 sys_geteuid();
 extern i64 sys_getegid();
+extern i64 sys_setsid();
+extern i64 sys_getsid(u64 pid);
+extern i64 sys_getpgid(u64 pid);
+extern i64 sys_setpgid(u64 pid, u64 pgid);
+extern i64 sys_getpgrp();
 
 typedef i64 (*syscalls_fn_t)(i64, i64, i64, i64, i64, i64);
 
@@ -185,10 +195,14 @@ i64 syscall_handler(trapframe_t *tf, u64 syscall_num, u64 arg0, u64 arg1, u64 ar
         case SYS_EXECVE: ret = sys_execve((const char*)arg0, (const char**)arg1, (const char**)arg2); break;
         case SYS_MUNMAP: ret = sys_munmap((void*)arg0, (size_t)arg1); break;
         case SYS_GETCWD: ret = sys_getcwd((char*)arg0, (size_t)arg1); break;
+        case SYS_GETPGRP: ret = sys_getpgrp(); break;
+        case SYS_SETPGID: ret = sys_setpgid((u64)arg0, (u64)arg1); break;
         case SYS_DUP2: ret = sys_dup2((int)arg0, (int)arg1); break;
         case SYS_SIGRETURN: ret = sys_sigreturn((trapframe_t*)arg0); break;
         case SYS_MKDIR: ret = sys_mkdir((const char*)arg0, (mode_t)arg1); break;
         case SYS_RMDIR: ret = sys_rmdir((const char*)arg0); break;
+        case SYS_SETSID: ret = sys_setsid(); break;
+        case SYS_GETPGID: ret = sys_getpgid((u64)arg0); break;
         case SYS_SETGID: ret = sys_setgid((u32)arg0); break;
         case SYS_SETEGID: ret = sys_setegid((u32)arg0); break;
         case SYS_SETEUID: ret = sys_seteuid((u32)arg0); break;
@@ -196,6 +210,7 @@ i64 syscall_handler(trapframe_t *tf, u64 syscall_num, u64 arg0, u64 arg1, u64 ar
         case SYS_GETDIRENTRIES: ret = sys_getdirentries((int)arg0, (char*)arg1, (size_t)arg2, (i64*)arg3); break;
         case SYS_MMAP: ret = sys_mmap((void*)arg0, (size_t)arg1, (int)arg2, (int)arg3, (int)arg4, (i64)arg5); break;
         case SYS_SYSCTL: ret = sys_sysctl((int*)arg0, (u32)arg1, (void*)arg2, (u64*)arg3, (void*)arg4, (u64)arg5); break;
+        case SYS_GETSID: ret = sys_getsid((i64)arg0); break;
         default: ret = sys_not_implemented(); break;
     }
 
