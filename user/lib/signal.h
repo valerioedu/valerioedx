@@ -91,7 +91,7 @@ struct sigevent {
     int sigev_signo;
     union sigval sigev_value;
     void (*sigev_notify_function)(union sigval);
-}
+};
 
 int kill(pid_t pid, int sig);
 int sigaction(int sig, const struct sigaction *act, struct sigaction *oldact);
