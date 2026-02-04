@@ -98,6 +98,13 @@ i64 sys_mmap(void *addr, size_t length, int prot, int flags, int fd, i64 offset)
     if (!file || !file->inode)
         return -EBADF;
     
+    inode_t *inode = file->inode;
+    
+    if ((inode->flags == FS_CHARDEVICE || inode->flags == FS_BLOCKDEVICE) &&
+        inode->ops && inode->ops->mmap) {
+        return inode->ops->mmap(inode, map_addr, aligned_length, prot, flags, offset);
+    }
+    
     // Check file permissions match requested protection
     if ((prot & PROT_READ) && !(file->flags & O_RDONLY) && !(file->flags & O_RDWR))
         return -EACCES;
