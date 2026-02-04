@@ -8,6 +8,7 @@
 #include <vma.h>
 #include <file.h>
 #include <signal.h>
+#include <tty.h>
 
 #define PID_HASH_SIZE 1024
 
@@ -105,6 +106,17 @@ process_t *process_create(const char *name, void (*entry_point)(), task_priority
     proc->uid = 0;
     proc->pgid = proc->pid;
     proc->sid = proc->pid;
+    proc->session_leader = true;
+    
+    // first process gets the console
+    proc->controlling_tty = &tty_console;
+    
+    u32 flags = spinlock_acquire_irqsave(&tty_console.lock);
+    tty_console.session = proc;
+    tty_console.session_id = proc->sid;
+    tty_console.pgrp = proc->pgid;
+    spinlock_release_irqrestore(&tty_console.lock, flags);
+
     return proc;
 }
 
@@ -379,6 +391,7 @@ int signal_send_group(u64 pgid, int sig) {
                 if (signal_send(proc, sig) == 0)
                     count++;
             }
+
             proc = proc->hash_next;
         }
     }

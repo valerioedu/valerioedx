@@ -108,12 +108,14 @@ typedef struct task {
 typedef task_t* wait_queue_t;
 typedef u32 uid_t;
 typedef u32 gid_t;
+struct tty;
 
 // Process
 typedef struct process {
     u64 pid;
     u64 sid;
     u64 pgid;
+    bool session_leader;
     gid_t groups[NGROUPS_MAX];
     int ngroups;
     uid_t uid;
@@ -132,6 +134,7 @@ typedef struct process {
     wait_queue_t wait_queue;
     struct process *hash_next;
     struct signal_struct *signals;  // Signal handling state
+    struct tty *controlling_tty;
     task_t *threads;
 } process_t;
 

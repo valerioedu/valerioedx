@@ -8,6 +8,7 @@
 #include <file.h>
 #include <vma.h>
 #include <signal.h>
+#include <tty.h>
 
 extern task_t *current_task;
 extern u64 pid_counter;
@@ -112,8 +113,17 @@ i64 sys_fork(trapframe_t *tf) {
     strncpy(child->name, parent->name, 64);
     child->uid = parent->uid;
     child->gid = parent->gid;
+    child->euid = parent->euid;
+    child->egid = parent->egid;
+
+    child->ngroups = parent->ngroups;
+    for (int i = 0; i < parent->ngroups; i++)
+        child->groups[i] = parent->groups[i];
+    
     child->pgid = parent->pgid;
     child->sid = parent->sid;
+    child->session_leader = false;
+    child->controlling_tty = parent->controlling_tty;
 
     task_t *child_task = task_clone(current_task, child);
     if (!child_task) {
@@ -185,6 +195,19 @@ void sys_exit(int code) {
         // Send SIGCHLD to parent
         signal_send(parent, SIGCHLD);
         wake_up(&parent->wait_queue);
+    }
+
+    if (proc->session_leader && proc->controlling_tty) {
+        tty_t *tty = proc->controlling_tty;
+        
+        if (tty->pgrp > 0) {
+            signal_send_group(tty->pgrp, SIGHUP);
+            signal_send_group(tty->pgrp, SIGCONT);
+        }
+        
+        tty->session = NULL;
+        tty->session_id = 0;
+        tty->pgrp = 0;
     }
 
     schedule();
