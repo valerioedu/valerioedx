@@ -2,6 +2,7 @@
 #include <fwcfg.h>
 #include <stdarg.h>
 #include <string.h>
+#include <vmm.h>
 
 // 8x8 bitmap font for ASCII
 const u8 font8x8_basic[128][8] = {
@@ -392,7 +393,8 @@ const u8 font8x8_basic[128][8] = {
 };
 
 /* 1366*768*4 = 4,196,000 bytes (~4.2MB) */
-u32 fb_buffer[WIDTH * HEIGHT]; 
+u32 fb_buffer[WIDTH * HEIGHT] __attribute__((aligned(PAGE_SIZE))); 
+static u32* fb_addr = fb_buffer; 
 
 static int cursor_x = 0;
 static int cursor_y = 0;
@@ -406,7 +408,7 @@ static u32 bg_color = 0x00000000; // Black
 
 static inline void put_pixel(int x, int y, u32 color) {
     if (x < 0 || x >= WIDTH || y < 0 || y >= HEIGHT) return;
-    fb_buffer[y * WIDTH + x] = color;
+    fb_addr[y * WIDTH + x] = color;
 }
 
 static void draw_char_bitmap(int x, int y, char c, u32 fg, u32 bg) {
@@ -435,7 +437,7 @@ void draw_string_bitmap(int x, int y, const char *s, u32 fg, u32 bg) {
 
 void ramfb_clear() {
     for (int i = 0; i < WIDTH * HEIGHT; i++) {
-        fb_buffer[i] = bg_color;
+        fb_addr[i] = bg_color;
     }
     cursor_x = 0;
     cursor_y = 0;
@@ -447,12 +449,12 @@ void ramfb_scroll() {
     
     // Shift content up
     for (int i = 0; i < total_pixels - scroll_pixels; i++) {
-        fb_buffer[i] = fb_buffer[i + scroll_pixels];
+        fb_addr[i] = fb_addr[i + scroll_pixels];
     }
 
     // Clear the last row
     for (int i = total_pixels - scroll_pixels; i < total_pixels; i++) {
-        fb_buffer[i] = bg_color;
+        fb_addr[i] = bg_color;
     }
 }
 
@@ -679,7 +681,10 @@ void ramfb_init() {
     if (select == 0) return; 
 
     RamfbCfg cfg;
-    cfg.addr = bswap64((u64)fb_buffer);
+    
+    u64 phys_addr = V2P(fb_buffer);
+    fb_addr = (u32*)P2V(phys_addr);
+    cfg.addr = bswap64(phys_addr);
     
     /* XR24 (XRGB8888) is the most standard format for QEMU. */
     /* 'X','R','2','4' -> 0x34325258 (Little Endian) */

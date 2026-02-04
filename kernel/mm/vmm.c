@@ -280,7 +280,7 @@ void init_vmm() {
     paging_enabled = true;
     
     root_table = (u64*)((uintptr_t)root_phys + PHYS_OFFSET);
-    kprintf("[ [CVMM [W] Higher Half Kernel Initialized.\n");
+    kprintf("[VMM] Higher Half Kernel Initialized.\n");
 
     mutex_init(&vmm_lock);
 }

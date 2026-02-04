@@ -77,11 +77,7 @@ void main() {
     kprintf("MEMORY SIZE: %lluB\n             %lluMB\n             %lluGB\n",
          memory_size, memory_size / 1024 / 1024, memory_size / 1024 / 1024 / 1024);
     
-    kprintf("Now switching to the graphical interface...\n");
-
     fw_cfg_init((u64)fwcfg);
-    ramfb_init();
-    set_stdio(RAMFB);
 
     pmm_init((uintptr_t)&_kernel_end, memory_size);
     init_vmm();
@@ -123,7 +119,7 @@ void main() {
                  "lsr %0, %0, #2"
                  : "=r" (level) : :);
     level &= 0b11;
-    kprintf("[ [CMAIN [W] Exception Level: %d\n", level);
+    kprintf("[MAIN] Exception Level: %d\n", level);
     virtio_blk_ops_init();
 
     heap_init(PHYS_OFFSET + 0x50000000, 8 * 1024 * 1024);
@@ -132,6 +128,10 @@ void main() {
     gic  = (u64*)dtb_get_reg("intc");
     fwcfg = (u64*)dtb_get_reg("fw-cfg");
     virtio = (u64*)dtb_get_reg("mmio");
+
+    kprintf("Now switching to the graphical interface...\n");
+    ramfb_init();
+    set_stdio(RAMFB);
     
 
     kprintf("[ [CMAIN [W] Hardware Discovery:\n");
