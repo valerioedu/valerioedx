@@ -17,6 +17,7 @@ extern void cpu_switch_to(struct task* prev, struct task* next);
 
 task_t *runqueues[COUNT];
 task_t *runqueues_tail[COUNT];
+task_t *sleep_queue = NULL;
 
 task_t *current_task = NULL;
 u64 pid_counter = 1;
@@ -399,4 +400,88 @@ int signal_send_group(u64 pgid, int sig) {
     spinlock_release_irqrestore(&sched_lock, flags);
     
     return (count > 0) ? 0 : -1;
+}
+
+void sched_check_sleeping_tasks(u64 now) {
+    u32 flags = spinlock_acquire_irqsave(&sched_lock);
+
+    task_t **curr = &sleep_queue;
+    while (*curr) {
+        task_t *t = *curr;
+        if (now >= t->wake_tick) {
+            *curr = t->next_wait; 
+            t->next_wait = NULL;
+
+            t->state = TASK_READY;
+            t->next = NULL;
+
+            task_priority prio = t->priority;
+            if (runqueues[prio] == NULL) {
+                runqueues[prio] = t;
+                runqueues_tail[prio] = t;
+            } else {
+                runqueues_tail[prio]->next = t;
+                runqueues_tail[prio] = t;
+            }
+        } else curr = &(*curr)->next_wait;
+    }
+
+    spinlock_release_irqrestore(&sched_lock, flags);
+}
+
+void task_sleep_ticks(u64 ticks) {
+    u32 flags = spinlock_acquire_irqsave(&sched_lock);
+
+    extern volatile u64 jiffies;
+    current_task->wake_tick = jiffies + ticks;
+    current_task->state = TASK_SLEEPING;
+
+    task_priority prio = current_task->priority;
+    if (runqueues[prio] == current_task) {
+        runqueues[prio] = current_task->next;
+        if (runqueues[prio] == NULL)
+            runqueues_tail[prio] = NULL;
+    }
+
+    current_task->next_wait = sleep_queue;
+    sleep_queue = current_task;
+
+    spinlock_release_irqrestore(&sched_lock, flags);
+    
+    schedule();
+}
+
+// Returns: 0 if woken by wake_up(), 1 if timeout expired
+int sleep_on_timeout(wait_queue_t* queue, u64 timeout_ticks) {
+    if (timeout_ticks == 0) return 1;
+    
+    u32 flags = spinlock_acquire_irqsave(&sched_lock);
+
+    extern volatile u64 jiffies;
+    current_task->wake_tick = jiffies + timeout_ticks;
+    current_task->state = TASK_BLOCKED;
+    current_task->flags |= TASK_TIMEOUT;
+
+    current_task->next_wait = *queue;
+    *queue = current_task;
+
+    current_task->sleep_next = sleep_queue;
+    sleep_queue = current_task;
+
+    task_priority prio = current_task->priority;
+    if (runqueues[prio] == current_task) {
+        runqueues[prio] = current_task->next;
+        if (runqueues[prio] == NULL)
+            runqueues_tail[prio] = NULL;
+    }
+
+    spinlock_release_irqrestore(&sched_lock, flags);
+    schedule();
+
+    flags = spinlock_acquire_irqsave(&sched_lock);
+    int timed_out = (current_task->flags & TASK_TIMEDOUT) != 0;
+    current_task->flags &= ~(TASK_TIMEOUT | TASK_TIMEDOUT);
+    spinlock_release_irqrestore(&sched_lock, flags);
+
+    return timed_out;
 }

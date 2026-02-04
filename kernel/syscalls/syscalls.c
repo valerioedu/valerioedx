@@ -21,6 +21,11 @@ typedef struct stat {
     i64 st_ctime;
 } stat_t;
 
+struct timespec {
+    i64 tv_sec;
+    i64 tv_nsec;
+};
+
 #define MAX_SYSCALLS        512
 #define SYS_EXIT            1
 #define SYS_FORK            2
@@ -69,6 +74,7 @@ typedef struct stat {
 #define SYS_GETDIRENTRIES   196
 #define SYS_MMAP            197
 #define SYS_SYSCTL          202
+#define SYS_NANOSLEEP       240
 #define SYS_GETSID          310
 
 extern i64 sys_write(u32 fd, const char *buf, size_t count);
@@ -118,6 +124,7 @@ extern i64 sys_getpgrp();
 extern i64 sys_getgroups(int size, gid_t *list);
 extern i64 sys_setgroups(int size, const gid_t *list);
 extern i64 sys_ioctl(int fd, u64 request, u64 arg);
+extern i64 sys_nanosleep(const struct timespec *req, struct timespec *rem);
 
 typedef i64 (*syscalls_fn_t)(i64, i64, i64, i64, i64, i64);
 
@@ -218,6 +225,7 @@ i64 syscall_handler(trapframe_t *tf, u64 syscall_num, u64 arg0, u64 arg1, u64 ar
         case SYS_GETDIRENTRIES: ret = sys_getdirentries((int)arg0, (char*)arg1, (size_t)arg2, (i64*)arg3); break;
         case SYS_MMAP: ret = sys_mmap((void*)arg0, (size_t)arg1, (int)arg2, (int)arg3, (int)arg4, (i64)arg5); break;
         case SYS_SYSCTL: ret = sys_sysctl((int*)arg0, (u32)arg1, (void*)arg2, (u64*)arg3, (void*)arg4, (u64)arg5); break;
+        case SYS_NANOSLEEP: ret = sys_nanosleep((const struct timespec*)arg0, (struct timespec*)arg1); break;
         case SYS_GETSID: ret = sys_getsid((i64)arg0); break;
         default: ret = sys_not_implemented(); break;
     }

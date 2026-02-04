@@ -8,6 +8,8 @@
 #define MAX_FD 1024
 #define NSIG   32
 #define NGROUPS_MAX 32
+#define TASK_TIMEOUT    0x01
+#define TASK_TIMEDOUT   0x02
 
 // Forward declarations
 struct mm_struct;
@@ -53,7 +55,8 @@ typedef enum task_state {
     TASK_READY = 1,
     TASK_EXITED = 2,
     TASK_BLOCKED = 3,
-    TASK_STOPPED = 4
+    TASK_STOPPED = 4,
+    TASK_SLEEPING = 5
 } task_state;
 
 typedef enum process_state {
@@ -96,13 +99,16 @@ struct process;
 typedef struct task {
     struct cpu_context context; // Must be at offset 0 for easier assembly
     u64 id;
+    u64 wake_tick;
     task_state state;
     task_priority priority;
     struct task* next;          // Linked list pointer
     struct task* next_wait;     // Pointer to wait queue
     struct task* thread_next;
+    struct task *sleep_next;
     void* stack_page;           // Pointer to the allocated stack memory
     struct process *proc;
+    u32 flags;
 } task_t;
 
 typedef task_t* wait_queue_t;
@@ -150,5 +156,8 @@ process_t *process_create(const char *name, void (*entry_point)(), task_priority
 process_t *find_process_by_pid(u64 pid);
 void pid_hash_insert(process_t *proc);
 void pid_hash_remove(process_t *proc);
+void sched_check_sleeping_tasks(u64 now);
+void task_sleep_ticks(u64 ticks);
+int sleep_on_timeout(wait_queue_t* queue, u64 timeout_ticks);
 
 #endif

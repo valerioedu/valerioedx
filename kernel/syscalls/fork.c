@@ -329,3 +329,34 @@ i64 sys_getppid() {
 
     return current_task->proc->parent->pid;
 }
+
+struct timespec {
+    i64 tv_sec;
+    i64 tv_nsec;
+};
+
+i64 sys_nanosleep(const struct timespec *req, struct timespec *rem) {
+    struct timespec kreq;
+    
+    if (copy_from_user(&kreq, req, sizeof(struct timespec)) != 0) 
+        return -1;
+
+    if (kreq.tv_sec < 0 || kreq.tv_nsec < 0 || kreq.tv_nsec >= 1000000000L)
+        return -1;
+
+    u64 ms_needed = (kreq.tv_sec * 1000) + (kreq.tv_nsec / 1000000);
+    extern u32 current_interval;
+    u64 ticks_needed = ms_needed / current_interval;
+    
+    if (ticks_needed == 0 && ms_needed > 0) ticks_needed = 1;
+    
+    if (ticks_needed > 0)
+        task_sleep_ticks(ticks_needed);
+
+    if (rem) {
+        struct timespec krem = {0, 0};
+        copy_to_user(rem, &krem, sizeof(struct timespec));
+    }
+
+    return 0;
+}

@@ -5,7 +5,8 @@
 
 #define TIMER_IRQ_ID 30 // EL1 Physical Timer
 
-static u32 current_interval = 0;
+u32 current_interval = 0;
+volatile u64 jiffies = 0;
 
 void timer_init(u32 interval_ms) {
     current_interval = interval_ms;
@@ -32,6 +33,9 @@ void timer_handler() {
     u64 ticks = (frq * current_interval) / 1000;
     asm volatile("msr cntp_tval_el0, %0" : : "r"(ticks));
 
+    jiffies++;
+    sched_check_sleeping_tasks(jiffies);
+
     schedule();
 }
 
@@ -39,4 +43,8 @@ u64 timer_get_frq() {
     u64 frq;
     asm volatile("mrs %0, cntfrq_el0" : "=r"(frq));
     return frq;
+}
+
+u64 get_jiffies() {
+    return jiffies;
 }
