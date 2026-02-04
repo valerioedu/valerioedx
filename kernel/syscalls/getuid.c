@@ -78,13 +78,17 @@ i64 sys_setsid() {
 
     process_t *p = current_task->proc;
 
+    if (p->session_leader)
+        return -1;
+
     if (p->pgid == p->pid)
         return -1;
 
     p->sid = p->pid;
     p->pgid = p->pid;
+    p->session_leader = true;
     
-    //TODO: p->tty = NULL;
+    p->controlling_tty = NULL;
 
     return p->sid;
 }
@@ -134,6 +138,8 @@ i64 sys_setpgid(u64 pid, u64 pgid) {
         if (!target) return -1;
         if (target->parent != caller) return -1;
     }
+    
+    if (target->session_leader) return -1;
 
     if (pgid == 0) pgid = target->pid;
     if (target->sid != caller->sid) return -1;
