@@ -216,7 +216,7 @@ pid_t setsid() {
 
 pid_t getpgid(pid_t pid) {
     register pid_t x0 asm("x0") = pid;
-    register u64 x8 asm("x8") = 182;
+    register u64 x8 asm("x8") = 151;
     asm volatile("svc #0" : "+r"(x0) : "r"(x8) : "memory");
     return x0;
 }
