@@ -6,8 +6,10 @@
 #include <heap.h>
 #include <kio.h>
 #include <tty.h>
+#include <signal.h>
 
 extern task_t *current_task;
+extern int signal_send_group(u64 pgrp, int sig);
 
 int copy_from_user(void *kernel_dst, const void *user_src, size_t size) {
     
@@ -50,9 +52,45 @@ int copy_from_user(void *kernel_dst, const void *user_src, size_t size) {
     return 0;
 }
 
+static int check_tty_access(file_t *f, int is_write) {
+    if (!current_task || !current_task->proc)
+        return 0;
+    
+    process_t *p = current_task->proc;
+    tty_t *tty = p->controlling_tty;
+    
+    if (!tty) return 0;
+    if (!f->inode || f->inode->mode != FS_CHARDEVICE)
+        return 0;
+    
+    if (p->pgid == tty->pgrp)
+        return 0;
+    
+    int sig = is_write ? SIGTTOU : SIGTTIN;
+    
+    if (p->signals) {
+        sigset_t blocked = p->signals->blocked;
+        sighandler_t handler = p->signals->actions[sig].sa_handler;
+        
+        if ((blocked & sigmask(sig)) || handler == SIG_IGN) {
+            if (is_write) return 0;
+            else return -1;
+        }
+    }
+    
+    if (is_write && !(tty->termios.c_lflag & TOSTOP))
+        return 0;
+    
+    signal_send_group(p->pgid, sig);
+    return -1;
+}
+
 i64 sys_write(u32 fd, const char *buf, size_t count) {
     file_t *f = fd_get(fd);
     if (!f) return -1;
+    
+    if (check_tty_access(f, 1) < 0)
+        return -1;
     
     char *kbuf = kmalloc(count);
     if (!kbuf) return -1;
@@ -99,8 +137,8 @@ i64 sys_read(u32 fd, char *buf, size_t count) {
     file_t *f = fd_get(fd);
     if (!f) return -1;
 
-    //IMPORTANT TODO: do this in the shell when ioctl will be implemented
-    if (fd == 0) tty_console.fg_pid = current_task->proc->pid;
+    if (check_tty_access(f, 0) < 0)
+        return -1;
 
     char *kbuf = kmalloc(count);
     if (!kbuf) return -1;
