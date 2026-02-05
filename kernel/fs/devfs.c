@@ -9,6 +9,7 @@
 #ifdef ARM
 #include <uart.h>
 #include <virtio.h>
+#include <fb.h>
 #endif
 
 typedef struct device_driver {
@@ -169,5 +170,7 @@ void devfs_init() {
     devfs_mount_device("stdin", &stdin_ops, FS_CHARDEVICE);
     devfs_mount_device("stdout", &stdout_ops, FS_CHARDEVICE);
     devfs_mount_device("stderr", &stderr_ops, FS_CHARDEVICE);
+    fb_device_init();
+    devfs_mount_device("fb0", &fb_ops, FS_CHARDEVICE);
 #endif
 }

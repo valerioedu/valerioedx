@@ -100,7 +100,7 @@ i64 sys_mmap(void *addr, size_t length, int prot, int flags, int fd, i64 offset)
     
     inode_t *inode = file->inode;
     
-    if ((inode->flags == FS_CHARDEVICE || inode->flags == FS_BLOCKDEVICE) &&
+    if (((inode->flags & 0x0F) == FS_CHARDEVICE || (inode->flags & 0x0F) == FS_BLOCKDEVICE) &&
         inode->ops && inode->ops->mmap) {
         return inode->ops->mmap(inode, map_addr, aligned_length, prot, flags, offset);
     }
