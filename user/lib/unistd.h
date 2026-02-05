@@ -32,5 +32,6 @@ pid_t getpgid(pid_t pid);
 pid_t getsid(pid_t pid);
 int getgroups(int gidsetsize, gid_t grouplist[]);
 int setgroups(int gidsetsize, const gid_t grouplist[]);
+off_t lseek(int fildes, off_t offset, int whence);
 
 #endif

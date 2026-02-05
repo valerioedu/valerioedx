@@ -243,4 +243,13 @@ int setgroups(int gidsetsize, const gid_t grouplist[]) {
     asm volatile("svc #0" : "+r"(x0) : "r"(x1), "r"(x8) : "memory");
     return x0;
 }
+
+off_t lseek(int fildes, off_t offset, int whence) {
+    register int x0 asm("x0") = fildes;
+    register off_t x1 asm("x1") = offset;
+    register int x2 asm("x2") = whence;
+    register int x8 asm("x8") = 19;
+    asm volatile("svc #0" : "+r"(x0) : "r"(x1), "r"(x2), "r"(x8) : "memory");
+    return (off_t)x0;
+}
 //#endif
