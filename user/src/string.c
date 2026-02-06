@@ -186,6 +186,17 @@ char* strncat(char* dest, const char* src, size_t n) {
     return dest;
 }
 
+int strncmp(const char* s1, const char* s2, size_t n) {
+    const unsigned char *a = (const unsigned char*)(s1 ? s1 : "");
+    const unsigned char *b = (const unsigned char*)(s2 ? s2 : "");
+
+    for (; n > 0; --n, ++a, ++b) {
+        if (*a != *b) return (int)(*a - *b);
+        if (*a == '\0') break;
+    }
+
+    return 0;
+}
 
 char* strncpy(char* dest, const char* src, size_t n) {
     char* d = dest;
