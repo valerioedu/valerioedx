@@ -14,6 +14,7 @@
 // Built-in commands
 extern int cd(char *str);
 extern int pwd();
+extern int export(char *arg);
 
 const char* get_signal_name(int sig) {
     switch (sig) {
@@ -38,16 +39,16 @@ int run_command(const char *cmd, char *argv[]) {
     pid_t pid = fork();
 
     if (pid == 0) {
-        char *envp[] = {NULL};
+        extern char **environ;
         char path[256];
         snprintf(path, sizeof(path), "/bin/%s", cmd);
-        execve(path, argv, envp);
+        execve(path, argv, environ);
         snprintf(path, sizeof(path), "/sbin/%s", cmd);
-        execve(path, argv, envp);
+        execve(path, argv, environ);
         snprintf(path, sizeof(path), "/usr/bin/%s", cmd);
-        execve(path, argv, envp);
+        execve(path, argv, environ);
         snprintf(path, sizeof(path), "/usr/sbin/%s", cmd);
-        execve(path, argv, envp);
+        execve(path, argv, environ);
         printf("command not found: %s\n", argv[0]);
         _exit(1);
     } else if (pid > 0) {
@@ -119,36 +120,12 @@ int main() {
         else if (strcmp(argv[0], "pwd") == 0)
             pwd();
 
-        else if (strcmp(argv[0], "export") == 0) {
-            if (argv[1]) {
-                char *name = argv[1];
-                char *value = strchr(name, '=');
-                
-                if (value) {
-                    *value = 0;
-                    value++;
-                    if (setenv(name, value, 1) != 0)
-                        printf("export: failed to set variable\n");
-
-                } else printf("export: usage export NAME=VALUE\n");
-            } else {
-                extern char **environ;
-                for (char **env = environ; *env; ++env)
-                    printf("%s\n", *env);
-            }
-        }
+        else if (strcmp(argv[0], "export") == 0)
+            export(argv[1]);
 
         else 
             run_command(argv[0], argv);
     }
 
     return 0;
-}
-
-void _start() {
-    asm volatile(
-        "bl main\n"
-        "mov x8, #1\n"
-        "svc #0\n"              // _exit(return value in x0)
-    );
 }

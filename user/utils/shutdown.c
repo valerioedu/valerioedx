@@ -15,7 +15,7 @@ int main(int argc, char *argv[]) {
         fprintf(stderr, "shutdown: Operation not permitted\n");
         return 1;
     }
-    
+
     for (int i = 1; i < argc; i++) {
         printf("looping\n");
         if (strcmp(argv[i], "-h") == 0) {
@@ -36,14 +36,4 @@ int main(int argc, char *argv[]) {
 
     printf("done");
     return 0;
-}
-
-void _start() {
-    asm volatile(
-        "ldr x0, [sp]\n"        // x0 = argc
-        "add x1, sp, #8\n"      // x1 = &argv[0]
-        "bl main\n"
-        "mov x8, #1\n"
-        "svc #0\n"              // _exit(return value in x0)
-    );
 }

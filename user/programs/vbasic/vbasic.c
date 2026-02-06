@@ -412,11 +412,3 @@ int main() {
 
     return 0;
 }
-
-void _start() {
-    asm volatile(
-        "bl main\n"
-        "mov x8, #1\n"
-        "svc #0\n"
-    );
-}

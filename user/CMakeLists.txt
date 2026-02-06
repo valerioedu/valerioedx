@@ -45,11 +45,13 @@ include_directories(
 
 file(GLOB_RECURSE LIB_SOURCES
     ${CMAKE_CURRENT_SOURCE_DIR}/src/*.c
+    ${CMAKE_CURRENT_SOURCE_DIR}/crt0.S
 )
 
 file(GLOB BUILTIN_COMMANDS
     ${CMAKE_CURRENT_SOURCE_DIR}/programs/sh/commands/pwd.c
     ${CMAKE_CURRENT_SOURCE_DIR}/programs/sh/commands/cd.c
+    ${CMAKE_CURRENT_SOURCE_DIR}/programs/sh/commands/*.c
 )
 
 add_executable(init.elf 
