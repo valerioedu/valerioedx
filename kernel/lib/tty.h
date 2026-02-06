@@ -245,6 +245,13 @@ struct winsize {
 #define TTY_NO_WRITE_SPLIT 0x80
 
 #define TTY_MAX_COLUMNS 256
+#define MAX_CSI_PARAMS 8
+
+enum tty_state {
+    TTY_STATE_NORMAL = 0,
+    TTY_STATE_ESC,
+    TTY_STATE_CSI
+};
 
 typedef struct tty_ldisc {
     int num;
@@ -301,6 +308,11 @@ typedef struct tty {
     int write_cnt;
     int column;
     int canon_lines;
+    enum tty_state state;
+    int csi_params[MAX_CSI_PARAMS];
+    int csi_param_count;
+    u8 fg_color;
+    u8 bg_color;
     void (*putc)(u8 c);
     spinlock_t lock;
     wait_queue_t read_wait;

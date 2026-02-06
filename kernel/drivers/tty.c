@@ -54,6 +54,250 @@ struct termios tty_std_termios = {
     .c_ospeed = B38400,
 };
 
+static const u32 ramfb_ansi_colors[] = {
+    0x00000000,
+    0x00FF0000,
+    0x0000FF00,
+    0x00FFFF00,
+    0x000000FF,
+    0x00FF00FF,
+    0x0000FFFF,
+    0x00FFFFFF 
+};
+
+static void tty_update_color(tty_t *tty) {
+    if (tty->fg_color < 8) set_fg_color(ramfb_ansi_colors[tty->fg_color]);
+    if (tty->bg_color < 8) set_bg_color(ramfb_ansi_colors[tty->bg_color]);
+}
+
+static void tty_do_clear(tty_t *tty) {
+#ifdef ARM
+    ramfb_clear();
+#else
+    vga_clear();
+#endif
+}
+
+static int clamp(int val, int min, int max) {
+    if (val < min) return min;
+    if (val > max) return max;
+    return val;
+}
+
+static void handle_sgr(tty_t *tty) {
+    if (tty->csi_param_count == 0) {
+        tty->fg_color = 7;
+        tty->bg_color = 0;
+        tty_update_color(tty);
+        return;
+    }
+
+    for (int i = 0; i < tty->csi_param_count; i++) {
+        int param = tty->csi_params[i];
+
+        switch (param) {
+            case 0:
+                tty->fg_color = 7;
+                tty->bg_color = 0;
+                break;
+            case 1:
+                if (tty->fg_color < 8) tty->fg_color += 8;
+                break;
+            case 30 ... 37:
+                tty->fg_color = param - 30;
+                break;
+            case 39:
+                tty->fg_color = 7;
+                break;
+            case 40 ... 47:
+                tty->bg_color = param - 40;
+                break;
+            case 49:
+                tty->bg_color = 0;
+                break;
+            case 90 ... 97:
+                tty->fg_color = param - 90 + 8;
+                break;
+            case 100 ... 107:
+                tty->bg_color = param - 100 + 8;
+                break;
+        }
+    }
+
+    tty_update_color(tty);
+}
+
+#ifdef ARM
+#define RAMFB_COLS (WIDTH / 8)
+
+void rmline() {
+    int cur_x = 0, cur_y = 0;
+    ramfb_get_cursor(&cur_x, &cur_y);
+    ramfb_set_cursor(0, cur_y);
+    for (int i = 0; i < RAMFB_COLS; i++)
+        ramfb_putc(' ');
+
+    ramfb_set_cursor(cur_x, cur_y);
+}
+#endif
+
+static void handle_csi_command(tty_t *tty, char c) {
+    // Default parameters
+    int p1 = (tty->csi_param_count > 0 && tty->csi_params[0] > 0) ? tty->csi_params[0] : 1;
+    int p2 = (tty->csi_param_count > 1 && tty->csi_params[1] > 0) ? tty->csi_params[1] : 1;
+
+    int rows = tty->winsize.ws_row;
+    int cols = tty->winsize.ws_col;
+    int cur_x = 0, cur_y = 0;
+
+#ifdef ARM
+        ramfb_get_cursor(&cur_x, &cur_y);
+#else
+        vga_get_cursor(&cur_x, &cur_y);
+#endif
+
+    switch (c) {
+        case 'A':
+            cur_y = clamp(cur_y - p1, 0, rows - 1);
+            break;
+            
+        case 'B':
+            cur_y = clamp(cur_y + p1, 0, rows - 1);
+            break;
+            
+        case 'C':
+            cur_x = clamp(cur_x + p1, 0, cols - 1);
+            break;
+            
+        case 'D':
+            cur_x = clamp(cur_x - p1, 0, cols - 1);
+            break;
+            
+        case 'H':
+        case 'f':
+            cur_y = clamp(p1 - 1, 0, rows - 1);
+            cur_x = clamp(p2 - 1, 0, cols - 1);
+            break;
+            
+        case 'J': {
+            if (tty->csi_param_count == 0) p1 = 0; 
+            else p1 = tty->csi_params[0];
+
+            int orig_x = cur_x, orig_y = cur_y;
+
+            if (p1 == 2) {
+#ifdef ARM
+                    ramfb_clear();
+                    cur_x = 0; cur_y = 0;
+#else
+                    vga_clear();
+                    cur_x = 0; cur_y = 0;
+#endif
+            } else if (p1 == 0) {
+                for (int y = orig_y; y < rows; y++) {
+                    int start_col = (y == orig_y) ? orig_x : 0;
+#ifdef ARM
+                    ramfb_set_cursor(start_col, y);
+#else
+                    vga_move_cursor(start_col, y);
+#endif
+
+                    int cnt = cols - start_col;
+                    for (int i = 0; i < cnt; i++) {
+                        if (tty->putc) tty->putc(' ');
+                    }
+                }
+#ifdef ARM
+                ramfb_set_cursor(orig_x, orig_y);
+#else
+                vga_move_cursor(orig_x, orig_y);
+#endif
+                cur_x = orig_x; cur_y = orig_y;
+            } else if (p1 == 1) {
+                for (int y = 0; y <= orig_y; y++) {
+                    int end_col = (y == orig_y) ? orig_x : (cols - 1);
+#ifdef ARM
+                    ramfb_set_cursor(0, y);
+#else
+                    vga_move_cursor(0, y);
+#endif
+
+                    int cnt = end_col + 1;
+                    for (int i = 0; i < cnt; i++) {
+                        if (tty->putc) tty->putc(' ');
+                    }
+                }
+#ifdef ARM
+                ramfb_set_cursor(orig_x, orig_y);
+#else
+                vga_move_cursor(orig_x, orig_y);
+#endif
+                cur_x = orig_x; cur_y = orig_y;
+            }
+
+            break;
+        }
+            
+        case 'K': {
+            if (tty->csi_param_count == 0) p1 = 0;
+            else p1 = tty->csi_params[0];
+
+            int orig_x = cur_x, orig_y = cur_y;
+
+            if (p1 == 2)
+                rmline();
+            
+            else if (p1 == 0) {
+#ifdef ARM
+                ramfb_set_cursor(orig_x, orig_y);
+#else
+                vga_move_cursor(orig_x, orig_y);
+#endif
+                int cnt = cols - orig_x;
+                for (int i = 0; i < cnt; i++) {
+                    if (tty->putc) tty->putc(' ');
+                }
+#ifdef ARM
+                ramfb_set_cursor(orig_x, orig_y);
+#else
+                vga_move_cursor(orig_x, orig_y);
+#endif
+            } else if (p1 == 1) {
+#ifdef ARM
+                ramfb_set_cursor(0, orig_y);
+#else
+                vga_move_cursor(0, orig_y);
+#endif
+
+                int cnt = orig_x + 1;
+                for (int i = 0; i < cnt; i++) {
+                    if (tty->putc) tty->putc(' ');
+                }
+
+#ifdef ARM
+                ramfb_set_cursor(orig_x, orig_y);
+#else
+                vga_move_cursor(orig_x, orig_y);
+#endif
+            }
+
+            break;
+        }
+
+        case 'm':
+            handle_sgr(tty);
+            return;
+    }
+
+#ifdef ARM
+    ramfb_set_cursor(cur_x, cur_y);
+#else
+    vga_move_cursor(cur_x, cur_y);
+#endif
+    
+    tty->column = cur_x;
+}
+
 static inline int is_ctrl_char(u8 c) {
     return c < 32 || c == 127;
 }
@@ -97,6 +341,42 @@ static inline char read_buf_get(tty_t *tty) {
 }
 
 static void do_output_char(tty_t *tty, u8 c) {
+    if (tty == &tty_console) {
+        if (tty->state == TTY_STATE_NORMAL) {
+            if (c == 0x1B) { // ESC
+                tty->state = TTY_STATE_ESC;
+                return;
+            }
+        } else if (tty->state == TTY_STATE_ESC) {
+            if (c == '[') {
+                tty->state = TTY_STATE_CSI;
+                tty->csi_param_count = 0;
+                tty->csi_params[0] = 0;
+                return;
+            } else 
+                tty->state = TTY_STATE_NORMAL;
+            
+        } else if (tty->state == TTY_STATE_CSI) {
+            if (c >= '0' && c <= '9') {
+                if (tty->csi_param_count == 0) tty->csi_param_count = 1;
+                int current = tty->csi_params[tty->csi_param_count - 1];
+                tty->csi_params[tty->csi_param_count - 1] = current * 10 + (c - '0');
+                return;
+            } else if (c == ';') {
+                if (tty->csi_param_count < MAX_CSI_PARAMS) {
+                    tty->csi_param_count++;
+                    tty->csi_params[tty->csi_param_count - 1] = 0;
+                }
+
+                return;
+            } else {
+                handle_csi_command(tty, c);
+                tty->state = TTY_STATE_NORMAL;
+                return;
+            }
+        }
+    }
+
     switch (c) {
         case '\n':
             tty->column = 0;
@@ -1074,6 +1354,10 @@ static void init_tty_struct(tty_t *tty) {
     tty->canon_column = 0;
     tty->canon_lines = 0;
     tty->column = 0;
+    
+    tty->fg_color = 7;
+    tty->bg_color = 0;
+    tty->state = TTY_STATE_NORMAL;
     
     tty->read_wait = NULL;
     tty->write_wait = NULL;
