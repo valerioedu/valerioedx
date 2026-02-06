@@ -1,6 +1,7 @@
 #include <unistd.h>
 #include <string.h>
 #include <stdio.h>
+#include <stdlib.h>
 #include <signal.h>
 #include <dirent.h>
 #include <fcntl.h>
@@ -86,6 +87,7 @@ int main() {
 
     while (1) {
         if (getcwd(dir, sizeof(dir)) != NULL)
+            printf("\x1b[32mroot@valerioedx\x1b[0m:\x1b[36m%s\x1b[0m$ ", dir);
 
         else printf("valerioedx:?$ ");
         fflush(stdout);
@@ -123,23 +125,16 @@ int main() {
                 char *value = strchr(name, '=');
                 
                 if (value) {
-                    *value = 0; // Split the string at '='
-                    value++;    // Move pointer to the value part
-                    if (setenv(name, value, 1) != 0) {
+                    *value = 0;
+                    value++;
+                    if (setenv(name, value, 1) != 0)
                         printf("export: failed to set variable\n");
-                    }
-                } else {
-                    // Case: export VAR (without value) - typically ignores or sets empty
-                    // For now, let's warn
-                    printf("export: usage export NAME=VALUE\n");
-                }
+
+                } else printf("export: usage export NAME=VALUE\n");
             } else {
-                // Case: export (with no args) - usually prints env
-                // We can call our printenv utility logic here or just ignore
                 extern char **environ;
-                for (char **env = environ; *env; ++env) {
+                for (char **env = environ; *env; ++env)
                     printf("%s\n", *env);
-                }
             }
         }
 

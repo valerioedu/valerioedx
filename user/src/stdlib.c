@@ -261,3 +261,160 @@ unsigned long strtoul(const char *nptr, char **endptr, int base) {
 
     return acc;
 }
+
+#define BITMAP_INDEX(i) ((i) >> 3)
+#define BITMAP_OFFSET(i) ((i) & 0x07)
+#define GET_BIT(map, i)  ((map[BITMAP_INDEX(i)] >> BITMAP_OFFSET(i)) & 1)
+#define SET_BIT(map, i)  (map[BITMAP_INDEX(i)] |= (1 << BITMAP_OFFSET(i)))
+#define CLR_BIT(map, i)  (map[BITMAP_INDEX(i)] &= ~(1 << BITMAP_OFFSET(i)))
+
+char **environ = NULL;
+
+static uint8_t *env_alloc_map = NULL;
+static int __environ_malloced = 0;
+
+static char *create_entry(const char *name, const char *value) {
+    size_t nlen = strlen(name);
+    size_t vlen = strlen(value);
+    char *entry = malloc(nlen + vlen + 2);
+    if (entry) {
+        memcpy(entry, name, nlen);
+        entry[nlen] = '=';
+        strcpy(entry + nlen + 1, value);
+    }
+
+    return entry;
+}
+
+static int ensure_environ_capacity(size_t required_count) {
+    size_t current_count = 0;
+    if (environ) {
+        while (environ[current_count]) current_count++;
+    }
+
+    if (!__environ_malloced) {
+        size_t new_size = (current_count + 2) * sizeof(char *);
+        char **new_environ = malloc(new_size);
+        if (!new_environ) return -1;
+
+        size_t map_bytes = (current_count + 8) / 8;
+        uint8_t *new_map = calloc(map_bytes, 1);
+        if (!new_map) {
+            free(new_environ);
+            return -1;
+        }
+
+        for (size_t i = 0; i < current_count; i++)
+            new_environ[i] = environ[i];
+
+        new_environ[current_count] = NULL;
+
+        environ = new_environ;
+        env_alloc_map = new_map;
+        __environ_malloced = 1;
+
+    } else if (required_count > current_count) {
+        size_t new_size = (required_count + 2) * sizeof(char *);
+        char **new_env = realloc(environ, new_size);
+        if (!new_env) return -1;
+
+        environ = new_env;
+
+        size_t old_map_bytes = (current_count + 7) / 8;
+        size_t new_map_bytes = (required_count + 8) / 8;
+
+        if (new_map_bytes > old_map_bytes) {
+            uint8_t *new_map = realloc(env_alloc_map, new_map_bytes);
+            if (!new_map) return -1;
+
+            memset(new_map + old_map_bytes, 0, new_map_bytes - old_map_bytes);
+            env_alloc_map = new_map;
+        }
+    }
+
+    return 0;
+}
+
+char *getenv(const char *name) {
+    if (!environ || !name) return NULL;
+    size_t len = strlen(name);
+    for (char **env = environ; *env != NULL; env++) {
+        if (strncmp(*env, name, len) == 0 && (*env)[len] == '=')
+            return *env + len + 1;
+
+    }
+
+    return NULL;
+}
+
+int setenv(const char *name, const char *value, int overwrite) {
+    if (!name || !value) return -1;
+    if (strchr(name, '=')) return -1;
+
+    if (ensure_environ_capacity(0) != 0) return -1;
+
+    size_t len = strlen(name);
+    size_t i = 0;
+
+    for (; environ[i] != NULL; i++) {
+        if (strncmp(environ[i], name, len) == 0 && environ[i][len] == '=') {
+            if (!overwrite) return 0;
+
+            if (GET_BIT(env_alloc_map, i))
+                free(environ[i]);
+
+            environ[i] = create_entry(name, value);
+            if (!environ[i]) return -1;
+            
+            SET_BIT(env_alloc_map, i);
+            return 0;
+        }
+    }
+
+    if (ensure_environ_capacity(i + 1) != 0) return -1;
+
+    environ[i] = create_entry(name, value);
+    if (!environ[i]) return -1;
+
+    SET_BIT(env_alloc_map, i);
+    environ[i + 1] = NULL;
+
+    return 0;
+}
+
+int unsetenv(const char *name) {
+    if (!name || !environ) return -1;
+    if (strchr(name, '=')) return -1;
+
+    if (ensure_environ_capacity(0) != 0) return -1;
+
+    size_t len = strlen(name);
+    size_t i = 0;
+
+    while (environ[i]) {
+        if (strncmp(environ[i], name, len) == 0 && environ[i][len] == '=') {
+            if (GET_BIT(env_alloc_map, i))
+                free(environ[i]);
+
+            size_t j = i;
+            while (environ[j]) {
+                environ[j] = environ[j+1];
+                
+                if (environ[j]) {
+                    if (GET_BIT(env_alloc_map, j + 1))
+                        SET_BIT(env_alloc_map, j);
+
+                    else CLR_BIT(env_alloc_map, j);
+                }
+
+                j++;
+            }
+            
+            continue; 
+        }
+        
+        i++;
+    }
+
+    return 0;
+}
