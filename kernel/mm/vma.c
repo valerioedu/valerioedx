@@ -176,17 +176,22 @@ int vma_unmap(mm_struct_t* mm, uintptr_t start, uintptr_t end) {
             continue;
         }
         
+        #define FREE_PAGES(s, e) do { \
+            for (uintptr_t addr = (s); addr < (e); addr += PAGE_SIZE) { \
+                u64* pte = vmm_get_pte_from_table((u64*)P2V((uintptr_t)mm->page_table), addr); \
+                if (pte && (*pte & PT_VALID)) { \
+                    if (vma->vm_type != VMA_DEVICE) { \
+                        u64 phys = *pte & 0x0000FFFFFFFFF000ULL; \
+                        pmm_free_frame(phys); \
+                    } \
+                    *pte = 0; \
+                } \
+            } \
+        } while(0)
+
         // Case 1: Complete overlap - remove entire VMA
         if (start <= vma->vm_start && end >= vma->vm_end) {
-            for (uintptr_t addr = vma->vm_start; addr < vma->vm_end; addr += PAGE_SIZE) {
-                u64* pte = vmm_get_pte_from_table((u64*)P2V((uintptr_t)mm->page_table), addr);
-
-                if (pte && (*pte & PT_VALID)) {
-                    u64 phys = *pte & 0x0000FFFFFFFFF000ULL;
-                    pmm_free_frame(phys);
-                    *pte = 0;
-                }
-            }
+            FREE_PAGES(vma->vm_start, vma->vm_end);
             
             if (prev) prev->vm_next = next;
             else mm->vma_list = next;
@@ -198,31 +203,13 @@ int vma_unmap(mm_struct_t* mm, uintptr_t start, uintptr_t end) {
         
         // Case 2: Partial overlap at start
         if (start <= vma->vm_start && end < vma->vm_end) {
-            for (uintptr_t addr = vma->vm_start; addr < end; addr += PAGE_SIZE) {
-                u64* pte = vmm_get_pte_from_table((u64*)P2V((uintptr_t)mm->page_table), addr);
-
-                if (pte && (*pte & PT_VALID)) {
-                    u64 phys = *pte & 0x0000FFFFFFFFF000ULL;
-                    pmm_free_frame(phys);
-                    *pte = 0;
-                }
-            }
-
+            FREE_PAGES(vma->vm_start, end);
             vma->vm_start = end;
         }
         
         // Case 3: Partial overlap at end
         else if (start > vma->vm_start && end >= vma->vm_end) {
-            for (uintptr_t addr = start; addr < vma->vm_end; addr += PAGE_SIZE) {
-                u64* pte = vmm_get_pte_from_table((u64*)P2V((uintptr_t)mm->page_table), addr);
-
-                if (pte && (*pte & PT_VALID)) {
-                    u64 phys = *pte & 0x0000FFFFFFFFF000ULL;
-                    pmm_free_frame(phys);
-                    *pte = 0;
-                }
-            }
-
+            FREE_PAGES(start, vma->vm_end);
             vma->vm_end = start;
         }
         
@@ -235,15 +222,7 @@ int vma_unmap(mm_struct_t* mm, uintptr_t start, uintptr_t end) {
                 return -1;
             }
             
-            for (uintptr_t addr = start; addr < end; addr += PAGE_SIZE) {
-                u64* pte = vmm_get_pte_from_table((u64*)P2V((uintptr_t)mm->page_table), addr);
-
-                if (pte && (*pte & PT_VALID)) {
-                    u64 phys = *pte & 0x0000FFFFFFFFF000ULL;
-                    pmm_free_frame(phys);
-                    *pte = 0;
-                }
-            }
+            FREE_PAGES(start, end);
             
             vma->vm_end = start;
             
