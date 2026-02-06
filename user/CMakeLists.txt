@@ -45,11 +45,11 @@ include_directories(
 
 file(GLOB_RECURSE LIB_SOURCES
     ${CMAKE_CURRENT_SOURCE_DIR}/src/*.c
+    ${CMAKE_CURRENT_SOURCE_DIR}/crt0.S
 )
 
 file(GLOB BUILTIN_COMMANDS
-    ${CMAKE_CURRENT_SOURCE_DIR}/programs/sh/commands/pwd.c
-    ${CMAKE_CURRENT_SOURCE_DIR}/programs/sh/commands/cd.c
+    ${CMAKE_CURRENT_SOURCE_DIR}/programs/sh/commands/*.c
 )
 
 add_executable(init.elf 
@@ -99,6 +99,7 @@ add_user_util(rmdir)
 add_user_util(touch)
 add_user_util(reboot)
 add_user_util(halt)
+add_user_util(printenv)
 add_user_util(shutdown)
 add_user_util(rm)
 build_shell(sh)
@@ -111,7 +112,7 @@ set_target_properties(init.elf PROPERTIES
 )
 
 add_custom_target(copy
-    DEPENDS init.elf cat.elf ls.elf mkdir.elf echo.elf touch.elf rm.elf sh.elf vbasic.elf rmdir.elf reboot.elf halt.elf shutdown.elf
+    DEPENDS init.elf cat.elf ls.elf mkdir.elf echo.elf touch.elf rm.elf sh.elf vbasic.elf rmdir.elf reboot.elf halt.elf shutdown.elf printenv.elf
     COMMAND mcopy -i ../../kernel/arch/aarch64/disk.img ../lib/stdint.h ::/usr/include/stdint.h
     COMMAND mcopy -i ../../kernel/arch/aarch64/disk.img ../lib/stddef.h ::/usr/include/stddef.h
     COMMAND mcopy -i ../../kernel/arch/aarch64/disk.img ../lib/string.h ::/usr/include/string.h
@@ -127,6 +128,7 @@ add_custom_target(copy
     COMMAND mcopy -i ../../kernel/arch/aarch64/disk.img halt.elf ::/sbin/halt
     COMMAND mcopy -i ../../kernel/arch/aarch64/disk.img shutdown.elf ::/sbin/shutdown
     COMMAND mcopy -i ../../kernel/arch/aarch64/disk.img touch.elf ::/bin/touch
+    COMMAND mcopy -i ../../kernel/arch/aarch64/disk.img printenv.elf ::/bin/printenv
     COMMAND mcopy -i ../../kernel/arch/aarch64/disk.img rm.elf ::/bin/rm
     COMMAND mcopy -i ../../kernel/arch/aarch64/disk.img sh.elf ::/bin/sh
     COMMAND mcopy -i ../../kernel/arch/aarch64/disk.img vbasic.elf ::/bin/vbasic
