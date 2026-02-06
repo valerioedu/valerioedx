@@ -49,8 +49,6 @@ file(GLOB_RECURSE LIB_SOURCES
 )
 
 file(GLOB BUILTIN_COMMANDS
-    ${CMAKE_CURRENT_SOURCE_DIR}/programs/sh/commands/pwd.c
-    ${CMAKE_CURRENT_SOURCE_DIR}/programs/sh/commands/cd.c
     ${CMAKE_CURRENT_SOURCE_DIR}/programs/sh/commands/*.c
 )
 
