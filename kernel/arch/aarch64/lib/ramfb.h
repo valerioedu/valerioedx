@@ -18,5 +18,7 @@ void set_fg_color(u32 color);
 void set_bg_color(u32 color);
 void ramfb_clear();
 void ramfb_putc(u8 c);
+void ramfb_get_cursor(int *x, int *y);
+void ramfb_set_cursor(int x, int y);
 
 #endif

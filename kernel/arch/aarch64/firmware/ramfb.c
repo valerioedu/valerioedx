@@ -718,3 +718,13 @@ void draw_loading_bar(u8 percentage) {
         }
     }
 }
+
+void ramfb_get_cursor(int *x, int *y) {
+    *x = cursor_x;
+    *y = cursor_y;
+}
+
+void ramfb_set_cursor(int x, int y) {
+    cursor_x = x;
+    cursor_y = y;
+}
