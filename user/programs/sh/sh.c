@@ -1,6 +1,7 @@
 #include <unistd.h>
 #include <string.h>
 #include <stdio.h>
+#include <signal.h>
 #include <dirent.h>
 #include <fcntl.h>
 #include <sys/stat.h>
@@ -12,6 +13,25 @@
 // Built-in commands
 extern int cd(char *str);
 extern int pwd();
+
+const char* get_signal_name(int sig) {
+    switch (sig) {
+        case SIGHUP:  return "Hangup";
+        case SIGINT:  return "Interrupt";
+        case SIGQUIT: return "Quit";
+        case SIGILL:  return "Illegal instruction";
+        case SIGTRAP: return "Trace/breakpoint trap";
+        case SIGABRT: return "Aborted";
+        case SIGBUS:  return "Bus error";
+        case SIGFPE:  return "Floating point exception";
+        case SIGKILL: return "Killed";
+        case SIGSEGV: return "Segmentation fault";
+        case SIGPIPE: return "Broken pipe";
+        case SIGALRM: return "Alarm clock";
+        case SIGTERM: return "Terminated";
+        default:      return NULL;
+    }
+}
 
 int run_command(const char *cmd, char *argv[]) {
     pid_t pid = fork();
@@ -32,6 +52,25 @@ int run_command(const char *cmd, char *argv[]) {
     } else if (pid > 0) {
         int status;
         waitpid(pid, &status, 0);
+        
+        int sig = 0;
+
+        if (WIFSIGNALED(status)) {
+            sig = WTERMSIG(status);
+        } 
+        else if (WIFEXITED(status)) {
+            int code = WEXITSTATUS(status);
+            if (code > 128) {
+                sig = code - 128;
+            }
+        }
+
+        if (sig > 0) {
+            const char *name = get_signal_name(sig);
+            if (name) printf("%s\n", name);
+            else printf("Terminated by signal %d\n", sig);
+        }
+
         return status;
     } else {
         printf("fork failed\n");
@@ -47,7 +86,6 @@ int main() {
 
     while (1) {
         if (getcwd(dir, sizeof(dir)) != NULL)
-            printf("valerioedx:%s$ ", dir);
 
         else printf("valerioedx:?$ ");
         fflush(stdout);
@@ -78,6 +116,32 @@ int main() {
 
         else if (strcmp(argv[0], "pwd") == 0)
             pwd();
+
+        else if (strcmp(argv[0], "export") == 0) {
+            if (argv[1]) {
+                char *name = argv[1];
+                char *value = strchr(name, '=');
+                
+                if (value) {
+                    *value = 0; // Split the string at '='
+                    value++;    // Move pointer to the value part
+                    if (setenv(name, value, 1) != 0) {
+                        printf("export: failed to set variable\n");
+                    }
+                } else {
+                    // Case: export VAR (without value) - typically ignores or sets empty
+                    // For now, let's warn
+                    printf("export: usage export NAME=VALUE\n");
+                }
+            } else {
+                // Case: export (with no args) - usually prints env
+                // We can call our printenv utility logic here or just ignore
+                extern char **environ;
+                for (char **env = environ; *env; ++env) {
+                    printf("%s\n", *env);
+                }
+            }
+        }
 
         else 
             run_command(argv[0], argv);

@@ -66,7 +66,12 @@ void el1_sync_handler(trapframe_t *tf) {
 
             if (current_task->proc) {
                 extern i64 sys_kill(i64 pid, int sig);
-                sys_kill(current_task->proc->pid, 2);
+                sys_kill(current_task->proc->pid, SIGSEGV);
+                
+                if (current_task->proc->signals)
+                    signal_check_pending(tf);
+
+                return;
             }
 
             kprintf("\n[ [RPANIC [W] UNHANDLED SYNC EXCEPTION\n");
