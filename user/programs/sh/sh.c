@@ -35,6 +35,25 @@ const char* get_signal_name(int sig) {
     }
 }
 
+const char* get_signal_name(int sig) {
+    switch (sig) {
+        case SIGHUP:  return "Hangup";
+        case SIGINT:  return "Interrupt";
+        case SIGQUIT: return "Quit";
+        case SIGILL:  return "Illegal instruction";
+        case SIGTRAP: return "Trace/breakpoint trap";
+        case SIGABRT: return "Aborted";
+        case SIGBUS:  return "Bus error";
+        case SIGFPE:  return "Floating point exception";
+        case SIGKILL: return "Killed";
+        case SIGSEGV: return "Segmentation fault";
+        case SIGPIPE: return "Broken pipe";
+        case SIGALRM: return "Alarm clock";
+        case SIGTERM: return "Terminated";
+        default:      return NULL;
+    }
+}
+
 int run_command(const char *cmd, char *argv[]) {
     pid_t pid = fork();
 
