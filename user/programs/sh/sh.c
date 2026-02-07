@@ -15,25 +15,7 @@
 extern int cd(char *str);
 extern int pwd();
 extern int export(char *arg);
-
-const char* get_signal_name(int sig) {
-    switch (sig) {
-        case SIGHUP:  return "Hangup";
-        case SIGINT:  return "Interrupt";
-        case SIGQUIT: return "Quit";
-        case SIGILL:  return "Illegal instruction";
-        case SIGTRAP: return "Trace/breakpoint trap";
-        case SIGABRT: return "Aborted";
-        case SIGBUS:  return "Bus error";
-        case SIGFPE:  return "Floating point exception";
-        case SIGKILL: return "Killed";
-        case SIGSEGV: return "Segmentation fault";
-        case SIGPIPE: return "Broken pipe";
-        case SIGALRM: return "Alarm clock";
-        case SIGTERM: return "Terminated";
-        default:      return NULL;
-    }
-}
+extern int which(int argc, char *argv[]);
 
 const char* get_signal_name(int sig) {
     switch (sig) {
@@ -141,6 +123,9 @@ int main() {
 
         else if (strcmp(argv[0], "export") == 0)
             export(argv[1]);
+            
+        else if (strcmp(argv[0], "which") == 0)
+            which(argc, argv);
 
         else 
             run_command(argv[0], argv);
