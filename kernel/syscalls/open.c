@@ -67,11 +67,8 @@ i64 sys_open(const char *path, int flags) {
         goto success;
     }
 
-    if (inode && (flags & O_CREAT)) {
-        int fd = fd_alloc();
-        kfree(kpath);
-        return fd;
-    }
+    if (inode && (flags & O_CREAT))
+        goto success;
 
     if(!inode) {
         kfree(kpath);
