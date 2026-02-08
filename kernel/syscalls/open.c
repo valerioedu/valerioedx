@@ -167,3 +167,72 @@ i64 sys_unlink(const char *path) {
     kfree(filename);
     return ret;
 }
+
+i64 sys_symlink(const char *path1, const char *path2) {
+    if (!path1 || !path2) return -1;
+
+    char *kpath1 = (char*)kmalloc(256);
+    if (!kpath1) return -1;
+
+    if (copy_string_from_user(kpath1, path1, 256) != 0) {
+        kfree(kpath1);
+        return -1;
+    }
+
+    char *kpath2 = (char*)kmalloc(256);
+    if (!kpath2) {
+        kfree(kpath1);
+        return -1;
+    }
+
+    if (copy_string_from_user(kpath2, path2, 256) != 0) {
+        kfree(kpath1);
+        kfree(kpath2);
+        return -1;
+    }
+
+    char *parent_path = kmalloc(256);
+    char *filename = kmalloc(256);
+    if (!parent_path || !filename) {
+        kfree(kpath1);
+        kfree(kpath2);
+        kfree(parent_path);
+        kfree(filename);
+        return -1;
+    }
+
+    char *last_slash = strrchr(kpath2, '/');
+    if (last_slash) {
+        if (last_slash == kpath2)
+            strcpy(parent_path, "/");
+        else {
+            size_t len = last_slash - kpath2;
+            strncpy(parent_path, kpath2, len);
+            parent_path[len] = '\0';
+        }
+        strcpy(filename, last_slash + 1);
+    } else {
+        strcpy(parent_path, ".");
+        strcpy(filename, kpath2);
+    }
+
+    inode_t *parent = namei(parent_path);
+    if (!parent) {
+        kfree(kpath1);
+        kfree(kpath2);
+        kfree(parent_path);
+        kfree(filename);
+        return -1;
+    }
+
+    inode_t *created = vfs_symlink(parent, filename, kpath1);
+    if (created) vfs_close(created);
+
+    vfs_close(parent);
+    kfree(kpath1);
+    kfree(kpath2);
+    kfree(parent_path);
+    kfree(filename);
+
+    return created ? 0 : -1;
+}

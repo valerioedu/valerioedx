@@ -54,6 +54,7 @@ struct timespec {
 #define SYS_SIGPENDING      52
 #define SYS_IOCTL           54
 #define SYS_REBOOT          55
+#define SYS_SYMLINK         57
 #define SYS_EXECVE          59
 #define SYS_MUNMAP          73
 #define SYS_GETCWD          76
@@ -125,6 +126,7 @@ extern i64 sys_getgroups(int size, gid_t *list);
 extern i64 sys_setgroups(int size, const gid_t *list);
 extern i64 sys_ioctl(int fd, u64 request, u64 arg);
 extern i64 sys_nanosleep(const struct timespec *req, struct timespec *rem);
+extern i64 sys_symlink(const char *path1, const char *path2);
 
 typedef i64 (*syscalls_fn_t)(i64, i64, i64, i64, i64, i64);
 
@@ -206,6 +208,7 @@ i64 syscall_handler(trapframe_t *tf, u64 syscall_num, u64 arg0, u64 arg1, u64 ar
         case SYS_SIGPENDING: ret = sys_sigpending((sigset_t*)arg0); break;
         case SYS_IOCTL: ret = sys_ioctl((int)arg0, (u64)arg1, (u64)arg2); break;
         case SYS_REBOOT: ret = sys_reboot((int)arg0); break;
+        case SYS_SYMLINK: ret = sys_symlink((const char*)arg0, (const char*)arg1); break;
         case SYS_EXECVE: ret = sys_execve((const char*)arg0, (const char**)arg1, (const char**)arg2); break;
         case SYS_MUNMAP: ret = sys_munmap((void*)arg0, (size_t)arg1); break;
         case SYS_GETCWD: ret = sys_getcwd((char*)arg0, (size_t)arg1); break;

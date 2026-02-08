@@ -5,6 +5,7 @@
 #include <sched.h>
 
 #define MAX_MOUNTS 16
+#define MAX_SYMLINK_DEPTH 8
 
 extern task_t *current_task;
 
@@ -133,12 +134,35 @@ int vfs_unlink(struct vfs_node *parent, const char *name) {
     return -1;
 }
 
+inode_t *vfs_symlink(inode_t *parent, const char *name, const char *target) {
+    if (!parent || !name || !target)
+        return NULL;
+
+    if (vfs_check_permission(parent, 2) != 0)
+        return NULL;
+
+    if (parent->ops && parent->ops->symlink)
+        return parent->ops->symlink(parent, name, target);
+
+    return NULL;
+}
+
 inode_t *namei(const char *path) {
     if (!vfs_root || !path) return NULL;
 
+    int symlink_depth = 0;
+    char *resolved_path = (char*)kmalloc(strlen(path) + 1);
+    strcpy(resolved_path, path);
+
+restart:
+    if (symlink_depth >= MAX_SYMLINK_DEPTH) {
+        kfree(resolved_path);
+        return NULL;
+    }
+
     inode_t *current;
     
-    if (path[0] == '/') current = vfs_root;
+    if (resolved_path[0] == '/') current = vfs_root;
     else {
         if (current_task && current_task->proc && current_task->proc->cwd) {
             current = current_task->proc->cwd;
@@ -156,8 +180,8 @@ inode_t *namei(const char *path) {
         current = next;
     }
 
-    char *copy = (char*)kmalloc(strlen(path) + 1);
-    strcpy(copy, path);
+    char *copy = (char*)kmalloc(strlen(resolved_path) + 1);
+    strcpy(copy, resolved_path);
 
     char *saveptr;
     char *token = strtok_r(copy, "/", &saveptr);
@@ -191,6 +215,7 @@ inode_t *namei(const char *path) {
         if (!next) {
             vfs_close(current);
             kfree(copy);
+            kfree(resolved_path);
             return NULL;
         }
 
@@ -200,6 +225,39 @@ inode_t *namei(const char *path) {
         vfs_close(current);
 
         current = next;
+
+        // Symlink resolution
+        if (current->flags == FS_SYMLINK) {
+            char link_buf[256];
+            memset(link_buf, 0, sizeof(link_buf));
+
+            u64 len = vfs_read(current, 0, sizeof(link_buf) - 1, (u8*)link_buf);
+            if (len == 0 || len == (u64)-1) {
+                vfs_close(current);
+                kfree(copy);
+                kfree(resolved_path);
+                return NULL;
+            }
+            link_buf[len] = '\0';
+
+            // Build new path: link_target + "/" + remaining components
+            char *remaining = saveptr;
+            u64 total = strlen(link_buf) + 1 + (remaining ? strlen(remaining) : 0) + 1;
+            char *new_path = (char*)kmalloc(total);
+            strcpy(new_path, link_buf);
+            if (remaining && *remaining) {
+                strcat(new_path, "/");
+                strcat(new_path, remaining);
+            }
+
+            vfs_close(current);
+            kfree(copy);
+            kfree(resolved_path);
+
+            resolved_path = new_path;
+            symlink_depth++;
+            goto restart;
+        }
 
         for (int i = 0; i < MAX_MOUNTS; i++) {
             if (mount_table[i].target != NULL && \
@@ -219,5 +277,6 @@ inode_t *namei(const char *path) {
     }
 
     kfree(copy);
+    kfree(resolved_path);
     return current;
 }

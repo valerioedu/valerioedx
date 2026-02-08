@@ -7,6 +7,7 @@
 #define FS_DIRECTORY   0x02
 #define FS_CHARDEVICE  0x03
 #define FS_BLOCKDEVICE 0x04
+#define FS_SYMLINK     0x05
 #define FS_TEMPORARY   0x80
 
 #define S_IRWXU 00700
@@ -153,5 +154,6 @@ void devfs_mount_device(char* name, inode_ops* ops, int type);
 void devfs_init();
 inode_t *devfs_get_root();
 inode_t *namei(const char *path);
+inode_t *vfs_symlink(inode_t *parent, const char *name, const char *target);
 
 #endif

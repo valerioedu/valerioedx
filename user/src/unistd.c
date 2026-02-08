@@ -252,4 +252,12 @@ off_t lseek(int fildes, off_t offset, int whence) {
     asm volatile("svc #0" : "+r"(x0) : "r"(x1), "r"(x2), "r"(x8) : "memory");
     return (off_t)x0;
 }
+
+int symlink(const char *path1, const char *path2) {
+    register const char *x0 asm("x0") = path1;
+    register const char *x1 asm("x1") = path2;
+    register int x8 asm("x8") = 57;
+    asm volatile("svc #0" : "+r"(x0) : "r"(x1), "r"(x8) : "memory");
+    return (int)(long)x0;
+}
 //#endif

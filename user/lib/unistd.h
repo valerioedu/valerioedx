@@ -33,5 +33,6 @@ pid_t getsid(pid_t pid);
 int getgroups(int gidsetsize, gid_t grouplist[]);
 int setgroups(int gidsetsize, const gid_t grouplist[]);
 off_t lseek(int fildes, off_t offset, int whence);
+int symlink(const char *path1, const char *path2);
 
 #endif
