@@ -1087,6 +1087,7 @@ int tty_ioctl(struct vfs_node *file, u64 request, u64 arg) {
                 tty->session = current_task->proc;
                 tty->session_id = current_task->proc->sid;
                 tty->pgrp = current_task->proc->pgid;
+                current_task->proc->controlling_tty = tty;
             } else ret = -EPERM;
 
             break;
