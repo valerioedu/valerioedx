@@ -37,6 +37,8 @@ struct timespec {
 #define SYS_UNLINK          10
 #define SYS_CHDIR           12
 #define SYS_FCHDIR          13
+#define SYS_CHMOD           15
+#define SYS_CHOWN           16
 #define SYS_LSEEK           19
 #define SYS_GETPID          20
 #define SYS_SETUID          23
@@ -63,6 +65,8 @@ struct timespec {
 #define SYS_GETPGRP         81
 #define SYS_SETPGID         82
 #define SYS_DUP2            90
+#define SYS_FCHOWN          123
+#define SYS_FCHMOD          124
 #define SYS_MKDIR           136
 #define SYS_RMDIR           137
 #define SYS_SETSID          147
@@ -127,6 +131,10 @@ extern i64 sys_setgroups(int size, const gid_t *list);
 extern i64 sys_ioctl(int fd, u64 request, u64 arg);
 extern i64 sys_nanosleep(const struct timespec *req, struct timespec *rem);
 extern i64 sys_symlink(const char *path1, const char *path2);
+extern i64 sys_chown(const char *path, u64 owner, u64 group);
+extern i64 sys_fchown(int fildes, u64 owner, u64 group);
+extern i64 sys_chmod(const char *path, mode_t mode);
+extern i64 sys_fchmod(int fildes, mode_t mode);
 
 typedef i64 (*syscalls_fn_t)(i64, i64, i64, i64, i64, i64);
 
@@ -191,6 +199,8 @@ i64 syscall_handler(trapframe_t *tf, u64 syscall_num, u64 arg0, u64 arg1, u64 ar
         case SYS_UNLINK: ret = sys_unlink((const char*)arg0); break;
         case SYS_CHDIR: ret = sys_chdir((const char*)arg0); break;
         case SYS_FCHDIR: ret = sys_fchdir((int)arg0); break;
+        case SYS_CHMOD: ret = sys_chmod((const char*)arg0, (mode_t)arg1); break;
+        case SYS_CHOWN: ret = sys_chown((const char*)arg0, (u64)arg1, (u64)arg2); break;
         case SYS_LSEEK: ret = sys_lseek((int)arg0, (i64)arg1, (int)arg2); break;
         case SYS_GETPID: ret = sys_getpid(); break;
         case SYS_SETUID: ret = sys_setuid((u32)arg0); break;
@@ -217,6 +227,8 @@ i64 syscall_handler(trapframe_t *tf, u64 syscall_num, u64 arg0, u64 arg1, u64 ar
         case SYS_GETPGRP: ret = sys_getpgrp(); break;
         case SYS_SETPGID: ret = sys_setpgid((u64)arg0, (u64)arg1); break;
         case SYS_DUP2: ret = sys_dup2((int)arg0, (int)arg1); break;
+        case SYS_FCHOWN: ret = sys_fchown((int)arg0, (u64)arg1, (u64)arg2); break;
+        case SYS_FCHMOD: ret = sys_fchmod((int)arg0, (mode_t)arg1); break;
         case SYS_MKDIR: ret = sys_mkdir((const char*)arg0, (mode_t)arg1); break;
         case SYS_RMDIR: ret = sys_rmdir((const char*)arg0); break;
         case SYS_SETSID: ret = sys_setsid(); break;

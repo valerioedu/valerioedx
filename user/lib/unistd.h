@@ -4,6 +4,10 @@
 #include <stdint.h>
 #include <sys/types.h>
 
+#define STDIN_FILENO  0
+#define STDOUT_FILENO 1
+#define STDERR_FILENO 2
+
 ssize_t write(int fildes, const char *buf, size_t nbytes);
 ssize_t read(int fildes, char *buf, size_t nbytes);
 char *getcwd(char *buf, uint64_t size);
@@ -34,5 +38,8 @@ int getgroups(int gidsetsize, gid_t grouplist[]);
 int setgroups(int gidsetsize, const gid_t grouplist[]);
 off_t lseek(int fildes, off_t offset, int whence);
 int symlink(const char *path1, const char *path2);
+unsigned int sleep(unsigned int seconds);
+int dup(int fildes);
+int dup2(int fildes, int fildes2);
 
 #endif

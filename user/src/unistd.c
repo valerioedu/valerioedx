@@ -1,6 +1,7 @@
 #include <unistd.h>
 #include <stdint.h>
 #include <sys/types.h>
+#include <time.h>
 
 typedef uint64_t u64;
 typedef int64_t i64;
@@ -259,5 +260,46 @@ int symlink(const char *path1, const char *path2) {
     register int x8 asm("x8") = 57;
     asm volatile("svc #0" : "+r"(x0) : "r"(x1), "r"(x8) : "memory");
     return (int)(long)x0;
+}
+
+unsigned int sleep(unsigned int seconds) {
+    struct timespec ts;
+    ts.tv_sec = seconds;
+    ts.tv_nsec = 0;
+    nanosleep(&ts, NULL);
+    return 0;
+}
+
+int dup(int fildes) {
+    register int x0 asm("x0") = fildes;
+    register int x8 asm("x8") = 41;
+    asm volatile("svc #0" : "+r"(x0) : "r"(x8) : "memory");
+    return x0;
+}
+
+int dup2(int fildes, int fildes2) {
+    register int x0 asm("x0") = fildes;
+    register int x1 asm("x1") = fildes2;
+    register int x8 asm("x8") = 90;
+    asm volatile("svc #0" : "+r"(x0) : "r"(x1), "r"(x8) : "memory");
+    return x0;
+}
+
+int chown(const char *path, uid_t owner, gid_t group) {
+    register const char *x0 asm("x0") = path;
+    register uid_t x1 asm("x1") = owner;
+    register gid_t x2 asm("x2") = group;
+    register int x8 asm("x8") = 15;
+    asm volatile("svc #0" : "+r"(x0) : "r"(x1), "r"(x2), "r"(x8) : "memory");
+    return (int)(long)x0;
+}
+
+int fchown(int fildes, uid_t owner, gid_t group) {
+    register int x0 asm("x0") = fildes;
+    register uid_t x1 asm("x1") = owner;
+    register gid_t x2 asm("x2") = group;
+    register int x8 asm("x8") = 123;
+    asm volatile("svc #0" : "+r"(x0) : "r"(x1), "r"(x2), "r"(x8) : "memory");
+    return x0;
 }
 //#endif

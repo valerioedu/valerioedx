@@ -36,3 +36,19 @@ int lstat(const char *path, struct stat *buf) {
         : "+r"(x0) : "r"(x1), "r"(x8) : "memory");
     return (int)(long)x0;
 }
+
+int chmod(const char *path, mode_t mode) {
+    register const char *x0 asm("x0") = path;
+    register mode_t x1 asm("x1") = mode;
+    register int x8 asm("x8") = 15;
+    asm volatile("svc #0" : "+r"(x0) : "r"(x1), "r"(x8) : "memory");
+    return (int)(long)x0;
+}
+
+int fchmod(int fildes, mode_t mode) {
+    register int x0 asm("x0") = fildes;
+    register mode_t x1 asm("x1") = mode;
+    register int x8 asm("x8") = 124;
+    asm volatile("svc #0" : "+r"(x0) : "r"(x1), "r"(x8) : "memory");
+    return x0;
+}

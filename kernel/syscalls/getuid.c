@@ -1,6 +1,8 @@
 #include <vfs.h>
 #include <sched.h>
 #include <syscalls.h>
+#include <heap.h>
+#include <file.h>
 
 extern task_t *current_task;
 
@@ -192,5 +194,98 @@ i64 sys_setgroups(int size, const gid_t *list) {
     
     p->ngroups = size;
 
+    return 0;
+}
+
+i64 sys_chown(const char *path, u64 owner, u64 group) {
+    if (!current_task || !current_task->proc) 
+        return -1;
+    
+    char *kpath = (char*)kmalloc(256);
+    if (!kpath) return -1;
+
+    if (copy_from_user(kpath, path, 256) != 0) {
+        kfree(kpath);
+        return -1;
+    }
+
+    inode_t *file = namei(kpath);
+    kfree(kpath);
+
+    if (!file) return -1;
+
+    if (current_task->proc->euid != 0) {
+        vfs_close(file);
+        return -1;
+    }
+
+    if (owner != (u64)-1)
+        file->uid = owner;
+
+    if (group != (u64)-1)
+        file->gid = group;
+
+    vfs_close(file);
+    return 0;
+}
+
+i64 sys_fchown(int fildes, u64 owner, u64 group) {
+    if (!current_task || !current_task->proc)
+        return -1;
+
+    file_t *file = fd_get(fildes);
+    if (!file) return -1;
+
+    if (current_task->proc->euid != 0)
+        return -1;
+
+    if (owner != (u64)-1)
+        file->inode->uid = owner;
+
+    if (group != (u64)-1)
+        file->inode->gid = group;
+
+    return 0;
+}
+
+i64 sys_chmod(const char *path, mode_t mode) {
+    if (!current_task || !current_task->proc) 
+        return -1;
+    
+    char *kpath = (char*)kmalloc(256);
+    if (!kpath) return -1;
+
+    if (copy_from_user(kpath, path, 256) != 0) {
+        kfree(kpath);
+        return -1;
+    }
+
+    inode_t *file = namei(kpath);
+    kfree(kpath);
+
+    if (!file) return -1;
+
+    if (current_task->proc->euid != 0 && file->uid != current_task->proc->euid) {
+        vfs_close(file);
+        return -1;
+    }
+
+    file->mode = (file->mode & ~07777) | (mode & 07777);
+
+    vfs_close(file);
+    return 0;
+}
+
+i64 sys_fchmod(int fildes, mode_t mode) {
+    if (!current_task || !current_task->proc)
+        return -1;
+
+    file_t *file = fd_get(fildes);
+    if (!file) return -1;
+
+    if (current_task->proc->euid != 0 && file->inode->uid != current_task->proc->euid)
+        return -1;
+
+    file->inode->mode = (file->inode->mode & ~07777) | (mode & 07777);
     return 0;
 }
