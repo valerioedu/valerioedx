@@ -43,5 +43,7 @@ int mkdir(const char *path, mode_t mode);
 int chmod(const char *path, mode_t mode);
 int fchmod(int fildes, mode_t mode);
 int mknod(const char *path, mode_t mode, dev_t dev);
+int chflags(const char *path, unsigned long flags);
+int fchflags(int fildes, unsigned long flags);
 
 #endif

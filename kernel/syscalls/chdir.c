@@ -8,8 +8,6 @@
 
 extern task_t *current_task;
 
-//TODO: Implement return failure for EACCESS
-//TODO: Implement chmod
 i64 sys_chdir(const char *path) {
     if (!path || !current_task->proc) return -1;
     
@@ -67,10 +65,8 @@ static int build_path_recursive(inode_t *node, char *buf, size_t size, size_t *p
         return 0;
     }
 
-    // Recurse to parent first
     build_path_recursive(node->parent, buf, size, pos);
 
-    // Add this node's name
     size_t name_len = strlen(node->name);
     if (*pos + name_len + 1 < size) {
         memcpy(buf + *pos, node->name, name_len);

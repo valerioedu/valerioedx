@@ -289,3 +289,58 @@ i64 sys_fchmod(int fildes, mode_t mode) {
     file->inode->mode = (file->inode->mode & ~07777) | (mode & 07777);
     return 0;
 }
+
+i64 sys_chflags(const char *path, unsigned long flags) {
+    if (!current_task || !current_task->proc)
+        return -1;
+
+    char *kpath = (char*)kmalloc(256);
+    if (!kpath) return -1;
+
+    if (copy_from_user(kpath, path, 256) != 0) {
+        kfree(kpath);
+        return -1;
+    }
+
+    inode_t *file = namei(kpath);
+    kfree(kpath);
+
+    if (!file) return -1;
+
+    if (current_task->proc->euid != 0) {
+        if (file->uid != current_task->proc->euid) {
+            vfs_close(file);
+            return -1;
+        }
+        
+        if (flags & ~0xFFFFUL) {
+            vfs_close(file);
+            return -1;
+        }
+        
+        file->flags = (file->flags & ~0xFFFFUL) | (flags & 0xFFFFUL);
+    } else file->flags = flags;
+
+    vfs_close(file);
+    return 0;
+}
+
+i64 sys_fchflags(int fd, unsigned long flags) {
+    if (!current_task || !current_task->proc)
+        return -1;
+
+    file_t *file = fd_get(fd);
+    if (!file) return -1;
+
+    if (current_task->proc->euid != 0) {
+        if (file->inode->uid != current_task->proc->euid)
+            return -1;
+
+        if (flags & ~0xFFFFUL)
+            return -1;
+        
+        file->inode->flags = (file->inode->flags & ~0xFFFFUL) | (flags & 0xFFFFUL);
+    } else file->inode->flags = flags;
+
+    return 0;
+}
