@@ -13,6 +13,8 @@
 #include <kernel.h>
 #include <sched.h>
 #include <virtio.h>
+#include <pl031.h>
+#include <io.h>
 #include <uart.h>
 
 extern u64 _kernel_end;
@@ -21,6 +23,7 @@ u8 *uart = (u8*)0x09000000;
 u64 *gic = (u64*)0x08000000;
 u64 *fwcfg = (u64*)0x09020000;
 u64 *virtio = (u64*)0x0A000000;
+u64 *pl031 = (u64*)0x09010000;
 
 u64 boot_time = 0;
 bool sgntr = false;
@@ -65,6 +68,8 @@ void signature() {
 void main() {
     asm volatile("mrs %0, CNTPCT_EL0" : "=r"(boot_time));
     dtb_init(0x40000000);
+    pl031 = (u64*)dtb_get_reg("pl031");
+    mmio_write32((uintptr_t)pl031 + PL031_CR, 1);
 #ifndef DEBUG
     kprintf("\033[2J");
     kprintf("\033[H");
@@ -132,7 +137,6 @@ void main() {
     kprintf("Now switching to the graphical interface...\n");
     ramfb_init();
     set_stdio(RAMFB);
-    
 
     kprintf("[ [CMAIN [W] Hardware Discovery:\n");
     kprintf("             UART PL011 Found at: 0x%llx\n", uart);
@@ -147,6 +151,7 @@ void main() {
     virtio_init();
     gic_enable_irq(30);
     uart += PHYS_OFFSET;
+    pl031 += PHYS_OFFSET;
 #ifdef DEBUG
     timer_init(1000);
 #else
