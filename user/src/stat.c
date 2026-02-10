@@ -52,3 +52,12 @@ int fchmod(int fildes, mode_t mode) {
     asm volatile("svc #0" : "+r"(x0) : "r"(x1), "r"(x8) : "memory");
     return x0;
 }
+
+int mknod(const char *path, mode_t mode, dev_t dev) {
+    register const char *x0 asm("x0") = path;
+    register mode_t x1 asm("x1") = mode;
+    register dev_t x2 asm("x2") = dev;
+    register int x8 asm("x8") = 14;
+    asm volatile("svc #0" : "+r"(x0) : "r"(x1), "r"(x2), "r"(x8) : "memory");
+    return (int)(long)x0;
+}

@@ -1090,6 +1090,18 @@ void fat32_close(inode_t *inode) {
     }
 }
 
+inode_t* fat32_mknod(inode_t* parent, const char* name, int mode, int dev) {
+    if (S_ISDIR(mode)) {
+        return fat32_mkdir(parent, name);
+    }
+    
+    if (S_ISREG(mode)) {
+        return fat32_create(parent, name);
+    }
+
+    return NULL;
+}
+
 inode_t* fat32_mount(inode_t* device) {
     if (!device) return NULL;
 
@@ -1201,6 +1213,8 @@ inode_t* fat32_mount(inode_t* device) {
     fat32_ops.rmdir = fat32_rmdir;
     // FAT32 doesn't support symlink natively
     fat32_ops.symlink = NULL;
+    fat32_ops.mknod = fat32_mknod;
+    fat32_ops.link = NULL;
     fat32_ops.readdir = fat32_readdir;
 
     return root;

@@ -280,3 +280,27 @@ restart:
     kfree(resolved_path);
     return current;
 }
+
+int vfs_link(inode_t *parent, const char *name, inode_t *target) {
+    if (!parent || !name || !target) return -1;
+
+    if (vfs_check_permission(parent, 2) != 0)
+        return -1;
+
+    if (parent->ops && parent->ops->link)
+        return parent->ops->link(parent, name, target);
+
+    return -1;
+}
+
+inode_t *vfs_mknod(inode_t *parent, const char *name, int mode, int dev) {
+    if (!parent || !name) return NULL;
+
+    if (vfs_check_permission(parent, 2) != 0)
+        return NULL;
+
+    if (parent->ops && parent->ops->mknod)
+        return parent->ops->mknod(parent, name, mode, dev);
+
+    return NULL;
+}

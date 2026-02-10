@@ -71,6 +71,8 @@ typedef struct {
     int (*readdir)(struct vfs_node*, int, char *namebuf, int buflen, int *isdir);
     int (*ioctl)(struct vfs_node* file, u64 request, u64 arg);
     i64 (*mmap)(struct vfs_node* file, u64 vaddr, u64 length, int prot, int flags, u64 offset);
+    int (*link)(struct vfs_node* parent, const char* name, struct vfs_node* target);
+    struct vfs_node* (*mknod)(struct vfs_node* parent, const char* name, int mode, int dev);
 } inode_ops;
 
 /*
@@ -155,5 +157,7 @@ void devfs_init();
 inode_t *devfs_get_root();
 inode_t *namei(const char *path);
 inode_t *vfs_symlink(inode_t *parent, const char *name, const char *target);
+int vfs_link(inode_t *parent, const char *name, inode_t *target);
+inode_t *vfs_mknod(inode_t *parent, const char *name, int mode, int dev);
 
 #endif

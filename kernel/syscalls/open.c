@@ -233,3 +233,76 @@ i64 sys_symlink(const char *path1, const char *path2) {
 
     return created ? 0 : -1;
 }
+
+static int resolve_parent_and_name(const char* path, inode_t** parent_out, char** name_out, char** buffer_to_free) {
+    *buffer_to_free = (char*)kmalloc(strlen(path) + 1);
+    strcpy(*buffer_to_free, path);
+    
+    char *last_slash = strrchr(*buffer_to_free, '/');
+    inode_t *parent = NULL;
+
+    if (last_slash) {
+        *last_slash = 0;
+        *name_out = last_slash + 1;
+        
+        if (strlen(*buffer_to_free) == 0) {
+            parent = vfs_root;
+            vfs_retain(parent);
+        } else parent = namei(*buffer_to_free);
+    } else {
+        *name_out = *buffer_to_free;
+        extern task_t *current_task;
+        if (current_task && current_task->proc && current_task->proc->cwd)
+            parent = current_task->proc->cwd;
+        
+        else parent = vfs_root;
+
+        vfs_retain(parent);
+    }
+
+    if (!parent) {
+        kfree(*buffer_to_free);
+        return -1;
+    }
+
+    *parent_out = parent;
+    return 0;
+}
+
+i64 sys_link(const char *oldpath, const char *newpath) {
+    inode_t *target = namei(oldpath);
+    if (!target) return -1;
+
+    inode_t *parent = NULL;
+    char *name = NULL;
+    char *path_buf = NULL;
+
+    if (resolve_parent_and_name(newpath, &parent, &name, &path_buf) != 0) {
+        vfs_close(target);
+        return -1;
+    }
+
+    int ret = vfs_link(parent, name, target);
+
+    vfs_close(parent);
+    vfs_close(target);
+    kfree(path_buf);
+    return ret;
+}
+
+i64 sys_mknod(const char *path, int mode, int dev) {
+    inode_t *parent = NULL;
+    char *name = NULL;
+    char *path_buf = NULL;
+
+    if (resolve_parent_and_name(path, &parent, &name, &path_buf) != 0)
+        return -1;
+
+    inode_t *node = vfs_mknod(parent, name, mode, dev);
+    int ret = node ? 0 : -1;
+    if (node) vfs_close(node);
+
+    vfs_close(parent);
+    kfree(path_buf);
+    return ret;
+}

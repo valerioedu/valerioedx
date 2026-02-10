@@ -15,5 +15,6 @@ typedef uint32_t gid_t;
 typedef long mode_t;
 typedef long off_t;
 typedef unsigned int u_int;
+typedef uint32_t dev_t;
 
 #endif

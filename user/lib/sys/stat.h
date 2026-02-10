@@ -42,5 +42,6 @@ int lstat(const char *path, struct stat *buf);
 int mkdir(const char *path, mode_t mode);
 int chmod(const char *path, mode_t mode);
 int fchmod(int fildes, mode_t mode);
+int mknod(const char *path, mode_t mode, dev_t dev);
 
 #endif

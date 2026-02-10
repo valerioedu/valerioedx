@@ -34,9 +34,11 @@ struct timespec {
 #define SYS_OPEN            5
 #define SYS_CLOSE           6
 #define SYS_WAIT3           7
+#define SYS_LINK            9
 #define SYS_UNLINK          10
 #define SYS_CHDIR           12
 #define SYS_FCHDIR          13
+#define SYS_MKNOD           14
 #define SYS_CHMOD           15
 #define SYS_CHOWN           16
 #define SYS_LSEEK           19
@@ -135,6 +137,8 @@ extern i64 sys_chown(const char *path, u64 owner, u64 group);
 extern i64 sys_fchown(int fildes, u64 owner, u64 group);
 extern i64 sys_chmod(const char *path, mode_t mode);
 extern i64 sys_fchmod(int fildes, mode_t mode);
+extern i64 sys_link(const char *oldpath, const char *newpath);
+extern i64 sys_mknod(const char *path, int mode, int dev);
 
 typedef i64 (*syscalls_fn_t)(i64, i64, i64, i64, i64, i64);
 
@@ -196,9 +200,11 @@ i64 syscall_handler(trapframe_t *tf, u64 syscall_num, u64 arg0, u64 arg1, u64 ar
         case SYS_OPEN: ret = sys_open((const char*)arg0, (int)arg1); break;
         case SYS_CLOSE: ret = sys_close((int)arg0); break;
         case SYS_WAIT3: ret = sys_wait3((i64)arg0, (int*)arg1, (int)arg2); break;
+        case SYS_LINK: ret = sys_link((const char*)arg0, (const char*)arg1); break;
         case SYS_UNLINK: ret = sys_unlink((const char*)arg0); break;
         case SYS_CHDIR: ret = sys_chdir((const char*)arg0); break;
         case SYS_FCHDIR: ret = sys_fchdir((int)arg0); break;
+        case SYS_MKNOD: ret = sys_mknod((const char*)arg0, (int)arg1, (int)arg2); break;
         case SYS_CHMOD: ret = sys_chmod((const char*)arg0, (mode_t)arg1); break;
         case SYS_CHOWN: ret = sys_chown((const char*)arg0, (u64)arg1, (u64)arg2); break;
         case SYS_LSEEK: ret = sys_lseek((int)arg0, (i64)arg1, (int)arg2); break;
