@@ -12,6 +12,9 @@
 #define PL031_MIS       0x018   /* Masked Interrupt Status */
 #define PL031_ICR       0x01C   /* Interrupt Clear Register */
 
+void pl031_init_time();
+void get_monotonic_time(u64 *sec, u64 *nsec);
+void get_realtime(u64 *sec, u64 *nsec);
 u32 pl031_get_time();
 void pl031_set_time(u32 timestamp);
 

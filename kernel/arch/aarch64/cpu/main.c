@@ -70,6 +70,7 @@ void main() {
     dtb_init(0x40000000);
     pl031 = (u64*)dtb_get_reg("pl031");
     mmio_write32((uintptr_t)pl031 + PL031_CR, 1);
+    pl031_init_time();
 #ifndef DEBUG
     kprintf("\033[2J");
     kprintf("\033[H");

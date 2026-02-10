@@ -21,10 +21,12 @@ typedef struct stat {
     i64 st_ctime;
 } stat_t;
 
-struct timespec {
-    i64 tv_sec;
-    i64 tv_nsec;
-};
+typedef i64 time_t;
+typedef i64 suseconds_t;
+typedef i64 clockid_t;
+struct timeval  { time_t tv_sec; suseconds_t tv_usec; };
+struct timespec { time_t tv_sec; i64 tv_nsec; };
+struct timezone { int tz_minuteswest; int tz_dsttime; };
 
 #define MAX_SYSCALLS        512
 #define SYS_EXIT            1
@@ -46,6 +48,8 @@ struct timespec {
 #define SYS_SETUID          23
 #define SYS_GETUID          24
 #define SYS_GETEUID         25
+#define SYS_CHFLAGS         34
+#define SYS_FCHFLAGS        35
 #define SYS_KILL            37
 #define SYS_STAT            38
 #define SYS_GETPPID         39
@@ -67,6 +71,8 @@ struct timespec {
 #define SYS_GETPGRP         81
 #define SYS_SETPGID         82
 #define SYS_DUP2            90
+#define SYS_GETTIMEOFDAY    116
+#define SYS_SETTIMEOFDAY    122
 #define SYS_FCHOWN          123
 #define SYS_FCHMOD          124
 #define SYS_MKDIR           136
@@ -81,6 +87,9 @@ struct timespec {
 #define SYS_GETDIRENTRIES   196
 #define SYS_MMAP            197
 #define SYS_SYSCTL          202
+#define SYS_CLOCK_GETTIME   232
+#define SYS_CLOCK_SETTIME   233
+#define SYS_CLOCK_GETRES    234
 #define SYS_NANOSLEEP       240
 #define SYS_GETSID          310
 
@@ -139,6 +148,13 @@ extern i64 sys_chmod(const char *path, mode_t mode);
 extern i64 sys_fchmod(int fildes, mode_t mode);
 extern i64 sys_link(const char *oldpath, const char *newpath);
 extern i64 sys_mknod(const char *path, int mode, int dev);
+extern i64 sys_chflags(const char *path, unsigned long flags);
+extern i64 sys_fchflags(int fd, unsigned long flags);
+extern i64 sys_gettimeofday(struct timeval *tv, struct timezone *tz);
+extern i64 sys_settimeofday(const struct timeval *tv, const struct timezone *tz);
+extern i64 sys_clock_gettime(clockid_t clk_id, struct timespec *tp);
+extern i64 sys_clock_settime(clockid_t clk_id, const struct timespec *tp);
+extern i64 sys_clock_getres(clockid_t clk_id, struct timespec *res);
 
 typedef i64 (*syscalls_fn_t)(i64, i64, i64, i64, i64, i64);
 
@@ -212,6 +228,8 @@ i64 syscall_handler(trapframe_t *tf, u64 syscall_num, u64 arg0, u64 arg1, u64 ar
         case SYS_SETUID: ret = sys_setuid((u32)arg0); break;
         case SYS_GETUID: ret = sys_getuid(); break;
         case SYS_GETEUID: ret = sys_geteuid(); break;
+        case SYS_CHFLAGS: ret = sys_chflags((const char*)arg0, (unsigned long)arg1); break;
+        case SYS_FCHFLAGS: ret = sys_fchflags((int)arg0, (unsigned long)arg1); break;
         case SYS_KILL: ret = sys_kill((i64)arg0, (int)arg1); break;
         case SYS_STAT: ret = sys_stat((const char*)arg0, (stat_t*)arg1); break;
         case SYS_GETPPID: ret = sys_getppid(); break;
@@ -248,6 +266,11 @@ i64 syscall_handler(trapframe_t *tf, u64 syscall_num, u64 arg0, u64 arg1, u64 ar
         case SYS_SYSCTL: ret = sys_sysctl((int*)arg0, (u32)arg1, (void*)arg2, (u64*)arg3, (void*)arg4, (u64)arg5); break;
         case SYS_NANOSLEEP: ret = sys_nanosleep((const struct timespec*)arg0, (struct timespec*)arg1); break;
         case SYS_GETSID: ret = sys_getsid((i64)arg0); break;
+        case SYS_GETTIMEOFDAY: ret = sys_gettimeofday((struct timeval*)arg0, (struct timezone*)arg1); break;
+        case SYS_SETTIMEOFDAY: ret = sys_settimeofday((const struct timeval*)arg0, (const struct timezone*)arg1); break;
+        case SYS_CLOCK_GETTIME: ret = sys_clock_gettime((clockid_t)arg0, (struct timespec*)arg1); break;
+        case SYS_CLOCK_SETTIME: ret = sys_clock_settime((clockid_t)arg0, (const struct timespec*)arg1); break;
+        case SYS_CLOCK_GETRES: ret = sys_clock_getres((clockid_t)arg0, (struct timespec*)arg1); break;
         default: ret = sys_not_implemented(); break;
     }
 
