@@ -8,9 +8,9 @@ typedef int64_t i64;
 typedef uint32_t u32;
 
 //#ifdef ARM
-ssize_t write(int fildes, const char *buf, u64 nbyte) {
+ssize_t write(int fildes, const void *buf, u64 nbyte) {
     register int x0 asm("x0") = fildes;
-    register const char *x1 asm("x1") = buf;
+    register const void *x1 asm("x1") = buf;
     register size_t x2 asm("x2") = nbyte;
     register u64 x8 asm("x8") = 4;
     asm volatile("svc #0"
@@ -20,9 +20,9 @@ ssize_t write(int fildes, const char *buf, u64 nbyte) {
     return x0;
 }
 
-ssize_t read(int fildes, char *buf, size_t nbyte) {
+ssize_t read(int fildes, void *buf, size_t nbyte) {
     register int x0 asm("x0") = fildes;
-    register char *x1 asm("x1") = buf;
+    register void *x1 asm("x1") = buf;
     register size_t x2 asm("x2") = nbyte;
     register u64 x8 asm("x8") = 3;
     asm volatile("svc #0"

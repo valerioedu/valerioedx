@@ -8,8 +8,8 @@
 #define STDOUT_FILENO 1
 #define STDERR_FILENO 2
 
-ssize_t write(int fildes, const char *buf, size_t nbytes);
-ssize_t read(int fildes, char *buf, size_t nbytes);
+ssize_t write(int fildes, const void *buf, size_t nbytes);
+ssize_t read(int fildes, void *buf, size_t nbytes);
 char *getcwd(char *buf, uint64_t size);
 int close(int fildes);
 _Noreturn void _exit(int status);
