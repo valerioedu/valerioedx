@@ -102,6 +102,7 @@ add_custom_target(run
             -device virtio-blk-device,drive=hd0
             -device virtio-keyboard-device
             -serial mon:stdio -dtb virt.dtb
+            -device virtio-rng-device
 )
 
 add_custom_target(debug
@@ -115,6 +116,7 @@ add_custom_target(debug
             -device virtio-blk-device,drive=hd0
             -device virtio-keyboard-device
             -serial mon:stdio -dtb virt.dtb -d int
+            -device virtio-rng-device
     DEPENDS kernel.elf
     WORKING_DIRECTORY ${CMAKE_BINARY_DIR}
     COMMENT "Running kernel in QEMU using interrupts debug"
@@ -131,6 +133,7 @@ add_custom_target(build
             -device virtio-blk-device,drive=hd0
             -device virtio-keyboard-device
             -serial mon:stdio -dtb virt.dtb
+            -device virtio-rng-device
     DEPENDS kernel.elf
     WORKING_DIRECTORY ${CMAKE_BINARY_DIR}
     COMMENT "Running kernel in QEMU"

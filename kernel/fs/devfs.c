@@ -165,6 +165,7 @@ void devfs_init() {
     devfs_mount_device("virtio-blk", &virtio_blk_ops, FS_BLOCKDEVICE);
     devfs_mount_device("uart", &uart_ops, FS_CHARDEVICE);
     devfs_mount_device("virtio-kb", &virtio_kb_ops, FS_CHARDEVICE);
+    devfs_mount_device("urandom", &virtio_rng_ops, FS_CHARDEVICE);
     devfs_mount_device("tty0", &tty_console_ops, FS_CHARDEVICE);
     devfs_mount_device("ttS0", &tty_serial_ops, FS_CHARDEVICE);
     devfs_mount_device("stdin", &stdin_ops, FS_CHARDEVICE);

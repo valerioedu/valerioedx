@@ -269,6 +269,11 @@ void virtio_init() {
             gic_enable_irq(virtio_blk_irq_id);
         } else if (device_id == 3) {
             kprintf("[ [CVirtIO [W] Found Console Device at 0x%llx\n", addr);
+        } else if (device_id == 4) {
+            kprintf("[ [CVirtIO [W] Found RNG Device at 0x%llx\n", addr);
+            virtio_rng_init(addr);
+            virtio_rng_irq_id = 48 + i;
+            gic_enable_irq(virtio_rng_irq_id);
         } else if (device_id == 18) {
             kprintf("[ [CVirtIO [W] Found Input Device at 0x%llx\n", addr);
             virtio_input_init(addr);
