@@ -25,8 +25,6 @@ static u16 rng_last_used = 0;
 static wait_queue_t rng_wait_queue = NULL;
 static mutex_t rng_mutex;
 
-u8 virtio_rng_irq_id = 0;
-
 static u8 entropy_pool[ENTROPY_POOL_SIZE];
 static volatile int entropy_available = 0;
 

@@ -26,6 +26,7 @@ static u8 *req_statuses;
 
 u8 virtio_blk_irq_id = 0;
 u8 virtio_key_irq_id = 0;
+u8 virtio_rng_irq_id = 0;
 
 static u64 virtio_input_base = 0;
 static virtq_desc *input_desc;

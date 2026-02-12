@@ -95,12 +95,12 @@ u64 virtio_blk_fs_read(inode_t* node, u64 offset, u64 size, u8* buffer);
 u64 virtio_blk_fs_write(inode_t* node, u64 offset, u64 size, u8* buffer);
 u64 virtio_kb_fs_read(inode_t *node, u64 offset, u64 size, u8 *buffer);
 void virtio_blk_ops_init();
+void virtio_rng_init(u64 base);
+void virtio_rng_handler();
 
 extern inode_ops virtio_blk_ops;
 extern inode_ops virtio_kb_ops;
 
 extern inode_ops virtio_rng_ops;
-extern u8 virtio_rng_irq_id;
-void virtio_rng_init(u64 base);
-void virtio_rng_handler();
+
 #endif

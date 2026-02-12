@@ -116,6 +116,7 @@ void el1_irq_handler() {
     u32 id = gic_acknowledge_irq();
     extern u8 virtio_blk_irq_id;
     extern u8 virtio_key_irq_id;
+    extern u8 virtio_rng_irq_id;
 
     switch (id) {
         case 30: timer_handler(); break;
@@ -125,6 +126,8 @@ void el1_irq_handler() {
                 virtio_blk_handler();
             } else if (id == virtio_key_irq_id) {
                 virtio_input_handler();
+            } else if (id == virtio_rng_irq_id) {
+                virtio_rng_handler();
             } else {
                 kprintf("[ EXC ] Unknown IRQ ID: %d\n", id);
             }
