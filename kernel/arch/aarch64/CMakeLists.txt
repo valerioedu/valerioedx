@@ -103,6 +103,7 @@ add_custom_target(run
             -device virtio-keyboard-device
             -serial mon:stdio -dtb virt.dtb
             -device virtio-rng-device
+            -device virtio-mouse-device
 )
 
 add_custom_target(debug
@@ -117,6 +118,7 @@ add_custom_target(debug
             -device virtio-keyboard-device
             -serial mon:stdio -dtb virt.dtb -d int
             -device virtio-rng-device
+            -device virtio-mouse-device
     DEPENDS kernel.elf
     WORKING_DIRECTORY ${CMAKE_BINARY_DIR}
     COMMENT "Running kernel in QEMU using interrupts debug"
@@ -134,6 +136,7 @@ add_custom_target(build
             -device virtio-keyboard-device
             -serial mon:stdio -dtb virt.dtb
             -device virtio-rng-device
+            -device virtio-mouse-device
     DEPENDS kernel.elf
     WORKING_DIRECTORY ${CMAKE_BINARY_DIR}
     COMMENT "Running kernel in QEMU"

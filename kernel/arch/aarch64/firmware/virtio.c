@@ -27,6 +27,7 @@ static u8 *req_statuses;
 u8 virtio_blk_irq_id = 0;
 u8 virtio_key_irq_id = 0;
 u8 virtio_rng_irq_id = 0;
+u8 virtio_mouse_irq_id = 0;
 
 static u64 virtio_input_base = 0;
 static virtq_desc *input_desc;
@@ -60,6 +61,119 @@ static char key_map_shift[] = {
     'A', 'S', 'D', 'F', 'G', 'H', 'J', 'K', 'L', ':', '"', '~', 0, '|',
     'Z', 'X', 'C', 'V', 'B', 'N', 'M', '<', '>', '?', 0, '*', 0, ' '
 };
+
+#define VIRTIO_INPUT_CFG_SELECT  0x100
+#define VIRTIO_INPUT_CFG_SUBSEL  0x101
+#define VIRTIO_INPUT_CFG_SIZE    0x102
+#define VIRTIO_INPUT_CFG_EV_BITS 0x11
+
+static u64 virtio_mouse_base = 0;
+static virtq_desc *mouse_desc;
+static virtq_avail *mouse_avail;
+static virtq_used *mouse_used;
+static virtio_input_event *mouse_events;
+static u16 mouse_last_used_idx = 0;
+
+int virtio_input_is_mouse(u64 base) {
+    mmio_write8(base + VIRTIO_INPUT_CFG_SELECT, VIRTIO_INPUT_CFG_EV_BITS);
+    mmio_write8(base + VIRTIO_INPUT_CFG_SUBSEL, EV_REL);
+    asm volatile("dmb sy");
+    u8 size = mmio_read8(base + VIRTIO_INPUT_CFG_SIZE);
+    return (size > 0) ? 1 : 0;
+}
+
+void virtio_mouse_init(u64 base) {
+    virtio_mouse_base = base;
+
+    mmio_write32(base + VIRTIO_MMIO_STATUS, 0);
+
+    u32 status = VIRTIO_STATUS_ACK | VIRTIO_STATUS_DRV;
+    mmio_write32(base + VIRTIO_MMIO_STATUS, status);
+
+    u32 features = mmio_read32(base + VIRTIO_MMIO_DEVICE_FEATURES);
+    features &= ~(1 << 29);
+    mmio_write32(base + VIRTIO_MMIO_DRIVER_FEATURES, features);
+
+    status |= VIRTIO_STATUS_FEAT_OK;
+    mmio_write32(base + VIRTIO_MMIO_STATUS, status);
+
+    status = mmio_read32(base + VIRTIO_MMIO_STATUS);
+    if (!(status & VIRTIO_STATUS_FEAT_OK)) {
+        kprintf("[ [RVirtIO [W] Mouse feature negotiation FAILED\n");
+        return;
+    }
+
+    mmio_write32(base + VIRTIO_MMIO_GUEST_PAGE_SIZE, 4096);
+    mmio_write32(base + VIRTIO_MMIO_QUEUE_SEL, 0);
+
+    u32 max_queue = mmio_read32(base + VIRTIO_MMIO_QUEUE_NUM_MAX);
+    if (max_queue == 0) {
+        kprintf("[ [RVirtIO [W] Mouse queue not available\n");
+        return;
+    }
+
+    mmio_write32(base + VIRTIO_MMIO_QUEUE_NUM, QUEUE_SIZE);
+    mmio_write32(base + VIRTIO_MMIO_QUEUE_ALIGN, 16);
+
+    u64 page_phys = pmm_alloc_frame();
+    u64 page_virt = (u64)P2V(page_phys);
+    memset((void*)page_virt, 0, 4096);
+
+    mmio_write32(base + VIRTIO_MMIO_QUEUE_PFN, page_phys >> 12);
+
+    mouse_desc  = (virtq_desc*)page_virt;
+    mouse_avail = (virtq_avail*)(page_virt + QUEUE_SIZE * 16);
+
+    u64 avail_end = (u64)mouse_avail + (4 + 2 * QUEUE_SIZE);
+    u64 used_start = (avail_end + 15) & ~15;
+    mouse_used = (virtq_used*)used_start;
+
+    u64 event_page_phys = pmm_alloc_frame();
+    mouse_events = (virtio_input_event*)P2V(event_page_phys);
+    memset(mouse_events, 0, 4096);
+
+    for (int i = 0; i < QUEUE_SIZE; i++) {
+        mouse_desc[i].addr = V2P(&mouse_events[i]);
+        mouse_desc[i].len  = sizeof(virtio_input_event);
+        mouse_desc[i].flags = VRING_DESC_F_WRITE;
+        mouse_desc[i].next  = 0;
+        mouse_avail->ring[i] = i;
+    }
+
+    asm volatile("dmb sy");
+    mouse_avail->idx = QUEUE_SIZE;
+    asm volatile("dmb sy");
+
+    mmio_write32(base + VIRTIO_MMIO_QUEUE_NOTIFY, 0);
+
+    status |= VIRTIO_STATUS_DRV_OK;
+    mmio_write32(base + VIRTIO_MMIO_STATUS, status);
+
+    kprintf("[ [CVirtIO [W] Mouse Initialized at 0x%llx\n", base);
+}
+
+void virtio_mouse_input_handler() {
+    if (virtio_mouse_base == 0) return;
+
+    u32 status = mmio_read32(virtio_mouse_base + VIRTIO_MMIO_INTERRUPT_STATUS);
+    mmio_write32(virtio_mouse_base + VIRTIO_MMIO_INTERRUPT_ACK, status);
+
+    while (mouse_last_used_idx != mouse_used->idx) {
+        u32 id = mouse_used->ring[mouse_last_used_idx % QUEUE_SIZE].id;
+        virtio_input_event *evt = &mouse_events[id];
+
+        virtio_mouse_handle_event(evt);
+
+        mouse_avail->ring[mouse_avail->idx % QUEUE_SIZE] = id;
+        asm volatile("dmb sy");
+        mouse_avail->idx++;
+        asm volatile("dmb sy");
+
+        mouse_last_used_idx++;
+    }
+
+    mmio_write32(virtio_mouse_base + VIRTIO_MMIO_QUEUE_NOTIFY, 0);
+}
 
 static char virtio_scancode_to_ascii(u16 code) {
     if (code == 1) return 0; // ESC
@@ -276,10 +390,17 @@ void virtio_init() {
             virtio_rng_irq_id = 48 + i;
             gic_enable_irq(virtio_rng_irq_id);
         } else if (device_id == 18) {
-            kprintf("[ [CVirtIO [W] Found Input Device at 0x%llx\n", addr);
-            virtio_input_init(addr);
-            virtio_key_irq_id = 48 + i;
-            gic_enable_irq(virtio_key_irq_id);
+            if (virtio_input_is_mouse(addr)) {
+                kprintf("[ [CVirtIO [W] Found Mouse Device at 0x%llx\n", addr);
+                virtio_mouse_init(addr);
+                virtio_mouse_irq_id = 48 + i;
+                gic_enable_irq(virtio_mouse_irq_id);
+            } else {
+                kprintf("[ [CVirtIO [W] Found Keyboard Device at 0x%llx\n", addr);
+                virtio_input_init(addr);
+                virtio_key_irq_id = 48 + i;
+                gic_enable_irq(virtio_key_irq_id);
+            }
         }
     }
 }

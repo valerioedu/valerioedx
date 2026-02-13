@@ -117,6 +117,7 @@ void el1_irq_handler() {
     extern u8 virtio_blk_irq_id;
     extern u8 virtio_key_irq_id;
     extern u8 virtio_rng_irq_id;
+    extern u8 virtio_mouse_irq_id;
 
     switch (id) {
         case 30: timer_handler(); break;
@@ -128,6 +129,9 @@ void el1_irq_handler() {
                 virtio_input_handler();
             } else if (id == virtio_rng_irq_id) {
                 virtio_rng_handler();
+            } else if (id == virtio_mouse_irq_id) {
+                extern void virtio_mouse_input_handler();
+                virtio_mouse_input_handler();
             } else {
                 kprintf("[ EXC ] Unknown IRQ ID: %d\n", id);
             }

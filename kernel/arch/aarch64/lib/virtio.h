@@ -50,6 +50,20 @@
 #define KEY_LEFTCTRL   29
 #define KEY_RIGHTCTRL  97
 
+// Mouse event types and codes
+#define EV_SYN   0x00
+#define EV_KEY   0x01
+#define EV_REL   0x02
+#define EV_ABS   0x03
+#define SYN_REPORT 0
+
+#define REL_X    0x00
+#define REL_Y    0x01
+
+#define BTN_LEFT    0x110
+#define BTN_RIGHT   0x111
+#define BTN_MIDDLE  0x112
+
 typedef struct {
     u16 type;
     u16 code;
@@ -97,9 +111,11 @@ u64 virtio_kb_fs_read(inode_t *node, u64 offset, u64 size, u8 *buffer);
 void virtio_blk_ops_init();
 void virtio_rng_init(u64 base);
 void virtio_rng_handler();
+void virtio_mouse_handle_event(virtio_input_event *evt);
 
 extern inode_ops virtio_blk_ops;
 extern inode_ops virtio_kb_ops;
+extern inode_ops virtio_mouse_ops;
 
 extern inode_ops virtio_rng_ops;
 
