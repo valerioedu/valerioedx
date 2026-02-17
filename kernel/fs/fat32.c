@@ -2,6 +2,7 @@
 #include <kio.h>
 #include <heap.h>
 #include <string.h>
+#include <pl031.h>
 
 //TODO: Implement a robust mutex implementation
 //TODO: Implement a close to free all of the temporary nodes
@@ -31,6 +32,109 @@ static void to_lower(char* s) {
         if (*s >= 'A' && *s <= 'Z') *s += 32;
         s++;
     }
+}
+
+static const int days_in_month[] = { 31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31 };
+
+static int is_leap_year(int year) {
+    return (year % 4 == 0 && year % 100 != 0) || (year % 400 == 0);
+}
+
+static int days_in_year(int year) {
+    return is_leap_year(year) ? 366 : 365;
+}
+
+static void unix_to_datetime(u64 timestamp, int *year, int *month, int *day,
+                              int *hour, int *min, int *sec) {
+    u64 rem = timestamp;
+    
+    *sec = rem % 60; rem /= 60;
+    *min = rem % 60; rem /= 60;
+    *hour = rem % 24; rem /= 24;
+    
+    int y = 1970;
+    while (rem >= (u64)days_in_year(y)) {
+        rem -= days_in_year(y);
+        y++;
+    }
+
+    *year = y;
+    
+    int m = 0;
+    while (m < 11) {
+        int dim = days_in_month[m];
+        if (m == 1 && is_leap_year(y)) dim++;
+        if (rem < (u64)dim) break;
+        rem -= dim;
+        m++;
+    }
+
+    *month = m + 1;
+    *day = rem + 1;
+}
+
+static u64 datetime_to_unix(int year, int month, int day,
+                             int hour, int min, int sec) {
+    u64 days = 0;
+    
+    for (int y = 1970; y < year; y++)
+        days += days_in_year(y);
+    
+    for (int m = 1; m < month; m++) {
+        days += days_in_month[m - 1];
+        if (m == 2 && is_leap_year(year)) days++;
+    }
+    
+    days += day - 1;
+    
+    return days * 86400ULL + hour * 3600ULL + min * 60ULL + sec;
+}
+
+// Pack into FAT16 date: bits [15:9]=year-1980, [8:5]=month, [4:0]=day
+static u16 pack_fat_date(int year, int month, int day) {
+    return (u16)(((year - 1980) & 0x7F) << 9) |
+           (u16)((month & 0x0F) << 5) |
+           (u16)(day & 0x1F);
+}
+
+// Pack into FAT16 time: bits [15:11]=hours, [10:5]=minutes, [4:0]=seconds/2
+static u16 pack_fat_time(int hour, int min, int sec) {
+    return (u16)((hour & 0x1F) << 11) |
+           (u16)((min & 0x3F) << 5) |
+           (u16)((sec / 2) & 0x1F);
+}
+
+static void unpack_fat_date(u16 date, int *year, int *month, int *day) {
+    *year  = ((date >> 9) & 0x7F) + 1980;
+    *month = (date >> 5) & 0x0F;
+    *day   = date & 0x1F;
+}
+
+static void unpack_fat_time(u16 time, int *hour, int *min, int *sec) {
+    *hour = (time >> 11) & 0x1F;
+    *min  = (time >> 5) & 0x3F;
+    *sec  = (time & 0x1F) * 2;
+}
+
+static u64 fat_to_unix(u16 date, u16 time) {
+    if (date == 0) return 0;
+    
+    int year, month, day, hour, min, sec;
+    unpack_fat_date(date, &year, &month, &day);
+    unpack_fat_time(time, &hour, &min, &sec);
+    
+    return datetime_to_unix(year, month, day, hour, min, sec);
+}
+
+static void get_fat_now(u16 *date, u16 *time) {
+    u64 sec, nsec;
+    get_realtime(&sec, &nsec);
+    
+    int year, month, day, hour, min, s;
+    unix_to_datetime(sec, &year, &month, &day, &hour, &min, &s);
+    
+    *date = pack_fat_date(year, month, day);
+    *time = pack_fat_time(hour, min, s);
 }
 
 // Converts FAT 8.3 name to readable format
@@ -313,6 +417,12 @@ u64 fat32_write_file(inode_t* node, u64 offset, u64 size, u8* buffer) {
             entry->file_size = node->size;
             entry->fst_clus_lo = file->first_cluster & 0xFFFF;
             entry->fst_clus_hi = (file->first_cluster >> 16) & 0xFFFF;
+            
+            u16 now_date, now_time;
+            get_fat_now(&now_date, &now_time);
+            entry->write_date = now_date;
+            entry->write_time = now_time;
+            entry->access_date = now_date;
             
             write_cluster(fs, file->dir_entry_cluster, dir_buf);
             kfree(dir_buf);
@@ -722,7 +832,14 @@ static inode_t* fat32_create_entry(inode_t* parent, const char* name, u8 attr) {
     short_entry->fst_clus_lo = new_cluster & 0xFFFF;
     short_entry->file_size = 0;
     
-    // TODO: Set create/modify timestamps
+    u16 now_date, now_time;
+    get_fat_now(&now_date, &now_time);
+    short_entry->create_date = now_date;
+    short_entry->create_time = now_time;
+    short_entry->create_time_tenths = 0;
+    short_entry->write_date = now_date;
+    short_entry->write_time = now_time;
+    short_entry->access_date = now_date;
     
     if (!write_dir_entries(fs, entry_cluster, entry_offset, entries, total_entries)) {
         kfree(entries);
