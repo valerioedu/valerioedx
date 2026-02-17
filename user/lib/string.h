@@ -26,7 +26,7 @@ size_t   strlen(const char *);
 char    *strncat(char *restrict, const char *restrict, size_t);
 int      strncmp(const char *, const char *, size_t);
 char    *strncpy(char *restrict, const char *restrict, size_t);
+char    *strrchr(const char *, int);
 char*    strtok_r(char *restrict, const char *restrict, char **restrict);
-
 
 #endif

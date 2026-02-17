@@ -113,7 +113,7 @@ char *strcat(char *restrict s1, const char *restrict s2) {
 
 char *strchr(const char *s, int c) {
     for (size_t i = 0;; ++i) {
-        if (s[i] == (char)c)
+        if (s[i] == (unsigned char)c)
             return (char*)&s[i];
         
         if (s[i] == '\0')
@@ -230,4 +230,21 @@ char* strtok_r(char *restrict str, const char *restrict delim, char **restrict s
     *saveptr = str;
     
     return start;
+}
+
+char* strrchr(const char* str, int c) {
+    const unsigned char *p = (const unsigned char*)str;
+    const unsigned char *last = NULL;
+
+    for (;;) {
+        if (*p == (unsigned char)c)
+            last = p;
+        
+        if (*p == '\0')
+            break;
+        
+        p++;
+    }
+
+    return (char*)last;
 }
