@@ -28,6 +28,10 @@ static mutex_t rng_mutex;
 static u8 entropy_pool[ENTROPY_POOL_SIZE];
 static volatile int entropy_available = 0;
 
+inode_ops virtio_rng_ops = { };
+
+u64 virtio_rng_fs_read(inode_t *node, u64 offset, u64 size, u8 *buffer);
+
 void virtio_rng_init(u64 base) {
     virtio_rng_base = base;
     
@@ -80,6 +84,8 @@ void virtio_rng_init(u64 base) {
     status = mmio_read32(base + VIRTIO_MMIO_STATUS);
     status |= VIRTIO_STATUS_DRV_OK;
     mmio_write32(base + VIRTIO_MMIO_STATUS, status);
+
+    virtio_rng_ops.read = virtio_rng_fs_read;
     
     kprintf("[ [CVirtIO [W] RNG Initialized at 0x%llx\n", base);
 }
@@ -151,11 +157,3 @@ void virtio_rng_handler() {
     mmio_write32(virtio_rng_base + VIRTIO_MMIO_INTERRUPT_ACK, status);
     wake_up(&rng_wait_queue);
 }
-
-inode_ops virtio_rng_ops = {
-    .read = virtio_rng_fs_read,
-    .write = NULL,
-    .open = NULL,
-    .close = NULL,
-    .lookup = NULL,
-};
