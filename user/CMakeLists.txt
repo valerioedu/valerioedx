@@ -16,28 +16,28 @@ if (CMAKE_SYSTEM_NAME STREQUAL "Linux")
         set(CMAKE_C_COMPILER gcc)
         set(CMAKE_ASM_COMPILER ${CMAKE_C_COMPILER})
         set(CMAKE_LINKER ld)
+        set(CMAKE_AR ar)
+        set(CMAKE_RANLIB ranlib)
     else()
         set(CMAKE_C_COMPILER aarch64-linux-gnu-gcc)
         set(CMAKE_ASM_COMPILER ${CMAKE_C_COMPILER})
         set(CMAKE_LINKER aarch64-linux-gnu-ld)
+        set(CMAKE_AR aarch64-linux-gnu-ar)
+        set(CMAKE_RANLIB aarch64-linux-gnu-ranlib)
     endif()
 #MacOS
 else()
-    if (CMAKE_SYSTEM_PROCESSOR MATCHES "aarch64|ARM64")
-        set(CMAKE_C_COMPILER gcc)
-        set(CMAKE_ASM_COMPILER ${CMAKE_C_COMPILER})
-        set(CMAKE_LINKER ld)
-    else()
-        set(CMAKE_C_COMPILER aarch64-elf-gcc)
-        set(CMAKE_ASM_COMPILER ${CMAKE_C_COMPILER})
-        set(CMAKE_LINKER aarch64-elf-ld)
-    endif()
+    set(CMAKE_C_COMPILER aarch64-elf-gcc)
+    set(CMAKE_ASM_COMPILER ${CMAKE_C_COMPILER})
+    set(CMAKE_LINKER aarch64-elf-ld)
+    set(CMAKE_AR aarch64-elf-ar)
+    set(CMAKE_RANLIB aarch64-elf-ranlib)
 endif()
 
 set(CMAKE_C_FLAGS "-march=armv8-a -ffreestanding -fno-pie -fno-builtin -O0")
 set(CMAKE_ASM_FLAGS "-march=armv8-a")
 
-set(CMAKE_C_LINK_EXECUTABLE "<CMAKE_C_COMPILER> <LINK_FLAGS> <OBJECTS> -o <TARGET>")
+set(CMAKE_C_LINK_EXECUTABLE "<CMAKE_C_COMPILER> <LINK_FLAGS> <OBJECTS> <LINK_LIBRARIES> -o <TARGET>")
 
 include_directories(
     ${CMAKE_CURRENT_SOURCE_DIR}/lib
@@ -52,16 +52,21 @@ file(GLOB BUILTIN_COMMANDS
     ${CMAKE_CURRENT_SOURCE_DIR}/programs/sh/commands/*.c
 )
 
+add_library(libc STATIC ${LIB_SOURCES})
+
 add_executable(init.elf 
     ${CMAKE_CURRENT_SOURCE_DIR}/init.c
-    ${LIB_SOURCES}
 )
+
+target_link_libraries(init.elf libc)
 
 macro(add_user_util name)
     add_executable(${name}.elf
         ${CMAKE_CURRENT_SOURCE_DIR}/utils/${name}.c
-        ${LIB_SOURCES}
     )
+    
+    target_link_libraries(${name}.elf libc)
+    
     set_target_properties(${name}.elf PROPERTIES
         LINK_FLAGS "-Ttext=0x400000 -nostdlib"
     )
@@ -71,9 +76,11 @@ endmacro()
 macro(build_shell name)
     add_executable(${name}.elf
         ${CMAKE_CURRENT_SOURCE_DIR}/programs/sh/sh.c
-        ${LIB_SOURCES}
         ${BUILTIN_COMMANDS}
     )
+    
+    target_link_libraries(${name}.elf libc)
+    
     set_target_properties(${name}.elf PROPERTIES
         LINK_FLAGS "-Ttext=0x400000 -nostdlib"
     )
@@ -83,8 +90,10 @@ endmacro()
 macro(build_program name)
     add_executable(${name}.elf
         ${CMAKE_CURRENT_SOURCE_DIR}/programs/${name}/${name}.c
-        ${LIB_SOURCES}
     )
+    
+    target_link_libraries(${name}.elf libc)
+    
     set_target_properties(${name}.elf PROPERTIES
         LINK_FLAGS "-Ttext=0x400000 -nostdlib"
     )
