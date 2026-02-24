@@ -24,11 +24,54 @@ u64 pid_counter = 1;
 u64 tid_counter = 1;
 
 spinlock_t sched_lock = 0;
+u32 active_priorities = 0; // Bitmask for priorities
 
 static process_t *pid_hash[PID_HASH_SIZE];
 
 // Store the kernel's root page table for TTBR1
 static u64 kernel_ttbr1 = 0;
+
+void sched_enqueue_task(task_t *t) {
+    task_priority prio = t->priority;
+    t->next = NULL;
+    t->prev = NULL;
+    
+    if (runqueues[prio] == NULL) {
+        runqueues[prio] = t;
+        runqueues_tail[prio] = t;
+    } else {
+        t->prev = runqueues_tail[prio];
+        runqueues_tail[prio]->next = t;
+        runqueues_tail[prio] = t;
+    }
+    
+    active_priorities |= (1 << prio);
+}
+
+void sched_dequeue_task(task_t *t) {
+    task_priority prio = t->priority;
+    
+    if (t->prev) {
+        t->prev->next = t->next;
+    } else {
+        if (runqueues[prio] == t)
+            runqueues[prio] = t->next; 
+    }
+
+    if (t->next) {
+        t->next->prev = t->prev;
+    } else {
+        if (runqueues_tail[prio] == t)
+            runqueues_tail[prio] = t->prev; 
+    }
+
+    t->next = NULL;
+    t->prev = NULL;
+
+    if (runqueues[prio] == NULL) {
+        active_priorities &= ~(1 << prio);
+    }
+}
 
 void sched_unlock_release() {
     spinlock_release_irqrestore(&sched_lock, 0); 
@@ -140,6 +183,7 @@ void task_create(void (*entry_point)(), task_priority priority, struct process *
     t->state = TASK_READY;
     t->priority = priority;
     t->next = NULL;
+    t->prev = NULL;
     t->next_wait = NULL;
     t->proc = proc;
 
@@ -157,13 +201,7 @@ void task_create(void (*entry_point)(), task_priority priority, struct process *
         proc->threads = t;
     }
     
-    if (runqueues[priority] == NULL) {
-        runqueues[priority] = t;
-        runqueues_tail[priority] = t;
-    } else {
-        runqueues_tail[priority]->next = t;
-        runqueues_tail[priority] = t;
-    }
+    sched_enqueue_task(t);
 
     spinlock_release_irqrestore(&sched_lock, flags);
 }
@@ -176,13 +214,7 @@ void sleep_on(wait_queue_t* queue, spinlock_t* release_lock) {
     current_task->next_wait = *queue;
     *queue = current_task;
 
-    task_priority prio = current_task->priority;
-    if (runqueues[prio] == current_task) {
-        runqueues[prio] = current_task->next;
-        if (runqueues[prio] == NULL) {
-            runqueues_tail[prio] = NULL;
-        }
-    }
+    sched_dequeue_task(current_task);
     
     if (release_lock) 
         __atomic_store_n(release_lock, 0, __ATOMIC_RELEASE);
@@ -205,16 +237,8 @@ void wake_up(wait_queue_t* queue) {
 
     t->state = TASK_READY;
 
-    task_priority prio = t->priority;
-    t->next = NULL;
-    
-    if (runqueues[prio] == NULL) {
-        runqueues[prio] = t;
-        runqueues_tail[prio] = t;
-    } else {
-        runqueues_tail[prio]->next = t;
-        runqueues_tail[prio] = t;
-    }
+    sched_enqueue_task(t);
+
     spinlock_release_irqrestore(&sched_lock, flags);
 }
 
@@ -225,8 +249,10 @@ void task_wake_up_process(process_t *proc) {
 
     task_t *t = proc->threads;
     while (t) {
-        if (t->state == TASK_STOPPED)
+        if (t->state == TASK_STOPPED) {
             t->state = TASK_READY;
+            sched_enqueue_task(t);
+        }
 
         t = t->thread_next;
     }
@@ -235,7 +261,11 @@ void task_wake_up_process(process_t *proc) {
 }
 
 void task_exit() {
+    u32 flags = spinlock_acquire_irqsave(&sched_lock);
     current_task->state = TASK_EXITED;
+    sched_dequeue_task(current_task);
+    spinlock_release_irqrestore(&sched_lock, flags);
+    
     schedule();
 }
 
@@ -243,11 +273,8 @@ void rotate_queue(task_priority priority) {
     task_t *head = runqueues[priority];
     if (!head || !head->next) return;
 
-    runqueues[priority] = head->next;
-    head->next = NULL;
-
-    runqueues_tail[priority]->next = head;
-    runqueues_tail[priority] = head;
+    sched_dequeue_task(head);
+    sched_enqueue_task(head);
 }
 
 void schedule() {
@@ -257,39 +284,17 @@ void schedule() {
     task_t* prev_task = current_task;
     task_t* next_task = NULL;
 
-    // Scan priorities
-    for (int i = COUNT - 1; i >= 0; i--) {
-        if (i == IDLE) continue;
+    if (prev_task && prev_task->state == TASK_RUNNING)
+        rotate_queue(prev_task->priority);
 
-        task_t* curr = runqueues[i];
 
-        while (curr && curr->state == TASK_EXITED) {
-            runqueues[i] = curr->next;
-            
-            // Tail clean up if queue becomes empty
-            if (runqueues[i] == NULL) {
-                runqueues_tail[i] = NULL;
-            }
-
-            curr = runqueues[i];
-        }
-
-        if (runqueues[i] && prev_task && 
-            prev_task->priority == i && 
-            prev_task->state == TASK_RUNNING) {
-            rotate_queue(i);
-        }
-
-        curr = runqueues[i];
-        while (curr) {
-            if (curr->state == TASK_READY || curr->state == TASK_RUNNING) {
-                next_task = curr;
-                break;
-            }
-            curr = curr->next;
-        }
-
-        if (next_task) break;
+    if (active_priorities == 0)
+        next_task = runqueues[IDLE];
+    
+    else {
+        int highest_prio = 31 - __builtin_clz(active_priorities);
+        if (highest_prio >= COUNT) highest_prio = COUNT - 1;
+        next_task = runqueues[highest_prio];
     }
 
     if (!next_task) {
@@ -413,16 +418,7 @@ void sched_check_sleeping_tasks(u64 now) {
             t->next_wait = NULL;
 
             t->state = TASK_READY;
-            t->next = NULL;
-
-            task_priority prio = t->priority;
-            if (runqueues[prio] == NULL) {
-                runqueues[prio] = t;
-                runqueues_tail[prio] = t;
-            } else {
-                runqueues_tail[prio]->next = t;
-                runqueues_tail[prio] = t;
-            }
+            sched_enqueue_task(t);
         } else curr = &(*curr)->next_wait;
     }
 
@@ -436,12 +432,7 @@ void task_sleep_ticks(u64 ticks) {
     current_task->wake_tick = jiffies + ticks;
     current_task->state = TASK_SLEEPING;
 
-    task_priority prio = current_task->priority;
-    if (runqueues[prio] == current_task) {
-        runqueues[prio] = current_task->next;
-        if (runqueues[prio] == NULL)
-            runqueues_tail[prio] = NULL;
-    }
+    sched_dequeue_task(current_task);
 
     current_task->next_wait = sleep_queue;
     sleep_queue = current_task;
@@ -468,12 +459,7 @@ int sleep_on_timeout(wait_queue_t* queue, u64 timeout_ticks) {
     current_task->sleep_next = sleep_queue;
     sleep_queue = current_task;
 
-    task_priority prio = current_task->priority;
-    if (runqueues[prio] == current_task) {
-        runqueues[prio] = current_task->next;
-        if (runqueues[prio] == NULL)
-            runqueues_tail[prio] = NULL;
-    }
+    sched_dequeue_task(current_task);
 
     spinlock_release_irqrestore(&sched_lock, flags);
     schedule();

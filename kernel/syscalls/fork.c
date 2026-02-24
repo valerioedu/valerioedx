@@ -14,8 +14,9 @@ extern task_t *current_task;
 extern u64 pid_counter;
 extern u64 tid_counter;
 extern spinlock_t sched_lock;
-extern task_t *runqueues[COUNT];
-extern task_t *runqueues_tail[COUNT];
+
+extern void sched_enqueue_task(task_t *t);
+extern void sched_dequeue_task(task_t *t);
 
 task_t *task_clone(task_t *task, process_t *process) {
     task_t *new = (task_t*)kmalloc(sizeof(task_t));
@@ -41,6 +42,7 @@ task_t *task_clone(task_t *task, process_t *process) {
     new->state = task->state;
     new->priority = task->priority;
     new->next = NULL;
+    new->prev = NULL;
     new->next_wait = task->next_wait;
     new->id = tid_counter++;
 
@@ -54,13 +56,7 @@ task_t *task_clone(task_t *task, process_t *process) {
         process->threads = new;
     }
 
-    if (runqueues[new->priority] == NULL) {
-        runqueues[new->priority] = new;
-        runqueues_tail[new->priority] = new;
-    } else {
-        runqueues_tail[new->priority]->next = new;
-        runqueues_tail[new->priority] = new;
-    }
+    sched_enqueue_task(new);
 
     spinlock_release_irqrestore(&sched_lock, flags);
 
@@ -175,6 +171,7 @@ void sys_exit(int code) {
     proc->exit_code = code;
     proc->state = PROCESS_ZOMBIE;
     current_task->state = TASK_EXITED;
+    sched_dequeue_task(current_task);
 
     extern process_t *init_process;
     process_t *child = proc->child;

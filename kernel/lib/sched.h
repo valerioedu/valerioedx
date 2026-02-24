@@ -103,6 +103,7 @@ typedef struct task {
     task_state state;
     task_priority priority;
     struct task* next;          // Linked list pointer
+    struct task *prev;
     struct task* next_wait;     // Pointer to wait queue
     struct task* thread_next;
     struct task *sleep_next;
