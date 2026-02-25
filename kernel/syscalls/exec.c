@@ -12,6 +12,8 @@
 
 extern task_t *current_task;
 
+extern void enter_usermode(u64 entry, u64 sp, u64 kernel_sp);
+
 static inline u64 get_phys_from_pte(u64 *pte) {
     return (*pte) & 0x0000FFFFFFFFF000ULL;
 }
@@ -346,14 +348,12 @@ i64 sys_execve(const char* path, const char* argv[], const char* envp[]) {
     strncpy(proc->name, name, 63);
 
     // Jump to user mode using eret
-    extern void enter_usermode(u64 entry, u64 sp);
-    enter_usermode(elf_result.entry_point, user_sp);
+    u64 kernel_sp = (u64)current_task->stack_page + 4096;
+    enter_usermode(elf_result.entry_point, user_sp, kernel_sp);
 
     // Never reached
     return 0;
 }
-
-extern void enter_usermode(u64 entry, u64 sp);
 
 // Kernel function to start init process
 int exec_init(const char* path) {
@@ -404,7 +404,8 @@ int exec_init(const char* path) {
     );
 #endif
 
-    enter_usermode(elf_result.entry_point, user_sp);
+    u64 kernel_sp = (u64)current_task->stack_page + 4096;
+    enter_usermode(elf_result.entry_point, user_sp, kernel_sp);
 
     // Never reached
     return 0;

@@ -53,37 +53,63 @@ ret_from_fork_child:
     bl sched_unlock_release
     bl switch_to_child_mm
     
-    ldr x10, [sp, #248]
-    msr sp_el0, x10
+    # Restore Floating-Point Status and Control Registers
+    ldr w21, [sp, #800]
+    ldr w22, [sp, #804]
+    msr fpsr, x21
+    msr fpcr, x22
+
+    # Restore all 32 Vector/SIMD registers
+    ldp q0, q1, [sp, #288]
+    ldp q2, q3, [sp, #320]
+    ldp q4, q5, [sp, #352]
+    ldp q6, q7, [sp, #384]
+    ldp q8, q9, [sp, #416]
+    ldp q10, q11, [sp, #448]
+    ldp q12, q13, [sp, #480]
+    ldp q14, q15, [sp, #512]
+    ldp q16, q17, [sp, #544]
+    ldp q18, q19, [sp, #576]
+    ldp q20, q21, [sp, #608]
+    ldp q22, q23, [sp, #640]
+    ldp q24, q25, [sp, #672]
+    ldp q26, q27, [sp, #704]
+    ldp q28, q29, [sp, #736]
+    ldp q30, q31, [sp, #768]
+
+    # Restore ELR and SPSR (updated offsets)
+    ldp x0, x1, [sp, #264]
+    msr elr_el1, x0
+    msr spsr_el1, x1
+
+    # Restore SP_EL0 (updated offset)
+    ldr x0, [sp, #256]
+    msr sp_el0, x0
+
+    ldp x0, x1, [sp, #16 * 0]
+    ldp x2, x3, [sp, #16 * 1]
+    ldp x4, x5, [sp, #16 * 2]
+    ldp x6, x7, [sp, #16 * 3]
+    ldp x8, x9, [sp, #16 * 4]
+    ldp x10, x11, [sp, #16 * 5]
+    ldp x12, x13, [sp, #16 * 6]
+    ldp x14, x15, [sp, #16 * 7]
+    ldp x16, x17, [sp, #16 * 8]
+    ldp x18, x19, [sp, #16 * 9]
+    ldp x20, x21, [sp, #16 * 10]
+    ldp x22, x23, [sp, #16 * 11]
+    ldp x24, x25, [sp, #16 * 12]
+    ldp x26, x27, [sp, #16 * 13]
+    ldp x28, x29, [sp, #16 * 14]
+    ldr x30, [sp, #16 * 15]
     
-    ldr x10, [sp, #256]
-    msr elr_el1, x10
-    
-    ldr x10, [sp, #264]
-    msr spsr_el1, x10
-    
-    ldp x0, x1, [sp, #0]
-    ldp x2, x3, [sp, #16]
-    ldp x4, x5, [sp, #32]
-    ldp x6, x7, [sp, #48]
-    ldp x8, x9, [sp, #64]
-    ldp x10, x11, [sp, #80]
-    ldp x12, x13, [sp, #96]
-    ldp x14, x15, [sp, #112]
-    ldp x16, x17, [sp, #128]
-    ldp x18, x19, [sp, #144]
-    ldp x20, x21, [sp, #160]
-    ldp x22, x23, [sp, #176]
-    ldp x24, x25, [sp, #192]
-    ldp x26, x27, [sp, #208]
-    ldp x28, x29, [sp, #224]
-    ldr x30, [sp, #240]
-    
+    add sp, sp, #816
     eret
 
-# void enter_usermode(u64 entry, u64 sp)
+# void enter_usermode(u64 entry, u64 sp, u64 kernel_sp)
 # x0 = entry point address
 # x1 = user stack pointer
+# x2 = kernel stack pointer
 #
 # This function properly transitions from kernel mode (EL1) to user mode (EL0)
 # It sets up the exception return registers and uses ERET to drop to EL0
@@ -91,19 +117,15 @@ enter_usermode:
     # Disable interrupts during transition
     msr daifset, #2
 
-    # Set up SPSR_EL1 for return to EL0
-    # SPSR = 0 means:
-    #   - M[3:0] = 0b0000 = EL0t (EL0 with SP_EL0)
-    #   - DAIF = 0 (interrupts enabled in EL0)
-    #   - NZCV = 0
-    mov x2, #0
-    msr spsr_el1, x2
-
-    # Set up ELR_EL1 (return address = entry point)
+    mov x3, #0
+    msr spsr_el1, x3
     msr elr_el1, x0
 
     # Set up SP_EL0 (user stack pointer)
     msr sp_el0, x1
+
+    # Reset kernel stack pointer to avoid stack leaking
+    mov sp, x2
 
     # Clear all general-purpose registers for clean state
     mov x0, #0
