@@ -3,9 +3,12 @@
 #include <heap.h>
 #include <string.h>
 #include <sched.h>
+#include <pmm.h>
+#include <vmm.h>
 
 #define MAX_MOUNTS 16
 #define MAX_SYMLINK_DEPTH 8
+#define CACHE_BUCKETS 256
 
 extern task_t *current_task;
 
@@ -16,7 +19,47 @@ struct mount_entry {
 
 inode_t *vfs_root = NULL;
 
-//TODO: Implement page cache
+typedef struct page_cache_entry {
+    inode_t *node;
+    u64 page_offset;
+    uintptr_t phys_addr;
+    bool dirty;
+    struct page_cache_entry *next;
+} page_cache_entry_t;
+
+static page_cache_entry_t *page_cache[CACHE_BUCKETS];
+
+static int hash_cache(inode_t *node, u64 offset) {
+    return (((uintptr_t)node >> 4) ^ (offset >> PAGE_SHIFT)) % CACHE_BUCKETS;
+}
+
+static page_cache_entry_t *cache_lookup(inode_t *node, u64 offset) {
+    int bucket = hash_cache(node, offset);
+    page_cache_entry_t *entry = page_cache[bucket];
+    while (entry) {
+        if (entry->node == node && entry->page_offset == offset)
+            return entry;
+
+        entry = entry->next;
+    }
+
+    return NULL;
+}
+
+static page_cache_entry_t *cache_add(inode_t *node, u64 offset, uintptr_t phys_addr) {
+    int bucket = hash_cache(node, offset);
+    page_cache_entry_t *entry = (page_cache_entry_t *)kmalloc(sizeof(page_cache_entry_t));
+    if (!entry) return NULL;
+    
+    entry->node = node;
+    entry->page_offset = offset;
+    entry->phys_addr = phys_addr;
+    entry->dirty = false;
+    
+    entry->next = page_cache[bucket];
+    page_cache[bucket] = entry;
+    return entry;
+}
 
 void vfs_init() {
     vfs_root = NULL;
@@ -75,20 +118,107 @@ u64 vfs_read(inode_t* node, u64 offset, u64 size, u8* buffer) {
     if (vfs_check_permission(node, 4) != 0)
         return (u64)-1;
 
-    if (node && node->ops && node->ops->read)
+    if (!node || !node->ops || !node->ops->read)
+        return 0;
+
+    // Devices and directories bypass the cache
+    if (!S_ISREG(node->mode))
         return node->ops->read(node, offset, size, buffer);
-    
-    return 0;
+
+    u64 bytes_read = 0;
+    while (bytes_read < size) {
+        u64 current_offset = offset + bytes_read;
+        u64 page_offset = current_offset & ~(PAGE_SIZE - 1);
+        u64 offset_in_page = current_offset & (PAGE_SIZE - 1);
+        u64 bytes_to_read = PAGE_SIZE - offset_in_page;
+
+        if (bytes_read + bytes_to_read > size)
+            bytes_to_read = size - bytes_read;
+        
+        if (current_offset >= node->size)
+            break;
+
+        if (current_offset + bytes_to_read > node->size)
+            bytes_to_read = node->size - current_offset;
+
+        page_cache_entry_t *entry = cache_lookup(node, page_offset);
+        if (!entry) {
+            uintptr_t frame = pmm_alloc_frame();
+            if (!frame) break;
+
+            u64 disk_read_size = PAGE_SIZE;
+            if (page_offset + PAGE_SIZE > node->size)
+                disk_read_size = node->size - page_offset;
+
+            memset((u8*)P2V(frame), 0, PAGE_SIZE);
+            node->ops->read(node, page_offset, disk_read_size, (u8*)P2V(frame));
+
+            entry = cache_add(node, page_offset, frame);
+            if (!entry) {
+                pmm_free_frame(frame);
+                break;
+            }
+        }
+
+        // Copy from cached page to user/kernel buffer
+        memcpy(buffer + bytes_read, (u8*)P2V(entry->phys_addr) + offset_in_page, bytes_to_read);
+        bytes_read += bytes_to_read;
+    }
+
+    return bytes_read;
 }
 
 u64 vfs_write(inode_t* node, u64 offset, u64 size, u8* buffer) {
     if (vfs_check_permission(node, 2) != 0)
         return (u64)-1;
     
-    if (node && node->ops && node->ops->write)
+    if (!node || !node->ops || !node->ops->write)
+        return 0;
+
+    if (!S_ISREG(node->mode))
         return node->ops->write(node, offset, size, buffer);
-    
-    return 0;
+
+    u64 bytes_written = 0;
+    while (bytes_written < size) {
+        u64 current_offset = offset + bytes_written;
+        u64 page_offset = current_offset & ~(PAGE_SIZE - 1);
+        u64 offset_in_page = current_offset & (PAGE_SIZE - 1);
+        u64 bytes_to_write = PAGE_SIZE - offset_in_page;
+
+        if (bytes_written + bytes_to_write > size)
+            bytes_to_write = size - bytes_written;
+
+        page_cache_entry_t *entry = cache_lookup(node, page_offset);
+        if (!entry) {
+            uintptr_t frame = pmm_alloc_frame();
+            if (!frame) break;
+
+            // If doing a partial write, read the existing data first
+            if (bytes_to_write < PAGE_SIZE && current_offset < node->size) {
+                u64 disk_read_size = PAGE_SIZE;
+                if (page_offset + PAGE_SIZE > node->size)
+                    disk_read_size = node->size - page_offset;
+                    
+                node->ops->read(node, page_offset, disk_read_size, (u8*)P2V(frame));
+            } else memset((u8*)P2V(frame), 0, PAGE_SIZE);
+
+            entry = cache_add(node, page_offset, frame);
+            if (!entry) {
+                pmm_free_frame(frame);
+                break;
+            }
+        }
+
+        memcpy((u8*)P2V(entry->phys_addr) + offset_in_page, buffer + bytes_written, bytes_to_write);
+        node->ops->write(node, current_offset, bytes_to_write, buffer + bytes_written);
+        
+        bytes_written += bytes_to_write;
+    }
+
+    if (offset + bytes_written > node->size)
+        node->size = offset + bytes_written;
+
+    return bytes_written;
 }
 
 void vfs_open(inode_t* node) {
