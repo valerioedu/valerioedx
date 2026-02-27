@@ -9,6 +9,7 @@
 #define MAX_MOUNTS 16
 #define MAX_SYMLINK_DEPTH 8
 #define CACHE_BUCKETS 256
+#define MAX_CACHED_PAGES 1024
 
 extern task_t *current_task;
 
@@ -25,12 +26,109 @@ typedef struct page_cache_entry {
     uintptr_t phys_addr;
     bool dirty;
     struct page_cache_entry *next;
+    struct page_cache_entry *lru_next;
+    struct page_cache_entry *lru_prev;
 } page_cache_entry_t;
 
 static page_cache_entry_t *page_cache[CACHE_BUCKETS];
+static page_cache_entry_t *lru_head = NULL;
+static page_cache_entry_t *lru_tail = NULL;
+static u32 current_cached_pages = 0;
+
+static void lru_remove(page_cache_entry_t *entry) {
+    if (entry->lru_prev) entry->lru_prev->lru_next = entry->lru_next;
+    else lru_head = entry->lru_next;
+    
+    if (entry->lru_next) entry->lru_next->lru_prev = entry->lru_prev;
+    else lru_tail = entry->lru_prev;
+}
+
+static void lru_add_front(page_cache_entry_t *entry) {
+    entry->lru_next = lru_head;
+    entry->lru_prev = NULL;
+    if (lru_head) lru_head->lru_prev = entry;
+
+    lru_head = entry;
+    if (!lru_tail) lru_tail = entry;
+}
+
+static void lru_touch(page_cache_entry_t *entry) {
+    if (entry == lru_head) return;
+    lru_remove(entry);
+    lru_add_front(entry);
+}
 
 static int hash_cache(inode_t *node, u64 offset) {
     return (((uintptr_t)node >> 4) ^ (offset >> PAGE_SHIFT)) % CACHE_BUCKETS;
+}
+
+static void cache_evict_one() {
+    if (!lru_tail) return;
+    
+    page_cache_entry_t *evict = lru_tail;
+    
+    // WRITE-BACK: Flush to disk if the page was modified
+    if (evict->dirty && evict->node && evict->node->ops && evict->node->ops->write) {
+        u64 write_size = PAGE_SIZE;
+        if (evict->page_offset + PAGE_SIZE > evict->node->size)
+            write_size = evict->node->size - evict->page_offset;
+        
+        evict->node->ops->write(evict->node, evict->page_offset, write_size, (u8*)P2V(evict->phys_addr));
+    }
+
+    int bucket = hash_cache(evict->node, evict->page_offset);
+    if (page_cache[bucket] == evict)
+        page_cache[bucket] = evict->next;
+    
+    else {
+        page_cache_entry_t *curr = page_cache[bucket];
+        while (curr && curr->next != evict)
+            curr = curr->next;
+        
+        if (curr) curr->next = evict->next;
+    }
+
+    lru_remove(evict);
+    pmm_free_frame(evict->phys_addr);
+    kfree(evict);
+    current_cached_pages--;
+}
+
+static void cache_evict_inode(inode_t *node, bool flush_dirty) {
+    page_cache_entry_t *curr = lru_head;
+    
+    while (curr) {
+        page_cache_entry_t *next = curr->lru_next;
+        
+        if (curr->node == node) {
+            if (flush_dirty && curr->dirty && node->ops && node->ops->write) {
+                u64 write_size = PAGE_SIZE;
+                if (curr->page_offset + PAGE_SIZE > node->size)
+                    write_size = node->size - curr->page_offset;
+                
+                node->ops->write(node, curr->page_offset, write_size, (u8*)P2V(curr->phys_addr));
+            }
+
+            int bucket = hash_cache(node, curr->page_offset);
+            if (page_cache[bucket] == curr)
+                page_cache[bucket] = curr->next;
+            
+            else {
+                page_cache_entry_t *hc = page_cache[bucket];
+                while (hc && hc->next != curr)
+                    hc = hc->next;
+                
+                if (hc) hc->next = curr->next;
+            }
+
+            lru_remove(curr);
+            pmm_free_frame(curr->phys_addr);
+            kfree(curr);
+            current_cached_pages--;
+        }
+
+        curr = next;
+    }
 }
 
 static page_cache_entry_t *cache_lookup(inode_t *node, u64 offset) {
@@ -47,6 +145,9 @@ static page_cache_entry_t *cache_lookup(inode_t *node, u64 offset) {
 }
 
 static page_cache_entry_t *cache_add(inode_t *node, u64 offset, uintptr_t phys_addr) {
+    if (current_cached_pages >= MAX_CACHED_PAGES)
+        cache_evict_one();
+
     int bucket = hash_cache(node, offset);
     page_cache_entry_t *entry = (page_cache_entry_t *)kmalloc(sizeof(page_cache_entry_t));
     if (!entry) return NULL;
@@ -58,6 +159,10 @@ static page_cache_entry_t *cache_add(inode_t *node, u64 offset, uintptr_t phys_a
     
     entry->next = page_cache[bucket];
     page_cache[bucket] = entry;
+
+    lru_add_front(entry);
+    current_cached_pages++;
+
     return entry;
 }
 
@@ -142,7 +247,8 @@ u64 vfs_read(inode_t* node, u64 offset, u64 size, u8* buffer) {
             bytes_to_read = node->size - current_offset;
 
         page_cache_entry_t *entry = cache_lookup(node, page_offset);
-        if (!entry) {
+        if (entry) lru_touch(entry); // Cache hit, move to front of LRU
+        else {
             uintptr_t frame = pmm_alloc_frame();
             if (!frame) break;
 
@@ -189,7 +295,8 @@ u64 vfs_write(inode_t* node, u64 offset, u64 size, u8* buffer) {
             bytes_to_write = size - bytes_written;
 
         page_cache_entry_t *entry = cache_lookup(node, page_offset);
-        if (!entry) {
+        if (entry) lru_touch(entry);
+        else {
             uintptr_t frame = pmm_alloc_frame();
             if (!frame) break;
 
@@ -210,7 +317,7 @@ u64 vfs_write(inode_t* node, u64 offset, u64 size, u8* buffer) {
         }
 
         memcpy((u8*)P2V(entry->phys_addr) + offset_in_page, buffer + bytes_written, bytes_to_write);
-        node->ops->write(node, current_offset, bytes_to_write, buffer + bytes_written);
+        entry->dirty = true; 
         
         bytes_written += bytes_to_write;
     }
@@ -235,6 +342,8 @@ void vfs_close(inode_t* node) {
 
     node->ref_count--;
     if (node->ref_count <= 0) {
+        cache_evict_inode(node, true);
+
         if (node->flags & FS_TEMPORARY && node->ops->close) {
             if (node->ops && node->ops->close)
                 node->ops->close(node); // Free private driver data (fat32_file_t)
