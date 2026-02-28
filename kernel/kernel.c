@@ -62,6 +62,8 @@ void kmain() {
         }
     }
 
+    extern void pipe_init();
+    pipe_init();
     ramfb_clear();
     init_process = process_create("init", init_entry, HIGH);
 

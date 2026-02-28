@@ -55,6 +55,7 @@ struct timezone { int tz_minuteswest; int tz_dsttime; };
 #define SYS_GETPPID         39
 #define SYS_LSTAT           40
 #define SYS_DUP             41
+#define SYS_PIPE            42
 #define SYS_GETEGID         43
 #define SYS_SIGACTION       46
 #define SYS_GETGID          47
@@ -155,6 +156,7 @@ extern i64 sys_settimeofday(const struct timeval *tv, const struct timezone *tz)
 extern i64 sys_clock_gettime(clockid_t clk_id, struct timespec *tp);
 extern i64 sys_clock_settime(clockid_t clk_id, const struct timespec *tp);
 extern i64 sys_clock_getres(clockid_t clk_id, struct timespec *res);
+extern i64 sys_pipe(int fd[2]);
 
 typedef i64 (*syscalls_fn_t)(i64, i64, i64, i64, i64, i64);
 
@@ -235,6 +237,7 @@ i64 syscall_handler(trapframe_t *tf, u64 syscall_num, u64 arg0, u64 arg1, u64 ar
         case SYS_GETPPID: ret = sys_getppid(); break;
         case SYS_LSTAT: ret = sys_lstat((const char*)arg0, (stat_t*)arg1); break;
         case SYS_DUP: ret = sys_dup((int)arg0); break;
+        case SYS_PIPE: ret = sys_pipe((int*)arg0); break;
         case SYS_GETEGID: ret = sys_getegid(); break;
         case SYS_SIGACTION: ret = sys_sigaction((int)arg0, (const struct sigaction*)arg1, (struct sigaction*)arg2); break;
         case SYS_GETGID: ret = sys_getgid(); break;

@@ -42,5 +42,6 @@ unsigned int sleep(unsigned int seconds);
 int dup(int fildes);
 int dup2(int fildes, int fildes2);
 int link(const char *path1, const char *path2);
+int pipe(int fildes[2]);
 
 #endif

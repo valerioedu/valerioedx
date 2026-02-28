@@ -310,4 +310,11 @@ int link(const char *path1, const char *path2) {
     asm volatile("svc #0" : "+r"(x0) : "r"(x1), "r"(x8) : "memory");
     return (int)(long)x0;
 }
+
+int pipe(int fildes[2]) {
+    register int *x0 asm("x0") = fildes;
+    register int x8 asm("x8") = 42;
+    asm volatile("svc #0" : "+r"(x0) : "r"(x8) : "memory");
+    return (int)(long)x0;
+}
 //#endif
