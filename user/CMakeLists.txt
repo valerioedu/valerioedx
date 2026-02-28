@@ -73,6 +73,19 @@ macro(add_user_util name)
     list(APPEND USER_COMMANDS ${name}.elf)
 endmacro()
 
+macro(add_user_util_sbin name)
+    add_executable(${name}.elf
+        ${CMAKE_CURRENT_SOURCE_DIR}/utils/${name}.c
+    )
+    
+    target_link_libraries(${name}.elf libc)
+    
+    set_target_properties(${name}.elf PROPERTIES
+        LINK_FLAGS "-Ttext=0x400000 -nostdlib"
+    )
+    list(APPEND USER_COMMANDS_SBIN ${name}.elf)
+endmacro()
+
 macro(build_shell name)
     add_executable(${name}.elf
         ${CMAKE_CURRENT_SOURCE_DIR}/programs/sh/sh.c
@@ -84,7 +97,6 @@ macro(build_shell name)
     set_target_properties(${name}.elf PROPERTIES
         LINK_FLAGS "-Ttext=0x400000 -nostdlib"
     )
-    list(APPEND USER_COMMANDS ${name}.elf)
 endmacro()
 
 macro(build_program name)
@@ -97,7 +109,6 @@ macro(build_program name)
     set_target_properties(${name}.elf PROPERTIES
         LINK_FLAGS "-Ttext=0x400000 -nostdlib"
     )
-    list(APPEND USER_COMMANDS ${name}.elf)
 endmacro()
 
 add_user_util(cat)
@@ -106,11 +117,11 @@ add_user_util(mkdir)
 add_user_util(echo)
 add_user_util(rmdir)
 add_user_util(touch)
-add_user_util(reboot)
-add_user_util(halt)
+add_user_util_sbin(reboot)
+add_user_util_sbin(halt)
 add_user_util(printenv)
 add_user_util(clear)
-add_user_util(shutdown)
+add_user_util_sbin(shutdown)
 add_user_util(rm)
 build_shell(sh)
 build_program(vbasic)
@@ -122,25 +133,38 @@ set_target_properties(init.elf PROPERTIES
 )
 
 add_custom_target(copy
-    DEPENDS init.elf cat.elf ls.elf mkdir.elf echo.elf touch.elf rm.elf sh.elf vbasic.elf rmdir.elf reboot.elf halt.elf shutdown.elf clear.elf printenv.elf
-    COMMAND mcopy -i ../../kernel/arch/aarch64/disk.img ../lib/stdint.h ::/usr/include/stdint.h
-    COMMAND mcopy -i ../../kernel/arch/aarch64/disk.img ../lib/stddef.h ::/usr/include/stddef.h
-    COMMAND mcopy -i ../../kernel/arch/aarch64/disk.img ../lib/string.h ::/usr/include/string.h
-    COMMAND mcopy -i ../../kernel/arch/aarch64/disk.img ../lib/unistd.h ::/usr/include/unistd.h
-    COMMAND mcopy -i ../../kernel/arch/aarch64/disk.img init.elf ::/bin/init.elf
-    COMMAND mcopy -i ../../kernel/arch/aarch64/disk.img init.elf ::/bin/init
-    COMMAND mcopy -i ../../kernel/arch/aarch64/disk.img cat.elf ::/bin/cat
-    COMMAND mcopy -i ../../kernel/arch/aarch64/disk.img ls.elf ::/bin/ls
-    COMMAND mcopy -i ../../kernel/arch/aarch64/disk.img mkdir.elf ::/bin/mkdir
-    COMMAND mcopy -i ../../kernel/arch/aarch64/disk.img rmdir.elf ::/bin/rmdir
-    COMMAND mcopy -i ../../kernel/arch/aarch64/disk.img echo.elf ::/bin/echo
-    COMMAND mcopy -i ../../kernel/arch/aarch64/disk.img reboot.elf ::/sbin/reboot
-    COMMAND mcopy -i ../../kernel/arch/aarch64/disk.img halt.elf ::/sbin/halt
-    COMMAND mcopy -i ../../kernel/arch/aarch64/disk.img shutdown.elf ::/sbin/shutdown
-    COMMAND mcopy -i ../../kernel/arch/aarch64/disk.img touch.elf ::/bin/touch
-    COMMAND mcopy -i ../../kernel/arch/aarch64/disk.img clear.elf ::/bin/clear
-    COMMAND mcopy -i ../../kernel/arch/aarch64/disk.img printenv.elf ::/bin/printenv
-    COMMAND mcopy -i ../../kernel/arch/aarch64/disk.img rm.elf ::/bin/rm
-    COMMAND mcopy -i ../../kernel/arch/aarch64/disk.img sh.elf ::/bin/sh
-    COMMAND mcopy -i ../../kernel/arch/aarch64/disk.img vbasic.elf ::/bin/vbasic
+    DEPENDS ${USER_COMMANDS}
+    COMMAND ${CMAKE_COMMAND} -E echo "vale::0:0:root:/:/bin/sh" > ${CMAKE_BINARY_DIR}/passwd
+    COMMAND mcopy -i ../../kernel/arch/aarch64/disk.img ${CMAKE_BINARY_DIR}/passwd ::/etc/passwd
+)
+
+file(GLOB LIB_HEADERS
+    ${CMAKE_CURRENT_SOURCE_DIR}/lib/*.h
+)
+
+foreach(h ${LIB_HEADERS})
+    get_filename_component(hname ${h} NAME)
+    add_custom_command(TARGET copy POST_BUILD
+        COMMAND mcopy -i ../../kernel/arch/aarch64/disk.img ${h} ::/usr/include/${hname}
+    )
+endforeach()
+
+foreach(cmd ${USER_COMMANDS})
+    get_filename_component(cmdname ${cmd} NAME_WE)
+    add_custom_command(TARGET copy POST_BUILD
+        COMMAND mcopy -i ../../kernel/arch/aarch64/disk.img $<TARGET_FILE:${cmd}> ::/bin/${cmdname}
+    )
+endforeach()
+
+foreach(cmd ${USER_COMMANDS_SBIN})
+    get_filename_component(cmdname ${cmd} NAME_WE)
+    add_custom_command(TARGET copy POST_BUILD
+        COMMAND mcopy -i ../../kernel/arch/aarch64/disk.img $<TARGET_FILE:${cmd}> ::/sbin/${cmdname}
+    )
+endforeach()
+
+add_custom_command(TARGET copy POST_BUILD
+    COMMAND mcopy -i ../../kernel/arch/aarch64/disk.img $<TARGET_FILE:sh.elf> ::/bin/sh
+    COMMAND mcopy -i ../../kernel/arch/aarch64/disk.img $<TARGET_FILE:vbasic.elf> ::/bin/vbasic
+    COMMAND mcopy -i ../../kernel/arch/aarch64/disk.img $<TARGET_FILE:init.elf> ::/bin/init
 )
