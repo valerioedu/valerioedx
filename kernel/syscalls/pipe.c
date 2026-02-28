@@ -3,10 +3,10 @@
 #include <string.h>
 #include <file.h>
 #include <sched.h>
-#include <kio.h>
 #include <file.h>
 #include <sync.h>
 #include <syscalls.h>
+#include <signal.h>
 
 #define PIPE_BUF_SIZE 4096
 
@@ -18,9 +18,9 @@ typedef struct pipe {
     i32 readers;
     i32 writers;
     mutex_t lock;
+    wait_queue_t read_wait;
+    wait_queue_t write_wait;
 } pipe_t;
-
-mutex_t pipe_lock;
 
 extern task_t *current_task;
 
@@ -28,12 +28,18 @@ static u64 pipe_read(inode_t *node, u64 offset, u64 size, u8 *buffer) {
     pipe_t *pipe = (pipe_t *)node->ptr;
     if (!pipe) return 0;
 
-    if (pipe->count == 0 && pipe->writers == 0)
-        return 0;
+    mutex_acquire(&pipe->lock);
 
-    // TODO: block if count == 0 && writers > 0 (needs wait queue / sleep)
-    if (pipe->count == 0)
+    while (pipe->count == 0 && pipe->writers > 0) {
+        mutex_release(&pipe->lock);
+        sleep_on(&pipe->read_wait, NULL);
+        mutex_acquire(&pipe->lock);
+    }
+
+    if (pipe->count == 0 && pipe->writers == 0) {
+        mutex_release(&pipe->lock);
         return 0;
+    }
 
     u64 to_read = size;
     if (to_read > pipe->count)
@@ -45,6 +51,10 @@ static u64 pipe_read(inode_t *node, u64 offset, u64 size, u8 *buffer) {
     }
 
     pipe->count -= to_read;
+    
+    wake_up(&pipe->write_wait);
+    
+    mutex_release(&pipe->lock);
     return to_read;
 }
 
@@ -53,17 +63,32 @@ static u64 pipe_write(inode_t *node, u64 offset, u64 size, u8 *buffer) {
     pipe_t *pipe = (pipe_t *)node->ptr;
     if (!pipe) return 0;
 
+    mutex_acquire(&pipe->lock);
+
     // Broken pipe: no readers left
     if (pipe->readers == 0) {
-        // TODO: send sigpipe
+        mutex_release(&pipe->lock);
+        signal_send(current_task->proc, SIGPIPE);
         return -1;
     }
 
-    u64 available = PIPE_BUF_SIZE - pipe->count;
+    while (pipe->count == PIPE_BUF_SIZE && pipe->readers > 0) {
+        mutex_release(&pipe->lock);
+        sleep_on(&pipe->write_wait, NULL);
+        mutex_acquire(&pipe->lock);
+        
+        if (pipe->readers == 0) {
+            mutex_release(&pipe->lock);
+            signal_send(current_task->proc, SIGPIPE);
+            return -1;
+        }
+    }
 
-    // TODO: block if available == 0 (needs wait queue / sleep)
-    if (available == 0)
+    u64 available = PIPE_BUF_SIZE - pipe->count;
+    if (available == 0) {
+        mutex_release(&pipe->lock);
         return 0;
+    }
 
     u64 to_write = size;
     if (to_write > available)
@@ -75,23 +100,42 @@ static u64 pipe_write(inode_t *node, u64 offset, u64 size, u8 *buffer) {
     }
 
     pipe->count += to_write;
+    wake_up(&pipe->read_wait);
+
+    mutex_release(&pipe->lock);
     return to_write;
 }
 
 static void pipe_close_read(inode_t *node) {
     pipe_t *pipe = (pipe_t *)node->ptr;
     if (!pipe) return;
+    
+    mutex_acquire(&pipe->lock);
     pipe->readers--;
-    if (pipe->readers <= 0 && pipe->writers <= 0)
+    wake_up(&pipe->write_wait);
+    
+    if (pipe->readers <= 0 && pipe->writers <= 0) {
+        mutex_release(&pipe->lock);
         kfree(pipe);
+    } else {
+        mutex_release(&pipe->lock);
+    }
 }
 
 static void pipe_close_write(inode_t *node) {
     pipe_t *pipe = (pipe_t *)node->ptr;
     if (!pipe) return;
+    
+    mutex_acquire(&pipe->lock);
     pipe->writers--;
-    if (pipe->readers <= 0 && pipe->writers <= 0)
+    wake_up(&pipe->read_wait);
+    
+    if (pipe->readers <= 0 && pipe->writers <= 0) {
+        mutex_release(&pipe->lock);
         kfree(pipe);
+    } else {
+        mutex_release(&pipe->lock);
+    }
 }
 
 static inode_ops pipe_read_ops = { 0 };
@@ -125,6 +169,7 @@ i64 sys_pipe(int fd[2]) {
     memset(pipe, 0, sizeof(pipe_t));
     pipe->readers = 1;
     pipe->writers = 1;
+    mutex_init(&pipe->lock);
 
     inode_t *read_end  = pipe_create_endpoint(pipe, 0);
     inode_t *write_end = pipe_create_endpoint(pipe, 1);
@@ -172,6 +217,4 @@ void pipe_init() {
 
     pipe_read_ops.read = pipe_read;
     pipe_read_ops.close = pipe_close_read;
-
-    mutex_init(&pipe_lock);
 }
