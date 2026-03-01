@@ -106,7 +106,7 @@ i64 sys_fork(trapframe_t *tf) {
         }
     }
 
-    strncpy(child->name, parent->name, 64);
+    strncpy(child->name, parent->name, 512);
     child->uid = parent->uid;
     child->gid = parent->gid;
     child->euid = parent->euid;

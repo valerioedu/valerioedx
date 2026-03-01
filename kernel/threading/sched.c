@@ -121,7 +121,7 @@ process_t *process_create(const char *name, void (*entry_point)(), task_priority
 
     proc->pid = pid_counter++;
     pid_hash_insert(proc);
-    strncpy(proc->name, name, 63);
+    strncpy(proc->name, name, 511);
 
     extern int setup_standard_fds(process_t* proc);
 

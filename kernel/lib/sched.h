@@ -6,6 +6,7 @@
 #include <file.h>
 
 #define MAX_FD 1024
+#define MAX_PROC 2000
 #define NSIG   32
 #define NGROUPS_MAX 32
 #define TASK_TIMEOUT    0x01
@@ -131,7 +132,7 @@ typedef struct process {
     gid_t egid;
     struct mm_struct *mm;       // Memory management struct
     struct file *fd_table[MAX_FD];
-    char name[64];
+    char name[512];
     inode_t *cwd;
     struct process *parent;     // Pointer to parent process
     struct process *child;      // Head of the children processes

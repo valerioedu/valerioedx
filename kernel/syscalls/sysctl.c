@@ -48,8 +48,9 @@ typedef struct {
 } sysctl_hw_t;
 
 typedef struct {
-    char ostype[32];      // kern.ostype - "ValerioEDX"
+    char ostype[32];      // kern.ostype - "valerioedx"
     char osrelease[32];   // kern.osrelease - Kernel version "1.0.0"
+    char osrevision[8];
     char version[128];    // kern.version - Full version string
     char hostname[64];    // kern.hostname - System hostname
     u64 boottime;         // kern.boottime - Boot timestamp (ticks)
@@ -90,7 +91,9 @@ void sysctl_init() {
     strcpy(kern.version, "valerioedx 0.0.0");
     strcpy(kern.hostname, "valerioedx");
     strcpy(kern.consdev, "/dev/tty0");
+    strcpy(kern.osrevision, "0");
     kern.maxfiles = MAX_FD;
+    kern.maxproc = MAX_PROC;
     extern u64 boot_time;
     kern.boottime = boot_time;
 }
