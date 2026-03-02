@@ -12,6 +12,8 @@
 #define TASK_TIMEOUT    0x01
 #define TASK_TIMEDOUT   0x02
 
+#define current_task (get_core()->task)
+
 // Forward declarations
 struct mm_struct;
 typedef u32 sigset_t;
@@ -146,6 +148,13 @@ typedef struct process {
     task_t *threads;
 } process_t;
 
+typedef struct {
+    u32 cpu_id;
+    task_t *task;
+} cpu_core_t;
+
+extern cpu_core_t cores[MAX_CPUS];
+
 void sched_init();
 void task_create(void (*entry_point)(), task_priority priority, struct process *proc);
 void schedule();
@@ -161,5 +170,12 @@ void pid_hash_remove(process_t *proc);
 void sched_check_sleeping_tasks(u64 now);
 void task_sleep_ticks(u64 ticks);
 int sleep_on_timeout(wait_queue_t* queue, u64 timeout_ticks);
+int psci_cpu_on(u64 target_cpu, u64 entry_point, u64 context_id);
+
+static inline cpu_core_t* get_core() {
+    cpu_core_t* core;
+    asm volatile("mrs %0, tpidr_el1" : "=r"(core));
+    return core;
+}
 
 #endif

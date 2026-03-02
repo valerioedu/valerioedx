@@ -4,8 +4,6 @@
 #include <heap.h>
 #include <file.h>
 
-extern task_t *current_task;
-
 i64 sys_getuid() {
     if (!current_task || !current_task->proc)
         return -1;

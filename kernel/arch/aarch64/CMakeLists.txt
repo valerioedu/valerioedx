@@ -87,6 +87,7 @@ if(VALERIOEDX_DEBUG)
 endif()
 
 target_compile_definitions(kernel.elf PRIVATE ARM=1)
+target_compile_definitions(kernel.elf PRIVATE MAX_CPUS=2)
 
 set_target_properties(kernel.elf PROPERTIES
     LINK_FLAGS "-T ${LINKER_SCRIPT} -nostdlib"
@@ -94,16 +95,16 @@ set_target_properties(kernel.elf PROPERTIES
 )
 
 add_custom_target(run
-    COMMAND dtc -I dts -O dtb -o virt.dtb ../virt.dts
     COMMAND qemu-system-aarch64 -M virt -m 2G -cpu cortex-a710  
             -bios ${BIOS}
             -drive file=../disk.img,if=none,format=raw,id=hd0
             -device ramfb 
             -device virtio-blk-device,drive=hd0
             -device virtio-keyboard-device
-            -serial mon:stdio -dtb virt.dtb
+            -serial mon:stdio
             -device virtio-rng-device
             -device virtio-mouse-device
+            -smp cores=2
 )
 
 add_custom_target(debug
@@ -119,13 +120,13 @@ add_custom_target(debug
             -serial mon:stdio -dtb virt.dtb -d int
             -device virtio-rng-device
             -device virtio-mouse-device
+            -smp cores=2
     DEPENDS kernel.elf
     WORKING_DIRECTORY ${CMAKE_BINARY_DIR}
     COMMENT "Running kernel in QEMU using interrupts debug"
 )
 
 add_custom_target(build
-    COMMAND dtc -I dts -O dtb -o virt.dtb ../virt.dts
     COMMAND ${OBJCOPY} -O binary kernel.elf kernel.img
     COMMAND mcopy -i ../disk.img kernel.img ::/boot/kernel.img
     COMMAND qemu-system-aarch64 -M virt -m 2G -cpu cortex-a710 
@@ -134,9 +135,10 @@ add_custom_target(build
             -device ramfb 
             -device virtio-blk-device,drive=hd0
             -device virtio-keyboard-device
-            -serial mon:stdio -dtb virt.dtb
+            -serial mon:stdio
             -device virtio-rng-device
             -device virtio-mouse-device
+            -smp cores=2
     DEPENDS kernel.elf
     WORKING_DIRECTORY ${CMAKE_BINARY_DIR}
     COMMENT "Running kernel in QEMU"

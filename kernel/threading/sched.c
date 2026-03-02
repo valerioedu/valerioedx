@@ -18,8 +18,8 @@ extern void cpu_switch_to(struct task* prev, struct task* next);
 task_t *runqueues[COUNT];
 task_t *runqueues_tail[COUNT];
 task_t *sleep_queue = NULL;
+cpu_core_t cores[MAX_CPUS];
 
-task_t *current_task = NULL;
 u64 pid_counter = 1;
 u64 tid_counter = 1;
 
@@ -470,4 +470,17 @@ int sleep_on_timeout(wait_queue_t* queue, u64 timeout_ticks) {
     spinlock_release_irqrestore(&sched_lock, flags);
 
     return timed_out;
+}
+
+#define PSCI_CPU_ON_64 0xC4000003
+
+//Entry points need to be a boot function similar to boot.S
+int psci_cpu_on(u64 target_cpu, u64 entry_point, u64 context_id) {
+    register u64 x0 asm("x0") = PSCI_CPU_ON_64;
+    register u64 x1 asm("x1") = target_cpu;
+    register u64 x2 asm("x2") = entry_point;
+    register u64 x3 asm("x3") = context_id;
+    
+    asm volatile("hvc #0" : "=r"(x0) : "r"(x0), "r"(x1), "r"(x2), "r"(x3) : "memory");
+    return x0;
 }

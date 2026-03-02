@@ -10,8 +10,6 @@
 #include <vmm.h>
 #include <file.h>
 
-extern task_t *current_task;
-
 extern void enter_usermode(u64 entry, u64 sp, u64 kernel_sp);
 
 static inline u64 get_phys_from_pte(u64 *pte) {

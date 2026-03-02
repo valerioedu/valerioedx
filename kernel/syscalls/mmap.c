@@ -29,8 +29,6 @@
 #define EACCES          13
 #define ENODEV          19
 
-extern task_t *current_task;
-
 i64 sys_mmap(void *addr, size_t length, int prot, int flags, int fd, i64 offset) {
     if (!current_task || !current_task->proc || !current_task->proc->mm)
         return -EINVAL;

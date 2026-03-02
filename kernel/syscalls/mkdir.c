@@ -6,8 +6,6 @@
 #include <string.h>
 #include <kio.h>
 
-extern task_t *current_task;
-
 // Linux dirent structure for getdirentries
 typedef struct dirent {
     u64 d_ino;          // Inode number

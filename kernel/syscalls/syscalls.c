@@ -277,7 +277,6 @@ i64 syscall_handler(trapframe_t *tf, u64 syscall_num, u64 arg0, u64 arg1, u64 ar
         default: ret = sys_not_implemented(); break;
     }
 
-    extern task_t *current_task;
     if (current_task && current_task->proc && current_task->proc->signals) {
         signal_check_pending(tf);
     }

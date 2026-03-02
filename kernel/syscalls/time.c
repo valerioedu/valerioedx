@@ -16,8 +16,6 @@ struct timezone { int tz_minuteswest; int tz_dsttime; };
 #define CLOCK_MONOTONIC      1
 #define CLOCK_MONOTONIC_RAW  4
 
-extern task_t *current_task;
-
 i64 sys_gettimeofday(struct timeval *tv, struct timezone *tz) {
     if (tv) {
         u64 sec, nsec;

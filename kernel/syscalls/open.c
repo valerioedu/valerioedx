@@ -8,8 +8,6 @@
 
 #define O_CREAT 0x100
 
-extern task_t *current_task;
-
 static int copy_string_from_user(char *kbuf, const char *user_str, size_t max_len) {
     for (size_t i = 0; i < max_len; i++) {
         if (copy_from_user(&kbuf[i], (void*)&user_str[i], 1) != 0)
@@ -251,7 +249,6 @@ static int resolve_parent_and_name(const char* path, inode_t** parent_out, char*
         } else parent = namei(*buffer_to_free);
     } else {
         *name_out = *buffer_to_free;
-        extern task_t *current_task;
         if (current_task && current_task->proc && current_task->proc->cwd)
             parent = current_task->proc->cwd;
         

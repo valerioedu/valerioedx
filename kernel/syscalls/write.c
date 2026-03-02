@@ -8,7 +8,6 @@
 #include <tty.h>
 #include <signal.h>
 
-extern task_t *current_task;
 extern int signal_send_group(u64 pgrp, int sig);
 
 int copy_from_user(void *kernel_dst, const void *user_src, size_t size) {

@@ -9,7 +9,7 @@
 #include <signal.h>
 #include <sched.h>
 
-extern task_t *current_task;
+// TODO: Implement SGI (Software Generated Interrupts) for multicore
 
 void dump_stack() {
     uint64_t fp;

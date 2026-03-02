@@ -14,8 +14,6 @@
 
 extern void sys_exit(int code);
 
-extern task_t *current_task;
-
 static const u8 sig_default_action[NSIG + 1] = {
     [0]         = SIG_ACTION_IGN,
     [SIGHUP]    = SIG_ACTION_TERM,

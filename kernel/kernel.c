@@ -10,7 +10,6 @@
 #include <syscalls.h>
 #include <ramfb.h>
 
-extern task_t *current_task;
 process_t *init_process = NULL;
 
 void init_entry() {

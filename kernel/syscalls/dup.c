@@ -2,8 +2,6 @@
 #include <file.h>
 #include <sched.h>
 
-extern task_t *current_task;
-
 #define SEEK_SET 0  // Set position to offset
 #define SEEK_CUR 1  // Set position to current + offset
 #define SEEK_END 2  // Set position to end + offset

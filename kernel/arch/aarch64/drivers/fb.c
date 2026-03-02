@@ -64,8 +64,6 @@ static int fb_ioctl(inode_t *node, u64 request, u64 arg) {
 }
 
 static i64 fb_mmap(inode_t *node, u64 vaddr, u64 length, int prot, int flags, u64 offset) {
-    extern task_t *current_task;
-    
     if (!current_task || !current_task->proc || !current_task->proc->mm) {
         kprintf("[FB] mmap: no mm\n");
         return -1;

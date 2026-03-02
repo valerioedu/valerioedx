@@ -21,8 +21,6 @@ typedef struct stat {
     i64 st_ctime;    // Last status change time
 } stat_t;
 
-extern task_t *current_task;
-
 // Convert VFS flags to stat mode
 static u32 vfs_flags_to_mode(u32 vfs_flags) {
     switch (vfs_flags & 0x0F) {

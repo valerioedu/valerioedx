@@ -3,8 +3,6 @@
 #include <sched.h>
 #include <kio.h>
 
-extern task_t *current_task;
-
 int fd_alloc() {
     // Not having a process means that it is a kernel thread
     if (!current_task || !current_task->proc) return -1;

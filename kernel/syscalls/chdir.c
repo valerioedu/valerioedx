@@ -6,8 +6,6 @@
 #include <vma.h>
 #include <vmm.h>
 
-extern task_t *current_task;
-
 i64 sys_chdir(const char *path) {
     if (!path || !current_task->proc) return -1;
     

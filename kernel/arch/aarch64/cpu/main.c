@@ -145,6 +145,7 @@ void main() {
     kprintf("             FWCFG Found at:      0x%llx\n", fwcfg);
     kprintf("             VIRTIO Found at:     0x%llx\n\n", virtio);
     
+    asm volatile("msr tpidr_el1, %0" :: "r"(&cores[0]));
     sched_init();
 
     gic_init();

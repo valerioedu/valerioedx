@@ -22,8 +22,6 @@ typedef struct pipe {
     wait_queue_t write_wait;
 } pipe_t;
 
-extern task_t *current_task;
-
 static u64 pipe_read(inode_t *node, u64 offset, u64 size, u8 *buffer) {
     pipe_t *pipe = (pipe_t *)node->ptr;
     if (!pipe) return 0;

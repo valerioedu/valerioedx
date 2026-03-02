@@ -7,7 +7,6 @@
 #include <kio.h>
 #include <signal.h>
 
-extern task_t *current_task;
 extern int signal_send_group(u64 pgrp, int sig);
 extern int signal_send_pid(u64 pid, int sig);
 

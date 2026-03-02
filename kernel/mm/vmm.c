@@ -25,8 +25,6 @@ static bool paging_enabled = false;
 
 static mutex_t vmm_lock;
 
-extern task_t *current_task;
-
 static void* safe_P2V(u64 phys) {
     if (paging_enabled) {
         return (void*)((uintptr_t)phys + PHYS_OFFSET);

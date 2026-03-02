@@ -2,8 +2,6 @@
 #include <file.h>
 #include <sched.h>
 
-extern task_t *current_task;
-
 i64 sys_ioctl(int fd, u64 request, u64 arg) {
     if (fd < 0 || fd >= MAX_FD) return -1;
 

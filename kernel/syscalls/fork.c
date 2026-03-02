@@ -10,7 +10,6 @@
 #include <signal.h>
 #include <tty.h>
 
-extern task_t *current_task;
 extern u64 pid_counter;
 extern u64 tid_counter;
 extern spinlock_t sched_lock;

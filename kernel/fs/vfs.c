@@ -11,8 +11,6 @@
 #define CACHE_BUCKETS 256
 #define MAX_CACHED_PAGES 1024
 
-extern task_t *current_task;
-
 struct mount_entry {
     u64 host_id;
     inode_t *target;
