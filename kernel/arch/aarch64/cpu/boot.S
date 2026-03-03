@@ -236,3 +236,34 @@ el1_vector_table:
 .global vbar_debug
 vbar_debug:
     .quad 0
+
+.global secondary_entry
+secondary_entry:
+    ldr x1, [x0, #0]
+    mov sp, x1
+    
+    mrs x1, CPACR_EL1
+    orr x1, x1, #(3 << 20)
+    msr CPACR_EL1, x1
+    isb
+
+    ldr x1, [x0, #8]
+    msr ttbr0_el1, x1
+    msr ttbr1_el1, x1
+
+    ldr x1, [x0, #24]
+    msr mair_el1, x1
+    
+    ldr x1, [x0, #16]
+    msr tcr_el1, x1
+    isb
+
+    mrs x1, sctlr_el1
+    orr x1, x1, #1 
+    orr x1, x1, #(1 << 2)
+    orr x1, x1, #(1 << 12)
+    msr sctlr_el1, x1
+    isb
+
+    ldr x1, [x0, #32]
+    br x1

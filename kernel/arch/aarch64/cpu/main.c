@@ -28,6 +28,8 @@ u64 *pl031 = (u64*)0x09010000;
 u64 boot_time = 0;
 bool sgntr = false;
 
+u64 vbar_high;
+
 void signature() {
     u8 *buf = (u8*)kmalloc(512);
     if (!buf) {
@@ -63,6 +65,70 @@ void signature() {
     }
 
     kfree(buf);
+}
+
+void secondary_main() {
+    u64 mpidr;
+    asm volatile("mrs %0, mpidr_el1" : "=r"(mpidr));
+    u32 cpu_id = mpidr & 0xFF;
+    
+    // Set per-core pointer
+    asm volatile("msr tpidr_el1, %0" :: "r"(&cores[cpu_id]));
+    
+    // Setup the exception vector
+    asm volatile("msr VBAR_EL1, %0" :: "r"(vbar_high));
+
+    irq_enable();
+    kprintf("[ [CSMP [W] CPU %d booted successfully!\n", cpu_id);
+    
+    extern void idle();
+    idle();
+    
+}
+
+typedef struct {
+    u64 stack_phys;
+    u64 ttbr1_el1;
+    u64 tcr_el1;
+    u64 mair_el1;
+    u64 secondary_main_virt;
+} smp_boot_info_t;
+
+extern void secondary_entry();
+extern void secondary_main();
+extern u64 root_phys;
+
+void smp_boot_cores() {
+    // Read CPU 0's active MMU configuration
+    u64 tcr, mair;
+    asm volatile("mrs %0, tcr_el1" : "=r"(tcr));
+    asm volatile("mrs %0, mair_el1" : "=r"(mair));
+
+    for (int i = 1; i < MAX_CPUS; i++) {
+        void* core_stack = kmalloc(4096);
+        if (!core_stack) continue;
+
+        smp_boot_info_t* boot_info = (smp_boot_info_t*)kmalloc(sizeof(smp_boot_info_t));
+        
+        boot_info->stack_phys = ((u64)core_stack + 4096) - PHYS_OFFSET;
+        boot_info->ttbr1_el1  = root_phys;
+        boot_info->tcr_el1    = tcr;
+        boot_info->mair_el1   = mair;
+        boot_info->secondary_main_virt = (u64)&secondary_main;
+
+        asm volatile("dc cvac, %0" :: "r"(boot_info));
+        asm volatile("dc cvac, %0" :: "r"((u8*)boot_info + 32));
+        asm volatile("dsb sy");
+
+        cores[i].cpu_id = i;
+
+        u64 entry_phys = (u64)&secondary_entry - PHYS_OFFSET;
+        u64 boot_info_phys = (u64)boot_info - PHYS_OFFSET;
+
+        kprintf("[ [CSMP  [W] Booting CPU %d...\n", i);
+        
+        psci_cpu_on(i, entry_phys, boot_info_phys);
+    }
 }
 
 void main() {
@@ -104,7 +170,7 @@ void main() {
 
     u64 vbar_low;
     asm volatile("mrs %0, VBAR_EL1" : "=r"(vbar_low));
-    u64 vbar_high = vbar_low + PHYS_OFFSET;
+    vbar_high = vbar_low + PHYS_OFFSET;
     asm volatile("msr VBAR_EL1, %0" :: "r"(vbar_high));
     asm volatile("isb");
 
@@ -146,6 +212,7 @@ void main() {
     kprintf("             VIRTIO Found at:     0x%llx\n\n", virtio);
     
     asm volatile("msr tpidr_el1, %0" :: "r"(&cores[0]));
+    smp_boot_cores();
     sched_init();
 
     gic_init();
