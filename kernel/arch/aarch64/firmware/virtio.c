@@ -395,6 +395,10 @@ void virtio_init() {
                 virtio_mouse_init(addr);
                 virtio_mouse_irq_id = 48 + i;
                 gic_enable_irq(virtio_mouse_irq_id);
+                extern u64 virtio_mouse_fs_read(inode_t *node, u64 offset, u64 size, u8 *buffer);
+                extern int virtio_mouse_ioctl(inode_t *node, u64 request, u64 arg);
+                virtio_mouse_ops.read = virtio_mouse_fs_read;
+                virtio_mouse_ops.ioctl = virtio_mouse_ioctl;
             } else {
                 kprintf("[ [CVirtIO [W] Found Keyboard Device at 0x%llx\n", addr);
                 virtio_input_init(addr);

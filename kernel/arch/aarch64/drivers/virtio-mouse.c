@@ -114,7 +114,4 @@ int virtio_mouse_ioctl(inode_t *node, u64 request, u64 arg) {
     return -1;
 }
 
-inode_ops virtio_mouse_ops = {
-    .read = virtio_mouse_fs_read,
-    .ioctl = virtio_mouse_ioctl
-};
+inode_ops virtio_mouse_ops = { 0 };
