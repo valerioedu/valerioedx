@@ -7,12 +7,26 @@
 #include <string.h>
 #include <kio.h>
 #include <heap.h>
+#include <arm_neon.h>
 
 extern u32 fb_buffer[WIDTH * HEIGHT];
 
 static fb_fix_screeninfo_t fb_fix_info;
 static fb_var_screeninfo_t fb_var_info;
 static u64 fb_phys_addr = 0;
+
+static void fb_copy(u8 *dest, const u8 *src, u64 size) {
+    while (size >= 64) {
+        uint8x16x4_t chunks = vld1q_u8_x4(src);
+        vst1q_u8_x4(dest, chunks);
+        src += 64;
+        dest += 64;
+        size -= 64;
+    }
+    
+    if (size > 0)
+        memcpy(dest, src, size);
+}
 
 static u64 fb_read(inode_t *node, u64 offset, u64 size, u8 *buffer) {
     u64 fb_size = WIDTH * HEIGHT * 4;
@@ -23,7 +37,7 @@ static u64 fb_read(inode_t *node, u64 offset, u64 size, u8 *buffer) {
     if (offset + size > fb_size)
         size = fb_size - offset;
     
-    memcpy(buffer, (u8*)fb_buffer + offset, size);
+    fb_copy(buffer, (u8*)fb_buffer + offset, size);
     return size;
 }
 
@@ -36,7 +50,7 @@ static u64 fb_write(inode_t *node, u64 offset, u64 size, u8 *buffer) {
     if (offset + size > fb_size)
         size = fb_size - offset;
     
-    memcpy((u8*)fb_buffer + offset, buffer, size);
+    fb_copy((u8*)fb_buffer + offset, buffer, size);
     return size;
 }
 

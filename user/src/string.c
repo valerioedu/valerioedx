@@ -1,5 +1,6 @@
 #include <string.h>
 #include <stdlib.h>
+#include <arm_neon.h>
 
 void *memccpy(void *restrict s1, const void *restrict s2, int c, size_t n) {
     unsigned char *d = (unsigned char *)s1;
@@ -43,8 +44,16 @@ void *memcpy(void *restrict s1, const void *restrict s2, size_t n) {
     unsigned char *d = (unsigned char*)s1;
     const unsigned char *s = (const unsigned char*)s2;
     
-    for (size_t i = 0; i < n; i++)
-        d[i] = s[i];
+    while (n >= 16) {
+        uint8x16_t chunk = vld1q_u8(s);
+        vst1q_u8(d, chunk);
+        s += 16;
+        d += 16;
+        n -= 16;
+    }
+
+    while (n--)
+        *d++ = *s++;
 
     return s1;
 }
@@ -69,8 +78,15 @@ void* memmove(void* s1, const void* s2, size_t n) {
 void *memset(void *s, int c, size_t n) {
     unsigned char *a = (unsigned char*)s;
 
-    for (size_t i = 0; i < n; i++)
-        a[i] = (unsigned char)c;
+    uint8x16_t val = vdupq_n_u8(c);
+    while (n >= 16) {
+        vst1q_u8(a, val);
+        a += 16;
+        n -= 16;
+    }
+
+    while (n--)
+        *a++ = (unsigned char)c;
 
     return s;
 }
