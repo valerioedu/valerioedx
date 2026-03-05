@@ -93,6 +93,9 @@ void el1_sync_handler(trapframe_t *tf) {
 
             tf->x[0] = ret;
 
+            if (current_task && current_task->proc && current_task->proc->signals)
+                signal_check_pending(tf);
+
             return;
         }
 
@@ -112,7 +115,7 @@ void el1_sync_handler(trapframe_t *tf) {
     while (1) asm volatile("wfe");
 }
 
-void el1_irq_handler() {
+void el1_irq_handler(trapframe_t *tf) {
     u32 id = gic_acknowledge_irq();
     extern u8 virtio_blk_irq_id;
     extern u8 virtio_key_irq_id;
@@ -137,7 +140,14 @@ void el1_irq_handler() {
             }
             break;
     }
+
     gic_end_irq(id);
+
+    if ((tf->spsr & 0xF) == 0) {
+        if (current_task && current_task->proc && current_task->proc->signals) {
+            signal_check_pending(tf);
+        }
+    }
 }
 
 void el1_fiq_handler() {

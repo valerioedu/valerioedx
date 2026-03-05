@@ -183,6 +183,7 @@ dtb_phys_addr:
 .global irq_entry
 irq_entry:
     SAVE_CONTEXT
+    mov x0, sp
     bl el1_irq_handler
     RESTORE_CONTEXT
 
