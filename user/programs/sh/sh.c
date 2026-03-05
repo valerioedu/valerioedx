@@ -7,6 +7,7 @@
 #include <fcntl.h>
 #include <sys/stat.h>
 #include <sys/wait.h>
+#include <termios.h>
 
 #define MAX_CMD_LEN 1024
 #define MAX_ARGS 64
@@ -20,7 +21,7 @@ extern int which(int argc, char *argv[]);
 const char* get_signal_name(int sig) {
     switch (sig) {
         case SIGHUP:  return "Hangup";
-        case SIGINT:  return "Interrupt";
+        //case SIGINT:  return "Interrupt";
         case SIGQUIT: return "Quit";
         case SIGILL:  return "Illegal instruction";
         case SIGTRAP: return "Trace/breakpoint trap";
@@ -40,6 +41,10 @@ int run_command(const char *cmd, char *argv[]) {
     pid_t pid = fork();
 
     if (pid == 0) {
+        setpgid(0, 0);
+        tcsetpgrp(STDIN_FILENO, getpid());
+        signal(SIGINT, SIG_DFL);
+
         extern char **environ;
         char path[256];
         snprintf(path, sizeof(path), "/bin/%s", cmd);
@@ -55,6 +60,7 @@ int run_command(const char *cmd, char *argv[]) {
     } else if (pid > 0) {
         int status;
         waitpid(pid, &status, 0);
+        tcsetpgrp(STDIN_FILENO, getpid());
         
         int sig = 0;
 
@@ -71,7 +77,7 @@ int run_command(const char *cmd, char *argv[]) {
         if (sig > 0) {
             const char *name = get_signal_name(sig);
             if (name) printf("%s\n", name);
-            else printf("Terminated by signal %d\n", sig);
+            //else printf("Terminated by signal %d\n", sig);
         }
 
         return status;
@@ -82,6 +88,10 @@ int run_command(const char *cmd, char *argv[]) {
 }
 
 int main() {
+    setpgid(0, 0);
+    tcsetpgrp(STDIN_FILENO, getpid());
+    signal(SIGINT, SIG_IGN); 
+
     char buf[MAX_CMD_LEN];
     char dir[128];
     char *argv[MAX_ARGS];

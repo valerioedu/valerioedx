@@ -83,7 +83,6 @@ void secondary_main() {
     
     extern void idle();
     idle();
-    
 }
 
 typedef struct {
