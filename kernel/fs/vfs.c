@@ -11,6 +11,9 @@
 #define CACHE_BUCKETS 256
 #define MAX_CACHED_PAGES 1024
 
+// TODO: Make a daemon flushing dirty pages
+// TODO: Make a directory entry cache for faster namei
+
 struct mount_entry {
     u64 host_id;
     inode_t *target;

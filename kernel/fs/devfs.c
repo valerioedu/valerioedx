@@ -54,6 +54,9 @@ static inode_t *create_device_inode(device_driver_t *device) {
     node->size = 0;
     node->blksize = 0;
     node->blocks = 0;
+    node->ctime = 0;
+    node->mtime = 0;
+    node->atime = 0;
 
     return node;
 
@@ -116,6 +119,9 @@ inode_t devfs_root_node = {
     .ops = NULL,
     .id = 0,
     .size = 0,
+    .ctime = 0,
+    .mtime = 0,
+    .atime = 0,
     .mount_point = NULL
 };
 

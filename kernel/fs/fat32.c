@@ -337,6 +337,22 @@ u64 fat32_read_file(inode_t* node, u64 offset, u64 size, u8* buffer) {
     }
 
     kfree(cl_buf);
+
+    u16 now_date, now_time;
+    get_fat_now(&now_date, &now_time);
+    node->atime = fat_to_unix(now_date, now_time);
+
+    if (file->dir_entry_cluster >= 2) {
+        u8* dir_buf = kmalloc(cluster_size);
+        if (dir_buf) {
+            read_cluster(fs, file->dir_entry_cluster, dir_buf);
+            fat_dir_entry_t* entry = (fat_dir_entry_t*)(dir_buf + file->dir_entry_offset);
+            entry->access_date = now_date;
+            write_cluster(fs, file->dir_entry_cluster, dir_buf);
+            kfree(dir_buf);
+        }
+    }
+
     return read;
 }
 
@@ -407,10 +423,12 @@ u64 fat32_write_file(inode_t* node, u64 offset, u64 size, u8* buffer) {
     if (offset + written > node->size) {
         node->size = offset + written;
         node->blocks = (node->size + 511) / 512;
+    }
         
-        // Update directory entry
-        if (file->dir_entry_cluster >= 2) {
-            u8* dir_buf = kmalloc(cluster_size);
+    // Always update directory entry for mtime and atime
+    if (file->dir_entry_cluster >= 2) {
+        u8* dir_buf = kmalloc(cluster_size);
+        if (dir_buf) {
             read_cluster(fs, file->dir_entry_cluster, dir_buf);
             
             fat_dir_entry_t* entry = (fat_dir_entry_t*)(dir_buf + file->dir_entry_offset);
@@ -423,6 +441,9 @@ u64 fat32_write_file(inode_t* node, u64 offset, u64 size, u8* buffer) {
             entry->write_date = now_date;
             entry->write_time = now_time;
             entry->access_date = now_date;
+            
+            node->mtime = fat_to_unix(now_date, now_time);
+            node->atime = node->mtime;
             
             write_cluster(fs, file->dir_entry_cluster, dir_buf);
             kfree(dir_buf);
@@ -518,6 +539,9 @@ inode_t* fat32_lookup(inode_t* node, const char* name) {
                 result->mode = ((entry->attr & FAT_ATTR_DIRECTORY) ? (S_IFDIR | 0755) : (S_IFREG | 0644));
                 result->blksize = fs->bytes_per_cluster;
                 result->blocks = (entry->file_size + 511) / 512;
+                result->ctime = fat_to_unix(entry->create_date, entry->create_time);
+                result->mtime = fat_to_unix(entry->write_date, entry->write_time);
+                result->atime = fat_to_unix(entry->access_date, 0);
 
                 // Setup private data
                 fat32_file_t* file_data = kmalloc(sizeof(fat32_file_t));
@@ -899,6 +923,11 @@ static inode_t* fat32_create_entry(inode_t* parent, const char* name, u8 attr) {
     node->flags = ((attr & FAT_ATTR_DIRECTORY) ? FS_DIRECTORY : FS_FILE) | FS_TEMPORARY;
     node->size = 0;
     node->ops = &fat32_ops;
+    
+    u64 now_unix = fat_to_unix(now_date, now_time);
+    node->ctime = now_unix;
+    node->mtime = now_unix;
+    node->atime = now_unix;
     
     fat32_file_t* file_data = kmalloc(sizeof(fat32_file_t));
 
@@ -1307,6 +1336,9 @@ inode_t* fat32_mount(inode_t* device) {
     root->nlink = 2;    // . and ..
     root->uid = 0;
     root->gid = 0;
+    root->ctime = 0;
+    root->mtime = 0;
+    root->atime = 0;
     root->ops = &fat32_ops;
 
     fat32_file_t* root_data = kmalloc(sizeof(fat32_file_t));

@@ -118,6 +118,9 @@ struct file_operations {
 
 typedef struct vfs_node {
     char name[64];
+    u64 atime;
+    u64 ctime;
+    u64 mtime;
     u32 flags;
     u32 uid;
     u32 gid;

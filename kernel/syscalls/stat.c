@@ -59,10 +59,9 @@ static int fill_stat(inode_t *node, stat_t *st) {
         st->st_blocks = (node->size + 511) / 512;
     }
     
-    //TODO: Implement filestamps
-    st->st_atime = 0;
-    st->st_mtime = 0;
-    st->st_ctime = 0;
+    st->st_atime = node->atime;
+    st->st_mtime = node->mtime;
+    st->st_ctime = node->ctime;
     
     return 0;
 }
