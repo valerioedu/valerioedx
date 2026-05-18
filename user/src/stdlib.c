@@ -4,6 +4,7 @@
 #include <string.h>
 #include <stdio.h>
 #include <unistd.h>
+#include <errno.h>
 
 #define ALIGNMENT 16
 #define PAGE_SIZE 4096
@@ -416,5 +417,55 @@ int unsetenv(const char *name) {
         i++;
     }
 
+    return 0;
+}
+
+int posix_memalign(void **memptr, size_t alignment, size_t size) {
+    if (alignment == 0 || (alignment & (alignment - 1)) != 0 || (alignment % sizeof(void *)) != 0) {
+        return EINVAL;
+    }
+
+    if (size == 0) {
+        *memptr = NULL;
+        return 0;
+    }
+
+    size_t total_size = size + alignment + BLOCK_HEADER_SIZE;
+    
+    void *raw = malloc(total_size);
+    if (!raw) {
+        return ENOMEM;
+    }
+
+    block_meta_t *block = (block_meta_t *)raw - 1;
+
+    uintptr_t raw_addr = (uintptr_t)raw;
+    uintptr_t aligned_addr = (raw_addr + alignment - 1) & ~(alignment - 1);
+    
+    if (aligned_addr - raw_addr < BLOCK_HEADER_SIZE) {
+        aligned_addr += alignment;
+    }
+
+    block_meta_t *new_block = (block_meta_t *)aligned_addr - 1;
+
+    if (new_block != block) {
+        new_block->size   = block->size - ((char *)new_block - (char *)block);
+        new_block->next   = block->next;
+        new_block->prev   = block->prev;
+        new_block->free   = block->free;
+        new_block->magic  = block->magic;
+
+        if (new_block->prev) {
+            new_block->prev->next = new_block;
+        } else {
+            global_base = new_block;
+        }
+        
+        if (new_block->next) {
+            new_block->next->prev = new_block;
+        }
+    }
+
+    *memptr = (void *)aligned_addr;
     return 0;
 }

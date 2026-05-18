@@ -18,5 +18,6 @@ unsigned long strtoul(const char *nptr, char **endptr, int base);
 char *getenv(const char *name);
 int setenv(const char *name, const char *value, int overwrite);
 int unsetenv(const char *name);
+int posix_memalign(void **memptr, size_t alignment, size_t size);
 
 #endif
