@@ -29,4 +29,5 @@ char    *strncpy(char *restrict, const char *restrict, size_t);
 char    *strrchr(const char *, int);
 char*    strtok_r(char *restrict, const char *restrict, char **restrict);
 
+size_t strlcat(char *destination, char *source, size_t n);
 #endif

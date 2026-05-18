@@ -127,6 +127,14 @@ char *strcat(char *restrict s1, const char *restrict s2) {
     return s1;
 }
 
+size_t strlcat(char *destination, char *source, size_t n) {
+    char *d = destination;
+    int i = 0;
+
+    while (*d && i++ < n) d++;
+    while ((*d++ = *source++) != '\0' && i++ < n);
+}
+
 char *strchr(const char *s, int c) {
     for (size_t i = 0;; ++i) {
         if (s[i] == (unsigned char)c)
