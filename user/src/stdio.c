@@ -249,8 +249,16 @@ int vfprintf(FILE *stream, const char *format, va_list ap) {
     
     for (const char *p = format; *p; p++) {
         if (*p != '%') {
-            fputc(*p, stream);
-            count++;
+            if (*p == '\t') {
+                int spaces = 4 - (count % 4);
+                for (int i = 0; i < spaces; i++) {
+                    fputc(' ', stream);
+                    count++;
+                }
+            } else {
+                fputc(*p, stream);
+                count++;
+            }
             continue;
         }
         
@@ -425,9 +433,17 @@ int vsnprintf(char *str, size_t size, const char *format, va_list ap) {
 
     for (const char *p = format; *p; p++) {
         if (*p != '%') {
-            if (size > 0 && idx < size - 1) str[idx] = *p;
-            idx++;
-            total++;
+            if (*p == '\t') {
+                int spaces = 4 - (total % 4);
+                for (int i = 0; i < spaces; i++) {
+                    if (size > 0 && idx < size - 1) str[idx] = ' ';
+                    idx++; total++;
+                }
+            } else {
+                if (size > 0 && idx < size - 1) str[idx] = *p;
+                idx++;
+                total++;
+            }
             continue;
         }
 
