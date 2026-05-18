@@ -86,6 +86,14 @@ int elf_load(mm_struct_t* mm, const u8* data, size_t size, elf_load_result_t* re
     for (u16 i = 0; i < ehdr->e_phnum; i++) {
         elf64_phdr_t* phdr = &phdrs[i];
 
+        if (phdr->p_type == PT_TLS) {
+            result->tls_vaddr = phdr->p_vaddr;
+            result->tls_memsz = phdr->p_memsz;
+            result->tls_filesz = phdr->p_filesz;
+            result->tls_align = phdr->p_align;
+            continue;
+        }
+
         if (phdr->p_type != PT_LOAD) continue;
 
         // Validate segment is within file

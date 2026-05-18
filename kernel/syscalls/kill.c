@@ -8,8 +8,6 @@
 #include <vma.h>
 #include <pmm.h>
 
-//TODO: Check for ^C outside of read too
-
 #define offsetof(type, member) ((size_t) &((type *)0)->member)
 
 extern void sys_exit(int code);

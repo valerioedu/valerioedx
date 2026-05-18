@@ -108,16 +108,13 @@ add_custom_target(run
 )
 
 add_custom_target(debug
-    COMMAND dtc -I dts -O dtb -o virt.dtb ../virt.dts
-    COMMAND ${OBJCOPY} -O binary kernel.elf kernel.img
-    COMMAND mcopy -i ../disk.img kernel.img ::/boot/kernel.img
     COMMAND qemu-system-aarch64 -M virt -m 2G -cpu cortex-a710
             -bios ${BIOS}
             -drive file=../disk.img,if=none,format=raw,id=hd0
             -device ramfb 
             -device virtio-blk-device,drive=hd0
             -device virtio-keyboard-device
-            -serial mon:stdio -dtb virt.dtb -d int
+            -serial mon:stdio -d int
             -device virtio-rng-device
             -device virtio-mouse-device
             -smp cores=2
@@ -139,6 +136,7 @@ add_custom_target(build
             -device virtio-rng-device
             -device virtio-mouse-device
             -smp cores=2
+            -monitor vc:1024x768
     DEPENDS kernel.elf
     WORKING_DIRECTORY ${CMAKE_BINARY_DIR}
     COMMENT "Running kernel in QEMU"

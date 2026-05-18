@@ -120,9 +120,13 @@ typedef struct {
 typedef struct {
     u64 entry_point;    // Entry point address
     u64 phdr_addr;      // Address of program headers in memory
-    u16 phdr_count;     // Number of program headers
     u64 base_addr;      // Base load address (for PIE)
     u64 brk;            // Initial program break (heap start)
+    u64 tls_vaddr;      // Virtual address of the TLS template
+    u64 tls_memsz;      // Total size of TLS block in memory
+    u64 tls_filesz;     // Size of initialized data (.tdata)
+    u64 tls_align;      // Required alignment
+    u16 phdr_count;     // Number of program headers
 } elf_load_result_t;
 
 int elf_validate(const u8* data, size_t size);

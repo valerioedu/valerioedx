@@ -113,6 +113,7 @@ typedef struct task {
     void* stack_page;           // Pointer to the allocated stack memory
     struct process *proc;
     u32 flags;
+    u64 tls_base;
 } task_t;
 
 typedef task_t* wait_queue_t;
