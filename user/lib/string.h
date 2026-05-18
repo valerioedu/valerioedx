@@ -4,9 +4,16 @@
 #include <stddef.h>
 
 #ifndef NULL
-#define NULL ((void*)0)
+    #ifdef __cplusplus
+        #define NULL 0
+    #else
+        #define NULL ((void*)0)
+    #endif
 #endif
 
+#ifdef __cplusplus
+extern "C" {
+#endif
 void    *memccpy(void *restrict, const void *restrict, int, size_t);
 void    *memchr(const void *, int, size_t);
 int      memcmp(const void *, const void *, size_t);
@@ -30,4 +37,8 @@ char    *strrchr(const char *, int);
 char*    strtok_r(char *restrict, const char *restrict, char **restrict);
 
 size_t strlcat(char *destination, char *source, size_t n);
+#ifdef __cplusplus
+}
+#endif
+
 #endif

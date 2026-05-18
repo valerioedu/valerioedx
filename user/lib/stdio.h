@@ -4,10 +4,17 @@
 #include <stdarg.h>
 #include <stddef.h>
 
+#ifdef __cplusplus
+#define restrict __restrict
+#endif
+
 #define BUFSIZ 1024
 #define FOPEN_MAX 20
 #define EOF (-1)
 
+#ifdef __cplusplus
+extern "C" {
+#endif
 typedef struct _FILE {
     int fd;
     int flags;
@@ -60,5 +67,8 @@ int snprintf(char *str, size_t size, const char *format, ...);
 
 FILE *fopen(const char *filename, const char *mode);
 int fclose(FILE *stream);
+#ifdef __cplusplus
+}
+#endif
 
 #endif

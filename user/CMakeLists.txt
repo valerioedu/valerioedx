@@ -7,7 +7,7 @@ endif()
 
 set(CMAKE_OSX_ARCHITECTURES "")
 
-project(valerioedx ASM C)
+project(valerioedx ASM C CXX)
 
 set(ARCH "AArch64")
 
@@ -27,6 +27,7 @@ if (CMAKE_SYSTEM_NAME STREQUAL "Linux")
     endif()
 #MacOS
 else()
+    set(CMAKE_CXX_COMPILER aarch64-elf-g++)
     set(CMAKE_C_COMPILER aarch64-elf-gcc)
     set(CMAKE_ASM_COMPILER ${CMAKE_C_COMPILER})
     set(CMAKE_LINKER aarch64-elf-ld)
@@ -35,6 +36,7 @@ else()
 endif()
 
 set(CMAKE_C_FLAGS "-march=armv8-a -ffreestanding -fno-pie -fno-builtin -O0")
+set(CMAKE_CXX_FLAGS "-march=armv8-a -ffreestanding -fno-pie -fno-builtin -O0")
 set(CMAKE_ASM_FLAGS "-march=armv8-a")
 
 set(CMAKE_C_LINK_EXECUTABLE "<CMAKE_C_COMPILER> <LINK_FLAGS> <OBJECTS> <LINK_LIBRARIES> -o <TARGET>")
@@ -53,6 +55,19 @@ file(GLOB BUILTIN_COMMANDS
 )
 
 add_library(libc STATIC ${LIB_SOURCES})
+add_library(libc++ STATIC ${CMAKE_CURRENT_SOURCE_DIR}/cxx.cpp)
+
+set(CRT0_SRC ${CMAKE_CURRENT_SOURCE_DIR}/crt0.S)
+set(CRT0_OBJ ${CMAKE_CURRENT_BINARY_DIR}/crt0.o)
+
+add_custom_command(OUTPUT ${CRT0_OBJ}
+    COMMAND ${CMAKE_ASM_COMPILER} -c ${CMAKE_ASM_FLAGS} -x assembler-with-cpp -o ${CRT0_OBJ} ${CRT0_SRC}
+    DEPENDS ${CRT0_SRC}
+    COMMENT "Assembling crt0.S -> ${CRT0_OBJ}"
+)
+
+add_custom_target(crt0obj DEPENDS ${CRT0_OBJ})
+add_dependencies(crt0obj libc)
 
 add_executable(init.elf 
     ${CMAKE_CURRENT_SOURCE_DIR}/init.c
@@ -66,6 +81,20 @@ macro(add_user_util name)
     )
     
     target_link_libraries(${name}.elf libc)
+    
+    set_target_properties(${name}.elf PROPERTIES
+        LINK_FLAGS "-Ttext=0x400000 -nostdlib"
+    )
+    list(APPEND USER_COMMANDS ${name}.elf)
+endmacro()
+
+macro(add_user_util_cpp name)
+    add_executable(${name}.elf
+        ${CMAKE_CURRENT_SOURCE_DIR}/utils/${name}.cpp
+    )
+    
+    target_link_libraries(${name}.elf libc)
+    target_link_libraries(${name}.elf libc++ libc)
     
     set_target_properties(${name}.elf PROPERTIES
         LINK_FLAGS "-Ttext=0x400000 -nostdlib"
