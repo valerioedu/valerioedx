@@ -1,0 +1,47 @@
+#ifndef CSTDIO
+#define CSTDIO
+
+#include <stdio.h>
+
+namespace std {
+    using ::FILE;
+    using ::size_t;
+
+    using ::stdin;
+    using ::stdout;
+    using ::stderr;
+
+    using ::getc;
+    using ::ungetc;
+    using ::fputc;
+    using ::getchar;
+    using ::putchar;
+
+    using ::fgets;
+    using ::fputs;
+    using ::puts;
+
+    using ::printf;
+    using ::fprintf;
+    using ::vprintf;
+    using ::vfprintf;
+    using ::scanf;
+    using ::fscanf;
+    using ::vfscanf;
+    using ::sscanf;
+    using ::vsnprintf;
+    using ::snprintf;
+
+    using ::fread;
+    using ::fwrite;
+    
+    using ::fflush;
+    using ::fopen;
+    using ::fclose;
+
+    using ::feof;
+    using ::ferror;
+    using ::clearerr;
+}
+
+#endif
