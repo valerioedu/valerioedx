@@ -1,0 +1,25 @@
+#ifndef CSTDLIB
+#define CSTDLIB
+
+#include <stdlib.h>
+
+namespace std {
+    using ::size_t;
+
+    using ::malloc;
+    using ::calloc;
+    using ::realloc;
+    using ::free;
+    using ::posix_memalign;
+    
+    using ::atoi;
+    using ::strtoul;
+    
+    using ::exit;
+
+    using ::getenv;
+    using ::setenv;
+    using ::unsetenv;
+}
+
+#endif

@@ -1,0 +1,10 @@
+#ifndef NEW
+#define NEW
+
+#include <cstdlib>
+
+void* operator new(size_t, void* p) noexcept {
+    return p;
+}
+
+#endif

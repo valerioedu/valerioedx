@@ -10,10 +10,6 @@ void *operator new(size_t size) {
     return malloc(size);
 }
 
-void* operator new(size_t, void* p) noexcept {
-    return p;
-}
-
 void *operator new[](size_t size) {
     return malloc(size);
 }

@@ -1,0 +1,94 @@
+#ifndef MEMORY
+#define MEMORY
+
+#include <utility>
+#include <type_traits>
+
+namespace std {
+    template <typename T>
+    struct default_delete {
+        constexpr default_delete() noexcept = default;
+        
+        template <typename U, typename = typename enable_if<is_same<T, U>::value>::type>
+        default_delete(const default_delete<U>&) noexcept {}
+
+        void operator()(T* ptr) const {
+            delete ptr;
+        }
+    };
+
+    template <typename T>
+    struct default_delete<T[]> {
+        constexpr default_delete() noexcept = default;
+
+        template <typename U, typename = typename enable_if<is_same<T, U>::value>::type>
+        default_delete(const default_delete<U[]>&) noexcept {}
+
+        void operator()(T* ptr) const {
+            delete[] ptr;
+        }
+    };
+
+    template <typename T, typename Deleter = default_delete<T>>
+    class unique_ptr {
+    private:
+        T* ptr;
+        Deleter deleter;
+
+    public:
+        constexpr unique_ptr() noexcept : ptr(nullptr), deleter() {}
+        constexpr unique_ptr(decltype(nullptr)) noexcept : ptr(nullptr), deleter() {}
+        explicit unique_ptr(T* p) noexcept : ptr(p), deleter() {}
+
+        unique_ptr(unique_ptr&& u) noexcept : ptr(u.release()), deleter(move(u.get_deleter())) {}
+        
+        unique_ptr& operator=(unique_ptr&& u) noexcept {
+            reset(u.release());
+            deleter = move(u.get_deleter());
+            return *this;
+        }
+
+        unique_ptr(const unique_ptr&) = delete;
+        unique_ptr& operator=(const unique_ptr&) = delete;
+
+        ~unique_ptr() {
+            if (ptr != nullptr) {
+                deleter(ptr);
+            }
+        }
+
+        T* release() noexcept {
+            T* ret = ptr;
+            ptr = nullptr;
+            return ret;
+        }
+
+        void reset(T* p = nullptr) noexcept {
+            if (ptr != p) {
+                if (ptr != nullptr) deleter(ptr);
+                ptr = p;
+            }
+        }
+
+        void swap(unique_ptr& other) noexcept {
+            std::swap(ptr, other.ptr);
+            std::swap(deleter, other.deleter);
+        }
+
+        T* get() const noexcept { return ptr; }
+        Deleter& get_deleter() noexcept { return deleter; }
+        const Deleter& get_deleter() const noexcept { return deleter; }
+
+        explicit operator bool() const noexcept { return ptr != nullptr; }
+
+        typename std::add_lvalue_reference<T>::type operator*() const { return *ptr; }
+        T* operator->() const noexcept { return ptr; }
+    };
+    
+    template<typename T, typename... Args>
+    unique_ptr<T> make_unique(Args&&... args) {
+        return unique_ptr<T>(new T(forward<Args>(args)...));
+    }
+}
+
+#endif

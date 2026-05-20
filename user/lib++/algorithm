@@ -1,0 +1,33 @@
+#ifndef ALGORITHM
+#define ALGORITHM
+
+#include <utility>
+
+namespace std {
+    template<typename T>
+    constexpr const T& min(const T& a, const T& b) {
+        return (b < a) ? b : a;
+    }
+
+    template<typename T>
+    constexpr const T& max(const T& a, const T& b) {
+        return (a < b) ? b : a;
+    }
+
+    template<class InputIt, class OutputIt>
+    OutputIt copy(InputIt first, InputIt last, OutputIt d_first) {
+        while (first != last) {
+            *d_first++ = *first++;
+        }
+        return d_first;
+    }
+
+    template<class ForwardIt, class T>
+    void fill(ForwardIt first, ForwardIt last, const T& value) {
+        for (; first != last; ++first) {
+            *first = value;
+        }
+    }
+}
+
+#endif

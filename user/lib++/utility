@@ -1,0 +1,55 @@
+#ifndef UTILITY
+#define UTILITY
+
+#include <type_traits>
+
+namespace std {
+    template<typename T>
+    constexpr typename remove_reference<T>::type&& move(T&& t) noexcept {
+        return static_cast<typename remove_reference<T>::type&&>(t);
+    }
+
+    template<typename T>
+    constexpr T&& forward(typename remove_reference<T>::type& t) noexcept {
+        return static_cast<T&&>(t);
+    }
+
+    template<typename T>
+    constexpr T&& forward(typename remove_reference<T>::type&& t) noexcept {
+        return static_cast<T&&>(t);
+    }
+
+    template<typename T>
+    constexpr void swap(T& a, T& b) noexcept {
+        T temp = move(a);
+        a = move(b);
+        b = move(temp);
+    }
+
+    template<typename T1, typename T2>
+    struct pair {
+        T1 first;
+        T2 second;
+
+        constexpr pair() : first(), second() {}
+        constexpr pair(const T1& x, const T2& y) : first(x), second(y) {}
+
+        template<typename U1, typename U2>
+        constexpr pair(U1&& x, U2&& y) : first(forward<U1>(x)), second(forward<U2>(y)) {}
+
+        pair(const pair& p) = default;
+        pair(pair&& p) = default;
+        pair& operator=(const pair& p) = default;
+        pair& operator=(pair&& p) = default;
+    };
+
+    template<typename T1, typename T2>
+    constexpr pair<typename remove_reference<T1>::type, typename remove_reference<T2>::type> 
+    make_pair(T1&& x, T2&& y) {
+        return pair<typename remove_reference<T1>::type, typename remove_reference<T2>::type>(
+            forward<T1>(x), forward<T2>(y)
+        );
+    }
+}
+
+#endif
