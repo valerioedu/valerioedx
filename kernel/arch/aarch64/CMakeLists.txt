@@ -105,6 +105,7 @@ add_custom_target(run
             -device virtio-rng-device
             -device virtio-mouse-device
             -smp cores=2
+            -display cocoa,zoom-to-fit=on
 )
 
 add_custom_target(debug
@@ -118,6 +119,7 @@ add_custom_target(debug
             -device virtio-rng-device
             -device virtio-mouse-device
             -smp cores=2
+            -display cocoa,zoom-to-fit=on
     DEPENDS kernel.elf
     WORKING_DIRECTORY ${CMAKE_BINARY_DIR}
     COMMENT "Running kernel in QEMU using interrupts debug"
@@ -137,6 +139,7 @@ add_custom_target(build
             -device virtio-mouse-device
             -smp cores=2
             -monitor vc:1024x768
+            -display cocoa,zoom-to-fit=on
     DEPENDS kernel.elf
     WORKING_DIRECTORY ${CMAKE_BINARY_DIR}
     COMMENT "Running kernel in QEMU"
