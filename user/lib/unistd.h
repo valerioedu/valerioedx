@@ -2,7 +2,12 @@
 #define UNISTD_H
 
 #include <stdint.h>
+#include <stdnoreturn.h>
 #include <sys/types.h>
+
+#ifdef __cplusplus
+extern "C" {
+#endif
 
 #define STDIN_FILENO  0
 #define STDOUT_FILENO 1
@@ -12,7 +17,7 @@ ssize_t write(int fildes, const void *buf, size_t nbytes);
 ssize_t read(int fildes, void *buf, size_t nbytes);
 char *getcwd(char *buf, uint64_t size);
 int close(int fildes);
-_Noreturn void _exit(int status);
+noreturn void _exit(int status);
 pid_t getpid();
 pid_t getppid();
 pid_t fork();
@@ -43,5 +48,9 @@ int dup(int fildes);
 int dup2(int fildes, int fildes2);
 int link(const char *path1, const char *path2);
 int pipe(int fildes[2]);
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif

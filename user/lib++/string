@@ -83,7 +83,6 @@ namespace std {
             return *this;
         }
 
-        // Capacity
         size_t size() const { return size_; }
         size_t length() const { return size_; }
         size_t capacity() const { return capacity_; }

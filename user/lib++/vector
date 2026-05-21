@@ -136,6 +136,18 @@ namespace std {
             size_ = 0;
         }
 
+        iterator erase(iterator pos) {
+            if (pos >= begin() && pos < end()) {
+                size_t index = pos - begin();
+                for (size_t i = index; i < size_ - 1; ++i) {
+                    data_[i] = std::move(data_[i + 1]);
+                }
+                --size_;
+                return begin() + index;
+            }
+            return end();
+        }
+
         T& operator[](size_t pos) { return data_[pos]; }
         const T& operator[](size_t pos) const { return data_[pos]; }
         

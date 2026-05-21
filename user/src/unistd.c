@@ -1,5 +1,6 @@
 #include <unistd.h>
 #include <stdint.h>
+#include <stdnoreturn.h>
 #include <sys/types.h>
 #include <time.h>
 
@@ -55,7 +56,7 @@ int close(int fildes) {
     return x0;
 }
 
-_Noreturn void _exit(int status) {
+noreturn void _exit(int status) {
     register int x0 asm("x0") = status;
     register u64 x8 asm("x8") = 1;
     asm volatile("svc #0"
