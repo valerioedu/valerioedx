@@ -55,7 +55,16 @@ u64 virtio_kb_fs_read(inode_t *node, u64 offset, u64 size, u8 *buffer) {
     return virtio_kb_read((char*)buffer, size);
 }
 
+int virtio_kb_ioctl(inode_t *node, u64 request, u64 arg) {
+    if (request == 0x04) {
+        return (kb_head != kb_tail) ? 1 : 0;
+    }
+    
+    return -1;
+}
+
 inode_ops virtio_kb_ops = {
+    .ioctl = virtio_kb_ioctl,
     .read = virtio_kb_fs_read,
     .write = NULL,
     .open = NULL,

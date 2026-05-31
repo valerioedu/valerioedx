@@ -111,6 +111,10 @@ int virtio_mouse_ioctl(inode_t *node, u64 request, u64 arg) {
         return 0;
     }
     
+    if (request == 0x04) {
+        return (mouse_head != mouse_tail) ? 1 : 0;
+    }
+    
     return -1;
 }
 
