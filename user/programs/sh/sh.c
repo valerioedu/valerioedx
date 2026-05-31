@@ -87,15 +87,50 @@ int run_command(const char *cmd, char *argv[]) {
     }
 }
 
-int main() {
+int main(int argc, char **argv) {
     setpgid(0, 0);
     tcsetpgrp(STDIN_FILENO, getpid());
-    signal(SIGINT, SIG_IGN); 
+    signal(SIGINT, SIG_IGN);
+
+    if (argc > 2 && strcmp(argv[2], "-c") == 0) {
+        char buf[MAX_CMD_LEN];
+        strncpy(buf, argv[2], sizeof(buf));
+        buf[sizeof(buf) - 1] = '\0';
+
+        char *cmd_argv[MAX_ARGS];
+        int cmd_argc = 0;
+        char *saveptr;
+        char *token = strtok_r(buf, " \t", &saveptr);
+        while (token != NULL && cmd_argc < MAX_ARGS - 1) {
+            cmd_argv[cmd_argc++] = token;
+            token = strtok_r(NULL, " \t", &saveptr);
+        }
+
+        cmd_argv[cmd_argc] = NULL;
+
+        if (cmd_argc == 0) {
+            return 0;
+        }
+
+        if (strcmp(cmd_argv[0], "cd") == 0) {
+            cd(cmd_argv[1]);
+        } else if (strcmp(cmd_argv[0], "pwd") == 0) {
+            pwd();
+        } else if (strcmp(cmd_argv[0], "export") == 0) {
+            export(cmd_argv[1]);
+        } else if (strcmp(cmd_argv[0], "which") == 0) {
+            which(cmd_argc, cmd_argv);
+        } else {
+            run_command(cmd_argv[0], cmd_argv);
+        }
+
+        return 0;
+    }
 
     char buf[MAX_CMD_LEN];
     char dir[128];
-    char *argv[MAX_ARGS];
-    int argc;
+    char *cmd_argv[MAX_ARGS];
+    int cmd_argc;
 
     while (1) {
         if (getcwd(dir, sizeof(dir)) != NULL)
@@ -111,34 +146,34 @@ int main() {
         // Skip empty commands
         if (buf[0] == '\0') continue;
 
-        argc = 0;
+        cmd_argc = 0;
         char *saveptr;
         char *token = strtok_r(buf, " \t", &saveptr);
-        while (token != NULL && argc < MAX_ARGS - 1) {
-            argv[argc++] = token;
+        while (token != NULL && cmd_argc < MAX_ARGS - 1) {
+            cmd_argv[cmd_argc++] = token;
             token = strtok_r(NULL, " \t", &saveptr);
         }
 
-        argv[argc] = NULL;
+        cmd_argv[cmd_argc] = NULL;
 
-        if (argc == 0) continue;
-        if (strcmp(argv[0], "exit") == 0)
+        if (cmd_argc == 0) continue;
+        if (strcmp(cmd_argv[0], "exit") == 0)
             return 0;
 
-        else if (strcmp(argv[0], "cd") == 0)
-            cd(argv[1]);
+        else if (strcmp(cmd_argv[0], "cd") == 0)
+            cd(cmd_argv[1]);
 
-        else if (strcmp(argv[0], "pwd") == 0)
+        else if (strcmp(cmd_argv[0], "pwd") == 0)
             pwd();
 
-        else if (strcmp(argv[0], "export") == 0)
-            export(argv[1]);
+        else if (strcmp(cmd_argv[0], "export") == 0)
+            export(cmd_argv[1]);
             
-        else if (strcmp(argv[0], "which") == 0)
-            which(argc, argv);
+        else if (strcmp(cmd_argv[0], "which") == 0)
+            which(cmd_argc, cmd_argv);
 
         else 
-            run_command(argv[0], argv);
+            run_command(cmd_argv[0], cmd_argv);
     }
 
     return 0;
