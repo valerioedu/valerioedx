@@ -116,6 +116,13 @@ namespace std {
             data_[size_] = '\0';
         }
 
+        void pop_back() {
+            if (size_ > 0) {
+                --size_;
+                data_[size_] = '\0';
+            }
+        }
+
         string& operator+=(char c) {
             push_back(c);
             return *this;

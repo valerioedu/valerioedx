@@ -1,0 +1,86 @@
+#ifndef _FUNCTIONAL_H
+#define _FUNCTIONAL_H
+
+#include <utility>
+#include <memory>
+#include <new>
+
+namespace std {
+
+template<typename> class function;
+
+template<typename R, typename... Args>
+class function<R(Args...)> {
+    struct concept {
+        virtual ~concept() = default;
+        virtual concept* clone() const = 0;
+        virtual R invoke(Args...) = 0;
+    };
+
+    template<typename F>
+    struct model : concept {
+        F f;
+        model(F f) : f(std::move(f)) {}
+        concept* clone() const override {
+            return new model(f);
+        }
+
+        R invoke(Args... args) override {
+            return f(std::forward<Args>(args)...);
+        }
+    };
+
+    concept* _model;
+
+public:
+    function() : _model(nullptr) {}
+    function(decltype(nullptr)) : _model(nullptr) {}
+    
+    template<typename F>
+    function(F f) : _model(new model<F>(std::move(f))) {}
+    
+    function(const function& other) : _model(other._model ? other._model->clone() : nullptr) {}
+    
+    function(function&& other) noexcept : _model(other._model) {
+        other._model = nullptr;
+    }
+    
+    function& operator=(const function& other) {
+        if (this != &other) {
+            delete _model;
+            _model = other._model ? other._model->clone() : nullptr;
+        }
+
+        return *this;
+    }
+    
+    function& operator=(function&& other) noexcept {
+        if (this != &other) {
+            delete _model;
+            _model = other._model;
+            other._model = nullptr;
+        }
+
+        return *this;
+    }
+    
+    ~function() {
+        delete _model;
+    }
+    
+    explicit operator bool() const {
+        return _model != nullptr;
+    }
+    
+    R operator()(Args... args) const {
+        if (!_model) {
+            while(1);
+        }
+
+        return _model->invoke(std::forward<Args>(args)...);
+    }
+};
+
+}
+
+#endif
